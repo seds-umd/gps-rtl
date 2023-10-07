@@ -31,9 +31,8 @@ case class MaxInterface(n : Int) extends Component {
     sample_fifo.io.pop >> io.iq
     
     val max_area = new ClockingArea(max_domain) {
-        val fifo_push = sample_fifo.io.push.stage()
         val fifo_push_payload = IqBundle(n)
-        fifo_push. := fifo_push_payload.asBits
+        sample_fifo.io.push.payload := fifo_push_payload.asBits
 
         val bit_counter = Reg(UInt(4 bits)) init 0 // up to 16
         val bit_index = Reg(UInt(2 bits)) init 0 // up to 4
@@ -43,7 +42,7 @@ case class MaxInterface(n : Int) extends Component {
         val reg_index = Reg(UInt(1 bit)) init 0
         val dump_reg = Reg(Bool()) init False
 
-        val input_valid = ((bit_counter === 0) & (bit_index === 0) & (io.data_sync)) | ((bit_counter =/= 0) | (bit_index =/= 0))
+        val input_valid = ((bit_counter === 0) & (io.data_sync)) | ((bit_counter =/= 0))
 
         // Wait for data sync before starting frame
         when(input_valid) {

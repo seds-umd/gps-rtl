@@ -29,4 +29,4 @@ sbt "runMain gps.MaxInterfaceVerilog"
 
 Or enter the sbt terminal with `sbt` and run `runMain gps.MaxInterfaceVerilog` (this is faster for repeated use).
 
-To simulate, go to it's testbench directory and run `make`, or `make waves` to open GTKwave after the simulation finished (this part only works on WSL).
+To simulate, make sure the venv is activaed and then go to it's testbench directory and run `make`, or `make waves` to open GTKwave after the simulation finished (this part only works on WSL).

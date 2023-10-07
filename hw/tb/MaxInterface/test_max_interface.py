@@ -12,7 +12,7 @@ def randbytes(n, b=8):
         yield random.getrandbits(b)
 
 @cocotb.test()
-async def test_interface(dut, N=128):
+async def test_interface(dut, N=1024):
     assert N % 16 == 0, "N must be a multiple of 16"
 
     dut.io_rst.value = 1
@@ -46,8 +46,6 @@ async def test_interface(dut, N=128):
     for i in range(0, N, 16):
         block = samples[i:i+16]
 
-        # print(f"Sending: {block}")
-
         # I1, I0, Q1, Q0
         for idx in [(0, 1), [0, 0], [1, 1], [1, 0]]:
             for j in range(16):
@@ -59,10 +57,11 @@ async def test_interface(dut, N=128):
                     dut.io_data_sync.value = 0
 
                 await RisingEdge(dut.io_clk_ser)
-            
-            if i // 16 == idx[0] + 2*idx[1]:
+
+            # Add variable delay
+            if (i // 16) % 4 == idx[0] + 2*idx[1]:
                 await ClockCycles(dut.io_clk_ser, (i // 16) % 16)
-        
+
     for j in range(N):
         frame = await with_timeout(axi_output.recv(), 125*64, "ns")
         samples_recv.append(frame.tdata)

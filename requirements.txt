@@ -1,0 +1,3 @@
+cocotb >=1.8.0, <2
+cocotbext-axi >=0.1.24, <1
+numpy >=1.24.4, <2

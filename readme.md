@@ -1,5 +1,13 @@
 # Setup
 
+## Icarus Verilog
+
+Icarus Verilog (iverilog) is needed to simulate Verilog sources.
+
+```bash
+sudo apt install iverilog
+```
+
 ## SpinalHDL
 
 Follow SpinalHDL [Linux Installation](https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Getting%20Started/Install%20and%20setup.html#linux-installation) instructions if not already installed.

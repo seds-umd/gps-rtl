@@ -5,8 +5,6 @@ TOPLEVEL_LANG ?= verilog
 COCOTB_HDL_TIMEUNIT = 1ns
 COCOTB_HDL_TIMEPRECISION = 1ns
 
-# DUT = Deserializer
-VERILOG_SOURCES += $(PWD)/../../gen/$(DUT).v
 TOPLEVEL ?= $(DUT)
 MODULE ?= test_$(DUT)
 

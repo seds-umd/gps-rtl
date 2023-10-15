@@ -4,9 +4,8 @@ from cocotb.triggers import RisingEdge, ClockCycles, with_timeout
 from cocotbext import axi
 
 import logging
-import random
 import numpy as np
-import prn
+from gps import prn
 
 @cocotb.test()
 async def test_prn(dut):
@@ -28,8 +27,7 @@ async def test_prn(dut):
     dut.reset.value = 0
 
     for divider in [1.0, 5/3, 2.9999, 4]:
-        # for sv in range(1, 33):
-        for sv in range(1, 3):
+        for sv in range(1, 33):
             dut.io_sv.value = sv
             dut.io_inc.value = int(2**16 / divider)
             dut.io_set.value = 1
@@ -40,9 +38,7 @@ async def test_prn(dut):
 
             code_recv = []
             code_len = int(np.ceil(1023*divider))
-            # code_ref = np.array(prn.generate(sv))
             code_ref = np.array(prn.sample(sv, 1.023e6*divider, code_len).real, dtype=int)
-            # code_ref[code_ref == -1] = 0
 
             for _ in range(code_len):
                 frame = await with_timeout(axi_output.recv(), 100, "ns")
@@ -51,8 +47,8 @@ async def test_prn(dut):
             code_recv = np.array(code_recv)
             code_recv[code_recv == 0] = -1
 
-            corr = np.correlate(code_ref, code_recv)
-            assert np.max(corr) > code_len * 0.99, f"{np.max(corr)/code_len}, {divider}, {sv}"
+            # corr = np.correlate(code_ref, code_recv)
+            # assert np.max(corr) > code_len * 0.99, f"{np.max(corr)/code_len}, {divider}, {sv}"
 
             assert len(code_ref) == len(code_recv), f"{len(code_ref)}, {len(code_recv)}"
             matched = code_ref == code_recv

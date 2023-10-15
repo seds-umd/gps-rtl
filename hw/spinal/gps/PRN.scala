@@ -3,7 +3,7 @@ package gps
 import spinal.core._
 import spinal.lib._
 
-// Sample ratio is number of samples per code chip
+// Increment is 2^16/samples per chip
 case class PRN() extends Component {
   val io = new Bundle {
     // Configuration

@@ -47,6 +47,7 @@ class FFT_Sim:
         """
 
         self.module = module
+        self.log = logging.getLogger(f"cocotb.Xilinx_FFT")
 
         self.size_log = size
         self.size = 2**size
@@ -106,15 +107,16 @@ class FFT_Sim:
             frame = await self.config_axis.recv()
 
             self.fft_inv = int(frame.tdata[0]) == 1
+            dir_str = "forward" if self.fft_inv else "inverse"
+            self.log.info("FFT direction set to " + dir_str)
 
     async def _handle_data(self):
         while True:
             frame = await self.data_in_axis.recv()
+            self.log.info("Received data")
             data_complex = unpack_complex(frame.tdata)
-            # print(data_complex[0:2])
+            assert len(data_complex) == self.size
             data_res = self.fft.run(data_complex, not self.fft_inv)
-            # print(data_res[0:2])
-            # print(self.fft.outputs.blk_exp)
             data_bits = pack_complex(data_res)
 
             data_packed = []
@@ -127,5 +129,5 @@ class FFT_Sim:
                 tdata=data_packed, tuser=[self.fft.outputs.blk_exp] * 4096
             )
 
-            # print(len(out_frame.tdata))
             await self.data_out_axis.send(out_frame)
+            self.log.info("Sent data")

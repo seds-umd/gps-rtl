@@ -28,7 +28,7 @@ case class PRN() extends Component {
   when(io.set) {
     chip_fraction := U"16'h8000"
     increment := io.inc
-  } otherwise {
+  } elsewhen(io.code.ready) {
     chip_fraction := chip_fraction_next(15 downto 0)
   }
 

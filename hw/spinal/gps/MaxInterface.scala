@@ -3,7 +3,7 @@ package gps
 import spinal.core._
 import spinal.lib._
 
-case class MaxInterface(n: Int) extends Component {
+case class MaxInterface(iq_size: Int = 2) extends Component {
   val io = new Bundle {
     // MAX2769 interface
     val clk_ser = in Bool ()
@@ -14,15 +14,15 @@ case class MaxInterface(n: Int) extends Component {
     // FPGA interface
     val clk = in Bool ()
     val rst = in Bool ()
-    val iq = master Stream (IqBundle(n).asBits)
+    val iq = master Stream (Complex(iq_size).asBits)
   }
 
   val max_domain = ClockDomain(io.clk_ser, io.rst)
   val fpga_domain = ClockDomain(io.clk, io.rst)
 
   val sample_fifo = StreamFifoCC(
-    dataType = IqBundle(n).asBits,
-    depth = 32,
+    dataType = Complex(iq_size).asBits,
+    depth = 8,
     pushClock = max_domain,
     popClock = fpga_domain
   )
@@ -30,14 +30,14 @@ case class MaxInterface(n: Int) extends Component {
   sample_fifo.io.pop >> io.iq
 
   val max_area = new ClockingArea(max_domain) {
-    val fifo_push_payload = IqBundle(n)
+    val fifo_push_payload = Complex(iq_size)
     sample_fifo.io.push.payload := fifo_push_payload.asBits
 
     val bit_counter = Reg(UInt(4 bits)) init 0 // up to 16
     val bit_index = Reg(UInt(2 bits)) init 0 // up to 4
 
     // Store incoming samples
-    val sample_reg = Vec.fill(2)(Vec.fill(2 * n)(Reg(UInt(16 bits)) init 0))
+    val sample_reg = Vec.fill(2)(Vec.fill(2 * iq_size)(Reg(UInt(16 bits)) init 0))
     val reg_index = Reg(UInt(1 bit)) init 0
     val dump_reg = Reg(Bool()) init False
 
@@ -51,7 +51,7 @@ case class MaxInterface(n: Int) extends Component {
       when(bit_counter === 15) {
         bit_index := bit_index + 1
 
-        when(bit_index === 2 * n - 1) {
+        when(bit_index === 2 * iq_size - 1) {
           dump_reg := True
           reg_index := ~reg_index
         }
@@ -62,8 +62,8 @@ case class MaxInterface(n: Int) extends Component {
     }
 
     sample_fifo.io.push.valid := False
-    fifo_push_payload.i := 0
-    fifo_push_payload.q := 0
+    fifo_push_payload.re := 0
+    fifo_push_payload.im := 0
 
     val dump_bit_index = Reg(UInt(4 bits)) init 0 // up to 16
     // Dump registers to FIFO
@@ -72,13 +72,13 @@ case class MaxInterface(n: Int) extends Component {
 
       sample_fifo.io.push.valid := True
 
-      if (n == 1) {
-        fifo_push_payload.i := sample_reg(~reg_index)(0)(dump_bit_index).asSInt
-        fifo_push_payload.q := sample_reg(~reg_index)(1)(dump_bit_index).asSInt
+      if (iq_size == 1) {
+        fifo_push_payload.re := sample_reg(~reg_index)(0)(dump_bit_index).asSInt
+        fifo_push_payload.im := sample_reg(~reg_index)(1)(dump_bit_index).asSInt
       } else {
-        fifo_push_payload.i := (sample_reg(~reg_index)(0)(dump_bit_index) ## 
+        fifo_push_payload.re := (sample_reg(~reg_index)(0)(dump_bit_index) ## 
                                 sample_reg(~reg_index)(1)(dump_bit_index)).asSInt
-        fifo_push_payload.q := (sample_reg(~reg_index)(2)(dump_bit_index) ## 
+        fifo_push_payload.im := (sample_reg(~reg_index)(2)(dump_bit_index) ## 
                                 sample_reg(~reg_index)(3)(dump_bit_index)).asSInt
       }
 

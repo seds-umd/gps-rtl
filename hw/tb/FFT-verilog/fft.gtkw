@@ -1,0 +1,28 @@
+[*]
+[*] GTKWave Analyzer v3.3.103 (w)1999-2019 BSI
+[*] Tue Oct 10 21:37:05 2023
+[*]
+[dumpfile] "/home/nathan/seds/gps-rtl/hw/tb/FFT-verilog/sim_build/fft4096_wrapper1.fst"
+[dumpfile_mtime] "Tue Oct 10 21:35:28 2023"
+[dumpfile_size] 888634
+[savefile] "/home/nathan/seds/gps-rtl/hw/tb/FFT-verilog/fft.gtkw"
+[timestart] 0
+[size] 1908 1007
+[pos] -516 -39
+*-12.000000 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+[sst_width] 214
+[signals_width] 158
+[sst_expanded] 1
+[sst_vpaned_height] 295
+@28
+fft4096_wrapper1.clk
+@200
+-
+@22
+fft4096_wrapper1.din_re[47:0]
+fft4096_wrapper1.din_im[47:0]
+fft4096_wrapper1.core_phase[11:0]
+fft4096_wrapper1.dout_re[47:0]
+fft4096_wrapper1.dout_im[47:0]
+[pattern_trace] 1
+[pattern_trace] 0

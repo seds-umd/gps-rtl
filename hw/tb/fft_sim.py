@@ -115,7 +115,7 @@ class FFT_Sim:
             frame = await self.data_in_axis.recv()
             self.log.info("Received data")
             data_complex = unpack_complex(frame.tdata)
-            assert len(data_complex) == self.size
+            assert len(data_complex) == self.size, len(data_complex)
             data_res = self.fft.run(data_complex, not self.fft_inv)
             data_bits = pack_complex(data_res)
 

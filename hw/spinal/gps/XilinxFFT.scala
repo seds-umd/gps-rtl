@@ -28,7 +28,7 @@ case class XilinxFFT() extends BlackBox {
   }
 
   noIoPrefix()
-  mapCurrentClockDomain(io.aclk, io.aresetn, io.aclken, LOW, LOW)
+  mapCurrentClockDomain(io.aclk, io.aresetn, io.aclken, LOW)
 
   private def renameIO(): Unit = {
     io.flatten.foreach(bt => {

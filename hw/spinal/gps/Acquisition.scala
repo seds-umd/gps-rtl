@@ -17,14 +17,16 @@ case class Acquisition(iq_size: Int = 2, fft_size: Int = 4096) extends Component
 
     val valid_sv = in Bits(32 bits)
 
-    val temp_fft_index = out UInt(fft_size_log bits)
+    val temp_fft_index = out UInt(fft_size_log+1 bits)
     val temp_fft_val = out UInt(9 bits)
   }
 
   io.iq.ready := False
 
-  val sample_mem = Mem(Complex(8), wordCount = fft_size)
-  val prn_mem = Mem(Complex(8), wordCount = fft_size)
+  val sample_mem = Mem(Complex(8).asBits, wordCount = fft_size)
+  val prn_mem = Mem(Complex(8).asBits, wordCount = fft_size)
+  sample_mem.addAttribute("ram_style", "block")
+  prn_mem.addAttribute("ram_style", "block")
 
   val fft = new Area {
     val inst = XilinxFFT()
@@ -57,7 +59,7 @@ case class Acquisition(iq_size: Int = 2, fft_size: Int = 4096) extends Component
   prn.io.code.ready := prn_ready
 
   val fsm = new StateMachine {
-    val sample_counter = Reg(UInt(fft_size_log bits)) init 0
+    val sample_counter = Reg(UInt(fft_size_log+1 bits)) init 0
     val sv_current = Reg(UInt(6 bits)) init 0
     prn.io.sv <> sv_current
 
@@ -123,12 +125,13 @@ case class Acquisition(iq_size: Int = 2, fft_size: Int = 4096) extends Component
         fft.data_out_ready := True
 
         when(fft.inst.io.m_axis_data.fire) {
-          sample_mem(sample_counter) := fft.inst.io.m_axis_data.payload.data.as(Complex(8))
+          sample_mem(sample_counter(0, fft_size_log bits)) := fft.inst.io.m_axis_data.payload.data
           sample_counter := sample_counter + 1
 
           when(sample_counter === fft_size - 1) {
             goto(prn_in)
             fft.data_out_ready := False
+            sample_counter := 0
           }
         }
       }
@@ -166,12 +169,13 @@ case class Acquisition(iq_size: Int = 2, fft_size: Int = 4096) extends Component
         fft.data_out_ready := True
 
         when(fft.inst.io.m_axis_data.fire) {
-          prn_mem(sample_counter) := fft.inst.io.m_axis_data.payload.data.as(Complex(8))
+          prn_mem(sample_counter(0, fft_size_log bits)) := fft.inst.io.m_axis_data.payload.data
           sample_counter := sample_counter + 1
 
           when(sample_counter === fft_size - 1) {
             goto(mix)
             fft.data_out_ready := False
+            sample_counter := 0
           }
         }
       }
@@ -179,32 +183,68 @@ case class Acquisition(iq_size: Int = 2, fft_size: Int = 4096) extends Component
 
     // Mix PRN and samples and do inverse FFT
     val mix = new State {
+      // TODO: shift PRN
+      val delay_counter = Reg(UInt(3 bits)) init 0
+      val delay_threshold = 4 // Number of pipeline stages
+
+      val s1_sample = Reg(Complex(8))
+      val s1_prn = Reg(Complex(8))
+
+      val s2_re_mix1 = Reg(SInt(16 bits))
+      val s2_re_mix2 = Reg(SInt(16 bits))
+      val s2_im_mix1 = Reg(SInt(16 bits))
+      val s2_im_mix2 = Reg(SInt(16 bits))
+
+      val s3_re_mix = Reg(SInt(16 bits))
+      val s3_im_mix = Reg(SInt(16 bits))
+
+      val prime = delay_counter < delay_threshold
+      val advance = fft.inst.io.s_axis_data.ready | prime
+
+      onEntry {
+        fft.config_payload := 0
+        fft.config_valid := True
+      }
+
       whenIsActive {
-        val curr_sample = sample_mem(sample_counter)
-        val curr_prn = prn_mem(sample_counter)
+        when(delay_counter < delay_threshold) {
+          delay_counter := delay_counter + 1
+        } otherwise {
+          fft.data_in_valid := True
+        }
 
-        // TODO: time multiplex multiplications
-        val re_mix = curr_sample.re * curr_prn.re - curr_sample.im * curr_prn.re
-        val im_mix = curr_sample.re * curr_prn.im - curr_sample.im * curr_prn.re
-        
-        // Use 8 most significant bits of each
-        fft.data_in_payload := im_mix(8, 8 bits) ## re_mix(8, 8 bits)
-        fft.data_in_valid := True
-
-        when(fft.inst.io.s_axis_data.fire) {
+        when(advance) {
           sample_counter := sample_counter + 1
 
-          when(sample_counter === fft_size - 2) {
-            fft.data_in_last := True
-          }
+          // Stage 1
+          s1_sample := sample_mem.readSync(sample_counter(0, fft_size_log bits)).as(Complex(8))
+          s1_prn := prn_mem.readSync(sample_counter(0, fft_size_log bits)).as(Complex(8))
 
-          when(sample_counter === fft_size - 1) {
-            // goto(evaluate)
+          // Stage 2 - TODO: implement this in different stages so only one DSP is used
+          s2_re_mix1 := s1_sample.re * s1_prn.re
+          s2_re_mix2 := s1_sample.im * s1_prn.im
+          s2_im_mix1 := s1_sample.re * s1_prn.im
+          s2_im_mix2 := s1_sample.im * s1_prn.re
+
+          // Stage 3
+          s3_re_mix := s2_re_mix1 - s2_re_mix2
+          s3_im_mix := s2_im_mix1 + s2_im_mix2
+
+          // Stage 4
+          fft.data_in_payload := s3_im_mix(8, 8 bits) ## s3_re_mix(8, 8 bits)
+
+          when(sample_counter === fft_size + delay_threshold - 1) {
+            fft.data_in_last := True
+          } elsewhen(sample_counter === fft_size + delay_threshold) {
             sample_counter := 0
             fft.data_in_valid := False
             fft.data_in_last := False
-            // sv_current := sv_current + 1
+            goto(evaluate)
           }
+        }
+
+        when(fft.inst.io.s_axis_config.fire) {
+          fft.config_valid := False
         }
       }
     }
@@ -212,7 +252,7 @@ case class Acquisition(iq_size: Int = 2, fft_size: Int = 4096) extends Component
     // Process time domain results of IFFT and repeat
     val evaluate = new State {
       val max = Reg(UInt(9 bits)) init 0
-      val max_idx = Reg(UInt(fft_size_log bits)) init 0
+      val max_idx = Reg(UInt(fft_size_log+1 bits)) init 0
       val curr_sample = fft.inst.io.m_axis_data.payload.data.as(Complex(8))
       val curr_mag = curr_sample.re.asUInt +^ curr_sample.im.asUInt // TODO: proper magnitude
       io.temp_fft_index <> max_idx

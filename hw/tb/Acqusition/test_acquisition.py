@@ -44,4 +44,4 @@ async def test_acquisition(dut):
     await ClockCycles(dut.clk, 2)
     dut.reset.value = 0
 
-    await ClockCycles(dut.clk, 50000)
+    await ClockCycles(dut.clk, 30000)

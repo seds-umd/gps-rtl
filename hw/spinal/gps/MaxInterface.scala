@@ -12,13 +12,13 @@ case class MaxInterface(iq_size: Int = 2) extends Component {
     val time_sync = in Bool ()
 
     // FPGA interface
-    val clk = in Bool ()
-    val rst = in Bool ()
+    // val clk = in Bool ()
+    // val rst = in Bool ()
     val iq = master Stream (Complex(iq_size).asBits)
   }
 
-  val max_domain = ClockDomain(io.clk_ser, io.rst)
-  val fpga_domain = ClockDomain(io.clk, io.rst)
+  val fpga_domain = ClockDomain.current
+  val max_domain = ClockDomain(io.clk_ser, fpga_domain.reset)
 
   val sample_fifo = StreamFifoCC(
     dataType = Complex(iq_size).asBits,

@@ -10,7 +10,7 @@ case class GpsTop() extends Component {
         val data_sync = in Bool ()
         val time_sync = in Bool ()
 
-        val debug_out = out Bits(22 bits)
+        val debug_out = out Bits(21 bits)
     }
 
     val acq = Acquisition(2, 4096)

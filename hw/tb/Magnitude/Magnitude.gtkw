@@ -1,0 +1,29 @@
+[*]
+[*] GTKWave Analyzer v3.3.103 (w)1999-2019 BSI
+[*] Fri Oct 20 23:12:25 2023
+[*]
+[dumpfile] "/home/nathan/seds/gps-rtl/hw/tb/Magnitude/sim_build/Magnitude.fst"
+[dumpfile_mtime] "Fri Oct 20 23:11:24 2023"
+[dumpfile_size] 1389
+[savefile] "/home/nathan/seds/gps-rtl/hw/tb/Magnitude/Magnitude.gtkw"
+[timestart] 0
+[size] 2548 1367
+[pos] -1 -1
+*-14.052073 0 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+[sst_width] 214
+[signals_width] 118
+[sst_expanded] 1
+[sst_vpaned_height] 421
+@28
+Magnitude.clk
+@200
+-
+@420
+Magnitude.io_re[7:0]
+Magnitude.io_im[7:0]
+@28
+Magnitude.io_ready
+@24
+Magnitude.io_mag[7:0]
+[pattern_trace] 1
+[pattern_trace] 0

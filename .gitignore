@@ -52,6 +52,7 @@ hw/gen
 
 # cocotb
 venv/**
+.venv
 __pycache__
 sim_build
 results.xml

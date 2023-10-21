@@ -17,7 +17,7 @@ case class Acquisition(iq_size: Int = 2, fft_size: Int = 4096) extends Component
 
     val valid_sv = in Bits(32 bits)
 
-    val temp_fft_index = out UInt(fft_size_log+1 bits)
+    val temp_fft_index = out UInt(fft_size_log bits)
     val temp_fft_val = out UInt(9 bits)
   }
 
@@ -252,7 +252,7 @@ case class Acquisition(iq_size: Int = 2, fft_size: Int = 4096) extends Component
     // Process time domain results of IFFT and repeat
     val evaluate = new State {
       val max = Reg(UInt(9 bits)) init 0
-      val max_idx = Reg(UInt(fft_size_log+1 bits)) init 0
+      val max_idx = Reg(UInt(fft_size_log bits)) init 0
       val curr_sample = fft.inst.io.m_axis_data.payload.data.as(Complex(8))
       val curr_mag = curr_sample.re.asUInt +^ curr_sample.im.asUInt // TODO: proper magnitude
       io.temp_fft_index <> max_idx
@@ -266,7 +266,7 @@ case class Acquisition(iq_size: Int = 2, fft_size: Int = 4096) extends Component
 
           when(curr_mag > max) {
             max := curr_mag
-            max_idx := sample_counter
+            max_idx := sample_counter(0, fft_size_log bits)
           }
 
           when(sample_counter === fft_size - 1) {

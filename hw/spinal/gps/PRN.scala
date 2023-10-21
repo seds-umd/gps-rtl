@@ -46,7 +46,7 @@ case class PRN() extends Component {
 
   // Set taps
   when(io.set) {
-    switch(io.sv) {
+    switch(io.sv+1) {
       is(1)(g2_tap1 := 2, g2_tap2 := 6)
       is(2)(g2_tap1 := 3, g2_tap2 := 7)
       is(3)(g2_tap1 := 4, g2_tap2 := 8)

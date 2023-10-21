@@ -1,18 +1,18 @@
 [*]
 [*] GTKWave Analyzer v3.3.103 (w)1999-2019 BSI
-[*] Thu Oct 19 15:40:51 2023
+[*] Sat Oct 21 16:34:09 2023
 [*]
 [dumpfile] "/home/nathan/seds/gps-rtl/hw/tb/Acqusition/sim_build/Acquisition.fst"
-[dumpfile_mtime] "Thu Oct 19 15:38:45 2023"
-[dumpfile_size] 89618
+[dumpfile_mtime] "Sat Oct 21 16:33:38 2023"
+[dumpfile_size] 618427
 [savefile] "/home/nathan/seds/gps-rtl/hw/tb/Acqusition/Acquisition.gtkw"
-[timestart] 328505100
+[timestart] 0
 [size] 1908 1007
 [pos] -1 -1
-*-15.921484 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+*-27.505108 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
 [treeopen] Acquisition.
 [sst_width] 326
-[signals_width] 238
+[signals_width] 270
 [sst_expanded] 1
 [sst_vpaned_height] 295
 @28
@@ -21,6 +21,12 @@ Acquisition.clk
 -
 @820
 Acquisition.fsm_stateReg_string[87:0]
+@24
+Acquisition.fsm_sv[5:0]
+@420
+Acquisition.fsm_shift[2:0]
+@24
+Acquisition.fsm_sample_counter_value[12:0]
 @200
 -
 -Sample Input
@@ -79,6 +85,7 @@ Acquisition.fft_inst.m_axis_data_tlast
 -PRN Generator
 @22
 Acquisition.prn_1.io_inc[16:0]
+Acquisition.prn_1.chip_fraction[15:0]
 @28
 Acquisition.prn_1.io_set
 @22
@@ -90,12 +97,23 @@ Acquisition.prn_1.io_code_valid
 @200
 -
 -Mix
-@22
-Acquisition.fsm_sample_counter[11:0]
 @28
 Acquisition.fsm_mix_delay_counter[2:0]
 @22
 Acquisition._zz_prn_mem_port1[15:0]
 Acquisition._zz_sample_mem_port1[15:0]
+@200
+-
+-Evaluate
+@22
+Acquisition.fsm_evaluate_mag_abs[22:0]
+Acquisition.fsm_evaluate_mag_counter[11:0]
+@28
+Acquisition.fsm_evaluate_mag_io_ready
+@22
+Acquisition.fsm_evaluate_max_mag[22:0]
+Acquisition.fsm_evaluate_max_idx[11:0]
+@420
+Acquisition.fsm_evaluate_max_freq[2:0]
 [pattern_trace] 1
 [pattern_trace] 0

@@ -13,7 +13,7 @@ case class Magnitude() extends Component {
         val im = in SInt(8 bits)
         val ready = in Bool()
 
-        val mag = out UInt(8 bits) // TODO: how many bits?
+        val mag = out UInt(8 bits)
     }
 
     val s1_re_abs = RegNextWhen(io.re.abs, io.ready)

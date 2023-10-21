@@ -10,7 +10,7 @@ case class XilinxFFT() extends BlackBox {
     useLast = true
   )
 
-  val data_out_config = data_in_config.copy(userWidth = 1, useUser = true)
+  val data_out_config = data_in_config.copy(userWidth = 4, useUser = true)
 
   val control_config = Axi4StreamConfig(
     dataWidth = 1

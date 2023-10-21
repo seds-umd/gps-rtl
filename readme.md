@@ -27,14 +27,51 @@ pip install -r requirements.txt
 * `hw/verilog` and `hw/vhdl` - Non-generated Verilog and VHDL files. These files do get committed to git. This can include custom or 3rd party modules.
 * `hw/tb` - Testbenches written using cocotb. Each module should have it's own testbench. Each testbench will have a python file containing the actual testbench, a Makefile to run it, and likely a .gtkw file for viewing the traces.
 
-# SpinalHDL Modules
+# SpinalHDL
 
 To generate a SpinalHDL module, run:
 
 ```bash
-sbt "runMain gps.MaxInterfaceVerilog"
+sbt "runMain gps.GpsTopVerilog"
 ```
 
-Or enter the sbt terminal with `sbt` and run `runMain gps.MaxInterfaceVerilog` (this is faster for repeated use).
+Or enter the sbt terminal with `sbt` and run `runMain gps.GpsTopVerilog` (this is faster for repeated use).
 
 To simulate, make sure the venv is activated and then go to it's testbench directory and run `make`, or `make waves` to open GTKwave after the simulation finished (this part only works on WSL).
+
+# Modules
+
+Hierarchy:
+* GpsTop
+  * Acquisition
+    * Magnitude
+    * PRN
+    * XilinxFFT
+  * MaxInterface
+
+## Acquisition
+
+## GpsTop
+
+Top level module for GPS. Mostly temporary and debugging stuff right now.
+
+## Magnitude
+
+Approximation for magnitude of complex number. [Algorithm source](https://dspguru.com/dsp/tricks/magnitude-estimator/).
+
+Currently hard coded for $\alpha = 61/64$, $\beta = 13/32$, but could be parameterized in the future. The average error with these parameters is 2 LSBs, and the maximum is 8 LSBs. Input to output delay of TBD cycles. Pipeline only advances when `ready` signal is active. Real and imaginary components are interchangeable.
+
+### Ports
+
+| Port  | Direction | Width  | Notes               |
+| ----- | --------- | ------ | ------------------- |
+| re    | in        | 8 bits | Real component      |
+| im    | in        | 8 bits | Imaginary component |
+| ready | in        | 1 bit  | Advance pipeline    |
+| mag   | out       | 8 bits | Magnitude           |
+
+## MaxInterface
+
+## PRN
+
+## XilinxFFT

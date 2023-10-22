@@ -10,7 +10,7 @@ case class GpsTop() extends Component {
         val data_sync = in Bool ()
         val time_sync = in Bool ()
 
-        // val debug_out = out Bits(21 bits)
+        val debug_out = out Bits(35 bits)
     }
 
     val acq = Acquisition(2, 4096)
@@ -23,7 +23,7 @@ case class GpsTop() extends Component {
 
     acq.io.iq << max.io.iq
 
-    // io.debug_out <> acq.io.temp_fft_index ## acq.io.temp_fft_val
+    io.debug_out <> acq.io.temp_fft_index ## acq.io.temp_fft_val
 }
 
 object GpsTopVerilog extends App {

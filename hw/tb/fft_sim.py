@@ -36,7 +36,7 @@ def unpack_complex(data) -> np.ndarray:
 
 
 class FFT_Sim:
-    def __init__(self, module: HierarchyObject, size: int, arch: int, delay: int = 0):
+    def __init__(self, module: HierarchyObject, size: int, arch: int, delay: int = 0, store: bool = False):
         """Simulate Xilinx FFT core.
 
         Args:
@@ -44,6 +44,7 @@ class FFT_Sim:
             size (int): Log2 of size of FFT.
             arch (int): 1=radix 4, 2=radix 2, 3=pipelined, 4=radix 2 lite
             delay (int, optional): Processing delay of core. Defaults to 0.
+            store (bool, optional): If True, store all inputs and outputs. Defaults to False.
         """
 
         self.module = module
@@ -55,6 +56,10 @@ class FFT_Sim:
 
         self.delay = delay
         self.fft_inv = False
+
+        self.store = store
+        self.past_inputs = []
+        self.past_outputs = []
 
         self.config_axis = AxiStreamSink(
             AxiStreamBus.from_prefix(module, "s_axis_config"),
@@ -131,3 +136,7 @@ class FFT_Sim:
 
             await self.data_out_axis.send(out_frame)
             self.log.info("Sent data")
+
+            if self.store:
+                self.past_inputs.append((data_complex.copy(), self.fft_inv))
+                self.past_outputs.append((data_res.copy(), self.fft.outputs.blk_exp))

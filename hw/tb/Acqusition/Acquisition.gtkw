@@ -1,15 +1,15 @@
 [*]
 [*] GTKWave Analyzer v3.3.103 (w)1999-2019 BSI
-[*] Sun Oct 22 02:53:09 2023
+[*] Sun Oct 22 20:51:29 2023
 [*]
 [dumpfile] "/home/nathan/seds/gps-rtl/hw/tb/Acqusition/sim_build/Acquisition.fst"
-[dumpfile_mtime] "Sun Oct 22 02:49:46 2023"
-[dumpfile_size] 1069360
+[dumpfile_mtime] "Sun Oct 22 20:48:44 2023"
+[dumpfile_size] 1360723
 [savefile] "/home/nathan/seds/gps-rtl/hw/tb/Acqusition/Acquisition.gtkw"
-[timestart] 328455000
+[timestart] 0
 [size] 2548 1367
 [pos] -1 -1
-*-15.912533 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+*-27.327551 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
 [treeopen] Acquisition.
 [sst_width] 326
 [signals_width] 270
@@ -30,18 +30,30 @@ Acquisition.fsm_sample_counter_value[12:0]
 @200
 -
 -Sample Input
-@c00022
-Acquisition.io_iq_payload[3:0]
-@28
-(0)Acquisition.io_iq_payload[3:0]
-(1)Acquisition.io_iq_payload[3:0]
-(2)Acquisition.io_iq_payload[3:0]
-(3)Acquisition.io_iq_payload[3:0]
-@1401200
--group_end
 @28
 Acquisition.io_iq_ready
 Acquisition.io_iq_valid
+@c00022
+Acquisition.io_iq_payload[15:0]
+@28
+(0)Acquisition.io_iq_payload[15:0]
+(1)Acquisition.io_iq_payload[15:0]
+(2)Acquisition.io_iq_payload[15:0]
+(3)Acquisition.io_iq_payload[15:0]
+(4)Acquisition.io_iq_payload[15:0]
+(5)Acquisition.io_iq_payload[15:0]
+(6)Acquisition.io_iq_payload[15:0]
+(7)Acquisition.io_iq_payload[15:0]
+(8)Acquisition.io_iq_payload[15:0]
+(9)Acquisition.io_iq_payload[15:0]
+(10)Acquisition.io_iq_payload[15:0]
+(11)Acquisition.io_iq_payload[15:0]
+(12)Acquisition.io_iq_payload[15:0]
+(13)Acquisition.io_iq_payload[15:0]
+(14)Acquisition.io_iq_payload[15:0]
+(15)Acquisition.io_iq_payload[15:0]
+@1401200
+-group_end
 @200
 -
 -FFT Data In
@@ -73,8 +85,28 @@ Acquisition.fft_inst.s_axis_data_tlast
 @200
 -
 -FFT Data Out
-@22
+@c00022
 Acquisition.fft_inst.m_axis_data_tdata[15:0]
+@28
+(0)Acquisition.fft_inst.m_axis_data_tdata[15:0]
+(1)Acquisition.fft_inst.m_axis_data_tdata[15:0]
+(2)Acquisition.fft_inst.m_axis_data_tdata[15:0]
+(3)Acquisition.fft_inst.m_axis_data_tdata[15:0]
+(4)Acquisition.fft_inst.m_axis_data_tdata[15:0]
+(5)Acquisition.fft_inst.m_axis_data_tdata[15:0]
+(6)Acquisition.fft_inst.m_axis_data_tdata[15:0]
+(7)Acquisition.fft_inst.m_axis_data_tdata[15:0]
+(8)Acquisition.fft_inst.m_axis_data_tdata[15:0]
+(9)Acquisition.fft_inst.m_axis_data_tdata[15:0]
+(10)Acquisition.fft_inst.m_axis_data_tdata[15:0]
+(11)Acquisition.fft_inst.m_axis_data_tdata[15:0]
+(12)Acquisition.fft_inst.m_axis_data_tdata[15:0]
+(13)Acquisition.fft_inst.m_axis_data_tdata[15:0]
+(14)Acquisition.fft_inst.m_axis_data_tdata[15:0]
+(15)Acquisition.fft_inst.m_axis_data_tdata[15:0]
+@1401200
+-group_end
+@22
 Acquisition.fft_inst.m_axis_data_tuser[7:0]
 @28
 Acquisition.fft_inst.m_axis_data_tready
@@ -83,18 +115,6 @@ Acquisition.fft_inst.m_axis_data_tlast
 @200
 -
 -PRN Generator
-@22
-Acquisition.prn_1.io_inc[16:0]
-Acquisition.prn_1.chip_fraction[15:0]
-@28
-Acquisition.prn_1.io_set
-@22
-Acquisition.prn_1.io_sv[5:0]
-@28
-Acquisition.prn_1.io_code_payload
-Acquisition.prn_1.io_code_ready
-Acquisition.prn_1.io_code_valid
-@200
 -
 -Mix
 @28
@@ -102,24 +122,24 @@ Acquisition.fsm_mix_delay_counter[2:0]
 @22
 Acquisition._zz_prn_mem_port1[15:0]
 Acquisition._zz_sample_mem_port1[15:0]
-@420
-Acquisition.fsm_mix_s2_im_mix1[15:0]
-Acquisition.fsm_mix_s2_im_mix2[15:0]
-Acquisition.fsm_mix_s2_re_mix1[15:0]
-Acquisition.fsm_mix_s2_re_mix2[15:0]
-Acquisition.fsm_mix_s3_im_mix[15:0]
-Acquisition.fsm_mix_s3_re_mix[15:0]
 @200
 -
 -Evaluate
 @22
+Acquisition.fsm_evaluate_sample_re[7:0]
+Acquisition.fsm_evaluate_sample_im[7:0]
+@10024
+Acquisition.fsm_evaluate_mag_abs[22:0]
+@20000
+-
+@24
 Acquisition.fsm_evaluate_mag_abs[22:0]
 Acquisition.fsm_evaluate_mag_counter[11:0]
 @28
 Acquisition.fsm_evaluate_mag_io_ready
-@22
-Acquisition.fsm_evaluate_max_mag[22:0]
+@420
+Acquisition.fsm_max_freq[2:0]
 @24
-Acquisition.fsm_evaluate_max_idx[11:0]
+Acquisition.fsm_max_idx[11:0]
 [pattern_trace] 1
 [pattern_trace] 0

@@ -3,7 +3,7 @@ package gps
 import spinal.core._
 import spinal.lib._
 
-case class MaxInterface(iq_size: Int = 2) extends Component {
+case class MaxInterface(iq_size: Int = 2, period: Int = 4092) extends Component {
   val io = new Bundle {
     // MAX2769 interface
     val clk_ser = in Bool ()
@@ -14,14 +14,14 @@ case class MaxInterface(iq_size: Int = 2) extends Component {
     // FPGA interface
     // val clk = in Bool ()
     // val rst = in Bool ()
-    val iq = master Stream (Complex(iq_size).asBits)
+    val iq = master Stream (ComplexTimestamp(iq_size, period).asBits)
   }
 
   val fpga_domain = ClockDomain.current
   val max_domain = ClockDomain(io.clk_ser, fpga_domain.reset)
 
   val sample_fifo = StreamFifoCC(
-    dataType = Complex(iq_size).asBits,
+    dataType = ComplexTimestamp(iq_size, period).asBits,
     depth = 8,
     pushClock = max_domain,
     popClock = fpga_domain
@@ -30,7 +30,9 @@ case class MaxInterface(iq_size: Int = 2) extends Component {
   sample_fifo.io.pop >> io.iq
 
   val max_area = new ClockingArea(max_domain) {
-    val fifo_push_payload = Complex(iq_size)
+    val phase_counter = Counter(period)
+
+    val fifo_push_payload = ComplexTimestamp(iq_size, period)
     sample_fifo.io.push.payload := fifo_push_payload.asBits
 
     val bit_counter = Reg(UInt(4 bits)) init 0 // up to 16
@@ -62,25 +64,29 @@ case class MaxInterface(iq_size: Int = 2) extends Component {
     }
 
     sample_fifo.io.push.valid := False
-    fifo_push_payload.re := 0
-    fifo_push_payload.im := 0
+    fifo_push_payload.c.re := 0
+    fifo_push_payload.c.im := 0
+    fifo_push_payload.t := phase_counter
 
     val dump_bit_index = Reg(UInt(4 bits)) init 0 // up to 16
     // Dump registers to FIFO
     when(dump_reg) {
       dump_bit_index := dump_bit_index + 1
 
+      phase_counter.increment()
+
       sample_fifo.io.push.valid := True
 
       if (iq_size == 1) {
-        fifo_push_payload.re := sample_reg(~reg_index)(0)(dump_bit_index).asSInt
-        fifo_push_payload.im := sample_reg(~reg_index)(1)(dump_bit_index).asSInt
+        fifo_push_payload.c.re := sample_reg(~reg_index)(0)(dump_bit_index).asSInt
+        fifo_push_payload.c.im := sample_reg(~reg_index)(1)(dump_bit_index).asSInt
       } else {
-        fifo_push_payload.re := (sample_reg(~reg_index)(0)(dump_bit_index) ## 
+        fifo_push_payload.c.re := (sample_reg(~reg_index)(0)(dump_bit_index) ## 
                                 sample_reg(~reg_index)(1)(dump_bit_index)).asSInt
-        fifo_push_payload.im := (sample_reg(~reg_index)(2)(dump_bit_index) ## 
+        fifo_push_payload.c.im := (sample_reg(~reg_index)(2)(dump_bit_index) ## 
                                 sample_reg(~reg_index)(3)(dump_bit_index)).asSInt
       }
+
 
       // Stop when out of bits unless new bits are ready
       when((dump_bit_index === 15)) {

@@ -6,14 +6,13 @@ import spinal.lib.fsm._
 
 /* TODO
  * Handle FFT aresetn and aclken
- * Figure out timing for code phase (some kind of reference timer?)
  */
 
-case class Acquisition(iq_size: Int = 2, fft_size: Int = 4096, fft_width: Int = 8, freq_shift: Int = 24) extends Component {
+case class Acquisition(iq_size: Int = 2, fft_size: Int = 4096, fft_width: Int = 8, freq_shift: Int = 24, dec_factor: Int = 8, period: Int = 4092) extends Component {
   val fft_size_log = log2Up(fft_size)
 
   val io = new Bundle {
-    val iq = slave Stream (Complex(iq_size).asBits)
+    val iq = slave Stream (ComplexTimestamp(iq_size, period).asBits)
 
     val temp_fft_index = out UInt(fft_size_log bits)
     val temp_fft_val = out UInt(23 bits)
@@ -58,17 +57,25 @@ case class Acquisition(iq_size: Int = 2, fft_size: Int = 4096, fft_width: Int = 
   prn1.io.code.ready := prn1_ready
 
   val prn2 = PRN()
-  val prn2_ready = Reg(Bool()) init False
   prn2.io.inc := U"17'h4000"
   prn2.io.set := False
-  prn2.io.code.ready := prn1_ready
-
+  prn2.io.code.ready := False
+  
+  val iq_complex = io.iq.payload.as(ComplexTimestamp(iq_size, period))
+  
   val fsm = new StateMachine {
     val sample_counter = Counter(fft_size_log + 1 bits) // TODO: better to split this up for each state?
+    
     val sv = Reg(UInt(6 bits)) init 0
     val shift = Reg(SInt(log2Up(freq_shift * 2 + 1) bits)) init -freq_shift
     prn1.io.sv <> sv
     prn2.io.sv <> sv
+    
+    val max_mag = Reg(UInt(23 bits)) init 0
+    val max_idx = Reg(UInt(fft_size_log bits))
+    val max_freq = Reg(SInt(shift.getWidth bits))
+    
+    val ref_phase = Reg(UInt(log2Up(period) bits))
 
     // Initialize FFT config and flush sample FIFO
     val init: State = new State with EntryPoint {
@@ -93,7 +100,7 @@ case class Acquisition(iq_size: Int = 2, fft_size: Int = 4096, fft_width: Int = 
           sample_counter.increment()
         }
 
-        when(sample_counter === 32) {
+        when(sample_counter === 16) {
           goto(samples_in)
           io.iq.ready := False
           sample_counter.clear()
@@ -104,16 +111,20 @@ case class Acquisition(iq_size: Int = 2, fft_size: Int = 4096, fft_width: Int = 
     // Get samples and perform FFT
     val samples_in: State = new State {
       // Normalize and offset to compensate for twos comp bias
-      val real = io.iq.payload.as(Complex(iq_size)).re @@ U"6'b100000"
-      val imag = io.iq.payload.as(Complex(iq_size)).im @@ U"6'b100000"
+      val real = iq_complex.c.re @@ U"6'b100000"
+      val imag = iq_complex.c.im @@ U"6'b100000"
 
       whenIsActive {
         io.iq.ready := fft.inst.io.s_axis_data.ready
         fft.data_in_valid := io.iq.valid
-        fft.data_in_payload := real ## imag
+        fft.data_in_payload := imag ## real
 
         when(fft.inst.io.s_axis_data.fire) {
           sample_counter.increment()
+
+          when(sample_counter === 0) {
+            ref_phase := iq_complex.t + iq_complex.t(10, 2 bits) // 4092 to 4096
+          }
 
           when(sample_counter === fft_size - 2) {
             fft.data_in_last := True
@@ -137,7 +148,7 @@ case class Acquisition(iq_size: Int = 2, fft_size: Int = 4096, fft_width: Int = 
 
         when(fft.inst.io.m_axis_data.fire) {
           val data1 = fft.inst.io.m_axis_data.payload.data.as(Complex(fft_width))
-          val data2 = data1.im ## data1.re // TODO: somewhow works better without conjugating
+          val data2 = -data1.im ## data1.re
 
           sample_mem(sample_counter(0, fft_size_log bits)) := data2
           sample_counter.increment()
@@ -281,15 +292,11 @@ case class Acquisition(iq_size: Int = 2, fft_size: Int = 4096, fft_width: Int = 
       mag.io.im := 0
       mag.io.ready := False
 
-      val mag_delay = 5 // TODO: verify delay
+      val mag_delay = 6
       val mag_counter = Delay(sample_counter.value(0, fft_size_log bits), mag_delay)
       val mag_exp = Delay(fft.inst.io.m_axis_data.payload.user, mag_delay).asUInt
       val mag_abs = mag.io.mag << mag_exp(0, 4 bits) // Hopefully exponent will never be greater than 15
       val mag_valid = Delay(fft.inst.io.m_axis_data.fire, mag_delay)
-
-      val max_mag = Reg(UInt(23 bits)) init 0
-      val max_idx = Reg(UInt(fft_size_log bits))
-      val max_freq = Reg(SInt(shift.getWidth bits))
 
       io.temp_fft_index <> max_idx
       io.temp_fft_val <> max_mag
@@ -307,18 +314,19 @@ case class Acquisition(iq_size: Int = 2, fft_size: Int = 4096, fft_width: Int = 
 
           when(sample_counter === fft_size - 1) {
             sample_counter.clear()
-            // fft.data_out_ready := False
           }
         }
 
         when(mag_valid) {
           when(mag_abs > max_mag) {
             max_mag := mag_abs
-            max_idx := (fft_size - mag_counter).resized // TODO: why is index reversed?
+            max_idx := (mag_counter - ref_phase - 2).resized // TODO: why is offset of 2 necessary?
             max_freq := shift
           }
 
           when(mag_counter === fft_size - 1) {
+            sample_counter.clear()
+
             when(shift === freq_shift) {
               goto(fine1)
             } otherwise {
@@ -332,10 +340,35 @@ case class Acquisition(iq_size: Int = 2, fft_size: Int = 4096, fft_width: Int = 
 
     // Adjust PRN generate for code offset and flush sample FIFO
     val fine1: State = new State {
-      whenIsActive{
-        // Adjust PRN code
+      val flush_done = Reg(Bool())
 
+      val prn_phase = prn2.io.sample_count + prn2.io.sample_count(10, 2 bits) // 4092 to 4096
+      val iq_phase = iq_complex.t + iq_complex.t(10, 2 bits) // 4092 to 4096
+
+      onEntry{
+        flush_done := False
+      }
+
+      whenIsActive{
         // Flush FIFO
+        io.iq.ready := True
+
+        when(io.iq.fire) {
+          sample_counter.increment()
+
+          when(sample_counter === 16) {
+            flush_done := True
+          }
+        }
+
+        // Adjust PRN code
+        prn2.io.code.ready := True
+
+        // Only continue when codes align and FIFO is flushed
+        when((max_idx + ref_phase === prn_phase - iq_phase) & flush_done) {
+          sample_counter.clear()
+          goto(fine2)
+        }
       }
     }
 

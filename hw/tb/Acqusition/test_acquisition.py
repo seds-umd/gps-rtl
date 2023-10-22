@@ -32,19 +32,20 @@ class TB:
         bus._add_signal("tdata", "io_iq_payload")
         bus._add_signal("tvalid", "io_iq_valid")
         bus._add_signal("tready", "io_iq_ready")
-        self.sample_input = axi.AxiStreamSource(bus, dut.clk, byte_size=4)
+        self.sample_input = axi.AxiStreamSource(bus, dut.clk, byte_size=16)
         self.sample_input.log.setLevel(logging.WARNING) # Get rid of log messages
 
-    def send_samples(self, count=1e5, sv=1, doppler=0, code_phase=0, noise=True):
+    def send_samples(self, count=1e5, sv=1, doppler=0, sample_phase=0, noise=True):
         power = -125 if noise else None
 
         # 3/4 is about optimal for 33% magnitude bit density (per MAX2769 datasheet)
-        self.samples = 3/4 * 127 * gps_sim.generate_gps(self.fs, int(count), sv, doppler, code_phase=code_phase, signal_power=power)
+        self.samples = 3/4 * 127 * gps_sim.generate_gps(self.fs, int(count), sv, doppler, sample_phase=sample_phase, signal_power=power)
+        timestamp = np.tile(np.arange(4092), int(len(self.samples)/4092)+1).astype(np.uint16)[0:len(self.samples)]
 
         # Convert to 4 bit format
         samples_re = self.samples.real.astype(np.int8).astype(np.uint8) >> 6
         samples_im = self.samples.imag.astype(np.int8).astype(np.uint8) >> 6
-        bits = samples_re | (samples_im << 2)
+        bits = samples_re | (samples_im << 2) | (timestamp << 4)
         bits = [int(x) for x in bits]
 
         self.sample_input.send_nowait(bits)
@@ -59,26 +60,30 @@ class TB:
 @cocotb.test()
 async def test_acquisition(dut):
     tb = TB(dut)
+    log = dut._log
 
     await tb.reset()
 
-    tb.send_samples(code_phase=800, noise=True)
+    ref_phase = 2346
+    tb.send_samples(sample_phase=ref_phase, noise=True)
 
     await ClockCycles(dut.clk, 80000)
+
+    result_freq = dut.fsm_max_freq.value.signed_integer
+    result_phase = dut.fsm_max_idx.value.integer
+    log.info(f"Frequency bin: {result_freq}, code sample offset: {result_phase}")
 
     # Analyze FFT results
     inputs = tb._sim.past_inputs
     outputs = tb._sim.past_outputs
 
     # Check samples
-    samples_ref = tb.samples[32:32+4096]
+    samples_ref = tb.samples[16:16+4096]
+    # samples_ref = tb.samples[0:4096]
 
     samples_ref_in = inputs[0][0]
     samples_fft = outputs[0][0]
     ref_fft = np.fft.fft(samples_ref / 127)
-
-    corr = np.correlate(ref_fft, samples_fft, mode="full")
-    assert np.argmax(np.abs(corr)) == 4095, np.argmax(np.abs(corr))
 
     # Check PRN
     prn_ref = prn.sample(1, 4.092e6, 4096)
@@ -86,15 +91,9 @@ async def test_acquisition(dut):
     prn_in = inputs[1][0]
     prn_out = outputs[1][0]
 
-    corr = np.correlate(prn_ref_fft, prn_out, mode="full")
-    assert np.argmax(np.abs(corr)) == 4095, np.argmax(np.abs(corr))
-
     # Check mix
     ref_mix = ref_fft.conj() * prn_ref_fft
     out_mix = samples_fft.conj() * prn_out
-
-    # corr = np.correlate(np.abs(ref_mix), np.abs(out_mix), mode="full")
-    # assert np.argmax(np.abs(corr)) == 4095, np.argmax(np.abs(corr))
 
     # out = outputs[2][0] * (2**outputs[2][1])
 
@@ -163,3 +162,17 @@ async def test_acquisition(dut):
 
     plt.tight_layout()
     plt.savefig("mixed.png")
+
+    # Do assertions after graphing
+
+    corr = np.correlate(ref_fft, samples_fft, mode="full")
+    assert np.argmax(np.abs(corr)) == 4095, np.argmax(np.abs(corr))
+
+    corr = np.correlate(prn_ref_fft, prn_out, mode="full")
+    assert np.argmax(np.abs(corr)) == 4095, np.argmax(np.abs(corr))
+
+    corr = np.correlate(np.abs(ref_mix), np.abs(out_mix), mode="full")
+    assert np.argmax(np.abs(corr)) == 4095, np.argmax(np.abs(corr))
+
+    assert result_phase == ref_phase, f"{result_phase}, {ref_phase}"
+

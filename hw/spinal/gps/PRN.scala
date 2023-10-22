@@ -14,20 +14,26 @@ case class PRN() extends Component {
     // Output
     val code = master Stream (Bool())
     val code_count = out UInt(10 bits)
-    val sample_count = out UInt(16 bits)
+    val sample_count = out UInt(12 bits)
   }
-
-  // Flow control
-  io.code_count := 0
-  io.sample_count := 0
 
   val chip_fraction = Reg(UInt(16 bits)) init U"16'h8000"
   val increment = Reg(UInt(17 bits)) init 0
   val chip_fraction_next = chip_fraction +^ increment
   val advance_code = chip_fraction_next(16)
+
+  val code_count = Counter(1023, advance_code)
+  val sample_count = Counter(4*1023, io.code.ready) // TODO: don't hard code sample rate
+
+  io.code_count <> code_count
+  io.sample_count <> sample_count
+
   when(io.set) {
     chip_fraction := U"16'h8000"
     increment := io.inc
+
+    code_count.clear()
+    sample_count.clear()
   } elsewhen(io.code.ready) {
     chip_fraction := chip_fraction_next(15 downto 0)
   }

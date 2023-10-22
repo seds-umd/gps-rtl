@@ -15,7 +15,7 @@ def randbytes(n, b=8):
 async def test_interface(dut, N=1024):
     assert N % 16 == 0, "N must be a multiple of 16"
 
-    dut.io_rst.value = 1
+    dut.reset.value = 1
 
     # Generate random IQ samples
     bits_per_half_sample = 2
@@ -25,11 +25,11 @@ async def test_interface(dut, N=1024):
     samples_ref = samples[:, :, 0] + 2*samples[:, :, 1]
 
     # Set up clocks
-    cocotb.start_soon(Clock(dut.io_clk, period=20, units="ns").start())
+    cocotb.start_soon(Clock(dut.clk, period=20, units="ns").start())
     cocotb.start_soon(Clock(dut.io_clk_ser, period=125, units="ns").start())
 
-    await RisingEdge(dut.io_clk)
-    dut.io_rst.value = 0
+    await RisingEdge(dut.clk)
+    dut.reset.value = 0
     await RisingEdge(dut.io_clk_ser)
 
     # Set up AXI interface
@@ -37,7 +37,7 @@ async def test_interface(dut, N=1024):
     axi_bus._add_signal("tdata", "io_iq_payload")
     axi_bus._add_signal("tvalid", "io_iq_valid")
     axi_bus._add_signal("tready", "io_iq_ready")
-    axi_output = axi.AxiStreamSink(axi_bus, dut.io_clk, dut.io_rst, byte_size=1)
+    axi_output = axi.AxiStreamSink(axi_bus, dut.clk, dut.reset, byte_size=1)
     axi_output.log.setLevel(logging.WARNING) # Get rid of log messages
 
     samples_recv = []

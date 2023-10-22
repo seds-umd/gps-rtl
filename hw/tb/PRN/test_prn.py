@@ -28,7 +28,7 @@ async def test_prn(dut):
 
     for divider in [1.0, 5/3, 2.9999, 4]:
         for sv in range(1, 33):
-            dut.io_sv.value = sv
+            dut.io_sv.value = sv-1
             dut.io_inc.value = int(2**16 / divider)
             dut.io_set.value = 1
 

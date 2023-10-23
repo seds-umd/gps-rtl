@@ -1,20 +1,20 @@
 [*]
 [*] GTKWave Analyzer v3.3.103 (w)1999-2019 BSI
-[*] Sun Oct 22 20:51:29 2023
+[*] Mon Oct 23 03:27:00 2023
 [*]
 [dumpfile] "/home/nathan/seds/gps-rtl/hw/tb/Acqusition/sim_build/Acquisition.fst"
-[dumpfile_mtime] "Sun Oct 22 20:48:44 2023"
-[dumpfile_size] 1360723
+[dumpfile_mtime] "Mon Oct 23 03:12:58 2023"
+[dumpfile_size] 900014
 [savefile] "/home/nathan/seds/gps-rtl/hw/tb/Acqusition/Acquisition.gtkw"
-[timestart] 0
-[size] 2548 1367
+[timestart] 899320100
+[size] 1908 1007
 [pos] -1 -1
-*-27.327551 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+*-17.242088 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
 [treeopen] Acquisition.
 [sst_width] 326
 [signals_width] 270
 [sst_expanded] 1
-[sst_vpaned_height] 421
+[sst_vpaned_height] 295
 @28
 Acquisition.clk
 @200
@@ -23,9 +23,6 @@ Acquisition.clk
 Acquisition.fsm_stateReg_string[87:0]
 @24
 Acquisition.fsm_sv[5:0]
-@420
-Acquisition.fsm_shift[2:0]
-@24
 Acquisition.fsm_sample_counter_value[12:0]
 @200
 -
@@ -54,6 +51,8 @@ Acquisition.io_iq_payload[15:0]
 (15)Acquisition.io_iq_payload[15:0]
 @1401200
 -group_end
+@24
+Acquisition.fsm_ref_phase[11:0]
 @200
 -
 -FFT Data In
@@ -114,8 +113,6 @@ Acquisition.fft_inst.m_axis_data_tvalid
 Acquisition.fft_inst.m_axis_data_tlast
 @200
 -
--PRN Generator
--
 -Mix
 @28
 Acquisition.fsm_mix_delay_counter[2:0]
@@ -137,9 +134,31 @@ Acquisition.fsm_evaluate_mag_abs[22:0]
 Acquisition.fsm_evaluate_mag_counter[11:0]
 @28
 Acquisition.fsm_evaluate_mag_io_ready
-@420
-Acquisition.fsm_max_freq[2:0]
 @24
 Acquisition.fsm_max_idx[11:0]
+@200
+-
+-Fine
+@28
+Acquisition.fsm_fine1_flush_done
+@c00024
+Acquisition.fsm_fine1_iq_phase[11:0]
+@28
+(0)Acquisition.fsm_fine1_iq_phase[11:0]
+(1)Acquisition.fsm_fine1_iq_phase[11:0]
+(2)Acquisition.fsm_fine1_iq_phase[11:0]
+(3)Acquisition.fsm_fine1_iq_phase[11:0]
+(4)Acquisition.fsm_fine1_iq_phase[11:0]
+(5)Acquisition.fsm_fine1_iq_phase[11:0]
+(6)Acquisition.fsm_fine1_iq_phase[11:0]
+(7)Acquisition.fsm_fine1_iq_phase[11:0]
+(8)Acquisition.fsm_fine1_iq_phase[11:0]
+(9)Acquisition.fsm_fine1_iq_phase[11:0]
+(10)Acquisition.fsm_fine1_iq_phase[11:0]
+(11)Acquisition.fsm_fine1_iq_phase[11:0]
+@1401200
+-group_end
+@24
+Acquisition.fsm_fine1_prn_phase[11:0]
 [pattern_trace] 1
 [pattern_trace] 0

@@ -8,14 +8,22 @@ import spinal.lib.fsm._
  * Handle FFT aresetn and aclken
  */
 
-case class Acquisition(iq_size: Int = 2, fft_size: Int = 4096, fft_width: Int = 8, freq_shift: Int = 24, dec_factor: Int = 8, period: Int = 4092) extends Component {
+case class Acquisition(
+    iq_size: Int = 2,
+    fft_size: Int = 4096,
+    fft_width: Int = 8,
+    freq_shift: Int = 24,
+    dec_factor: Int = 8,
+    period: Int = 4092,
+    flush: Boolean = true
+) extends Component {
   val fft_size_log = log2Up(fft_size)
 
   val io = new Bundle {
     val iq = slave Stream (ComplexTimestamp(iq_size, period).asBits)
 
-    val temp_fft_index = out UInt(fft_size_log bits)
-    val temp_fft_val = out UInt(23 bits)
+    val temp_fft_index = out UInt (fft_size_log bits)
+    val temp_fft_val = out UInt (23 bits)
   }
 
   io.iq.ready := False
@@ -60,21 +68,21 @@ case class Acquisition(iq_size: Int = 2, fft_size: Int = 4096, fft_width: Int = 
   prn2.io.inc := U"17'h4000"
   prn2.io.set := False
   prn2.io.code.ready := False
-  
+
   val iq_complex = io.iq.payload.as(ComplexTimestamp(iq_size, period))
-  
+
   val fsm = new StateMachine {
     val sample_counter = Counter(fft_size_log + 1 bits) // TODO: better to split this up for each state?
-    
+
     val sv = Reg(UInt(6 bits)) init 0
     val shift = Reg(SInt(log2Up(freq_shift * 2 + 1) bits)) init -freq_shift
     prn1.io.sv <> sv
     prn2.io.sv <> sv
-    
+
     val max_mag = Reg(UInt(23 bits)) init 0
     val max_idx = Reg(UInt(fft_size_log bits))
     val max_freq = Reg(SInt(shift.getWidth bits))
-    
+
     val ref_phase = Reg(UInt(log2Up(period) bits))
 
     // Initialize FFT config and flush sample FIFO
@@ -83,27 +91,34 @@ case class Acquisition(iq_size: Int = 2, fft_size: Int = 4096, fft_width: Int = 
         fft.config_payload := 1
         fft.config_valid := True
 
-        io.iq.ready := True
+        if (flush) {
+          io.iq.ready := True
+        }
 
         prn1.io.set := True
         prn2.io.set := True
       }
 
       whenIsActive {
-        io.iq.ready := True
 
         when(fft.inst.io.s_axis_config.fire) {
           fft.config_valid := False
         }
 
-        when(io.iq.fire) {
-          sample_counter.increment()
-        }
+        if (flush) {
+          io.iq.ready := True
 
-        when(sample_counter === 16) {
+          when(io.iq.fire) {
+            sample_counter.increment()
+          }
+
+          when(sample_counter === 16) {
+            goto(samples_in)
+            io.iq.ready := False
+            sample_counter.clear()
+          }
+        } else {
           goto(samples_in)
-          io.iq.ready := False
-          sample_counter.clear()
         }
       }
     }
@@ -113,20 +128,23 @@ case class Acquisition(iq_size: Int = 2, fft_size: Int = 4096, fft_width: Int = 
       // Normalize and offset to compensate for twos comp bias
       val real = iq_complex.c.re @@ U"6'b100000"
       val imag = iq_complex.c.im @@ U"6'b100000"
+      val ref_done = Reg(Bool()) init False
 
       whenIsActive {
         io.iq.ready := fft.inst.io.s_axis_data.ready
         fft.data_in_valid := io.iq.valid
         fft.data_in_payload := imag ## real
 
+        when(io.iq.fire & ~ref_done) {
+          ref_phase := iq_complex.t + iq_complex.t(10, 2 bits) // 4092 to 4096
+          ref_done := True
+        }
+
         when(fft.inst.io.s_axis_data.fire) {
           sample_counter.increment()
 
-          when(sample_counter === 0) {
-            ref_phase := iq_complex.t + iq_complex.t(10, 2 bits) // 4092 to 4096
-          }
-
           when(sample_counter === fft_size - 2) {
+            fft.data_in_valid := True
             fft.data_in_last := True
           }
 
@@ -264,7 +282,9 @@ case class Acquisition(iq_size: Int = 2, fft_size: Int = 4096, fft_width: Int = 
 
           // Stage 4
           // This probably cuts off bits but it still works better for some reason
-          fft.data_in_payload := (s3_im_mix.sign ## s3_im_mix(3, 7 bits)) ## (s3_re_mix.sign ## s3_re_mix(3, 7 bits))
+          val data_re = s3_re_mix.sign ## s3_re_mix(3, 7 bits)
+          val data_im = s3_im_mix.sign ## s3_im_mix(3, 7 bits)
+          fft.data_in_payload := data_im ## data_re
 
           when(sample_counter === fft_size + delay_threshold - 1) {
             fft.data_in_last := True
@@ -292,7 +312,7 @@ case class Acquisition(iq_size: Int = 2, fft_size: Int = 4096, fft_width: Int = 
       mag.io.im := 0
       mag.io.ready := False
 
-      val mag_delay = 6
+      val mag_delay = 5
       val mag_counter = Delay(sample_counter.value(0, fft_size_log bits), mag_delay)
       val mag_exp = Delay(fft.inst.io.m_axis_data.payload.user, mag_delay).asUInt
       val mag_abs = mag.io.mag << mag_exp(0, 4 bits) // Hopefully exponent will never be greater than 15
@@ -320,7 +340,7 @@ case class Acquisition(iq_size: Int = 2, fft_size: Int = 4096, fft_width: Int = 
         when(mag_valid) {
           when(mag_abs > max_mag) {
             max_mag := mag_abs
-            max_idx := (mag_counter - ref_phase - 2).resized // TODO: why is offset of 2 necessary?
+            max_idx := (mag_counter - ref_phase).resized // TODO: why is offset of 1 necessary?
             max_freq := shift
           }
 
@@ -345,11 +365,11 @@ case class Acquisition(iq_size: Int = 2, fft_size: Int = 4096, fft_width: Int = 
       val prn_phase = prn2.io.sample_count + prn2.io.sample_count(10, 2 bits) // 4092 to 4096
       val iq_phase = iq_complex.t + iq_complex.t(10, 2 bits) // 4092 to 4096
 
-      onEntry{
+      onEntry {
         flush_done := False
       }
 
-      whenIsActive{
+      whenIsActive {
         // Flush FIFO
         io.iq.ready := True
 
@@ -373,7 +393,35 @@ case class Acquisition(iq_size: Int = 2, fft_size: Int = 4096, fft_width: Int = 
     }
 
     // Remove PRN, decimate, send to FFT
-    val fine2: State = new State {}
+    val fine2: State = new State {
+      val dec_counter = Counter(8)
+      val dec_sample = Reg(Complex(8+3))
+
+      onEntry {
+        dec_sample.re := 0
+        dec_sample.im := 0
+        fft.data_in_valid := False
+      }
+
+      whenIsActive {
+        io.iq.ready := True
+
+        when(io.iq.fire) {
+          dec_counter.increment()
+
+          dec_sample.re := dec_sample.re + iq_complex.c.re // TODO: add PRN in between
+          dec_sample.im := dec_sample.im + iq_complex.c.im
+
+        }
+
+        when(dec_counter.willOverflow) {
+          fft.data_in_payload := dec_sample.im(3, 8 bits) ## dec_sample.re(3, 8 bits)
+          fft.data_in_valid := True
+        } elsewhen(fft.data_in_valid) {
+          fft.data_in_valid := False
+        }
+      }
+    }
 
     // Send out results, increment SV, start over
     val results: State = new State {}
@@ -381,5 +429,5 @@ case class Acquisition(iq_size: Int = 2, fft_size: Int = 4096, fft_width: Int = 
 }
 
 object AcquisitionVerilog extends App {
-  Config.spinal.generateVerilog(Acquisition(freq_shift = 2))
+  Config.spinal.generateVerilog(Acquisition(freq_shift = 1, flush = false))
 }

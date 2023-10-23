@@ -6,6 +6,7 @@ from cocotbext import axi
 import matplotlib.pyplot as plt
 import numpy as np
 import logging
+import itertools
 from gps import gps_sim, prn
 
 import sys
@@ -35,8 +36,10 @@ class TB:
         self.sample_input = axi.AxiStreamSource(bus, dut.clk, byte_size=16)
         self.sample_input.log.setLevel(logging.WARNING) # Get rid of log messages
 
+        self.sample_input.set_pause_generator(itertools.cycle([1, 0, 1, 0, 0]))
+
     def send_samples(self, count=1e5, sv=1, doppler=0, sample_phase=0, noise=True):
-        power = -125 if noise else None
+        power = -120 if noise else None
 
         # 3/4 is about optimal for 33% magnitude bit density (per MAX2769 datasheet)
         self.samples = 3/4 * 127 * gps_sim.generate_gps(self.fs, int(count), sv, doppler, sample_phase=sample_phase, signal_power=power)
@@ -64,10 +67,11 @@ async def test_acquisition(dut):
 
     await tb.reset()
 
-    ref_phase = 2346
-    tb.send_samples(sample_phase=ref_phase, noise=True)
+    ref_phase = 500 # out of 4096
+    sample_phase = ref_phase - 4 if ref_phase >= 4096/2 else ref_phase # out of 4092
+    tb.send_samples(sample_phase=sample_phase, noise=True)
 
-    await ClockCycles(dut.clk, 80000)
+    await ClockCycles(dut.clk, 50000)
 
     result_freq = dut.fsm_max_freq.value.signed_integer
     result_phase = dut.fsm_max_idx.value.integer
@@ -78,8 +82,8 @@ async def test_acquisition(dut):
     outputs = tb._sim.past_outputs
 
     # Check samples
-    samples_ref = tb.samples[16:16+4096]
-    # samples_ref = tb.samples[0:4096]
+    # samples_ref = tb.samples[16:16+4096]
+    samples_ref = tb.samples[0:4096]
 
     samples_ref_in = inputs[0][0]
     samples_fft = outputs[0][0]
@@ -94,8 +98,6 @@ async def test_acquisition(dut):
     # Check mix
     ref_mix = ref_fft.conj() * prn_ref_fft
     out_mix = samples_fft.conj() * prn_out
-
-    # out = outputs[2][0] * (2**outputs[2][1])
 
     plt.figure(figsize=(12, 12), dpi=150)
 
@@ -139,7 +141,7 @@ async def test_acquisition(dut):
     plt.savefig("results.png")
 
     # Actual mix
-    num = 5
+    num = 3
 
     plt.figure(figsize=(15, 12), dpi=150)
 

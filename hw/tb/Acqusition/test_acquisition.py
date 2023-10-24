@@ -67,11 +67,11 @@ async def test_acquisition(dut):
 
     await tb.reset()
 
-    ref_phase = 500 # out of 4096
+    ref_phase = 2753 # out of 4096
     sample_phase = ref_phase - 4 if ref_phase >= 4096/2 else ref_phase # out of 4092
-    tb.send_samples(sample_phase=sample_phase, noise=True)
+    tb.send_samples(doppler=789, sample_phase=sample_phase, noise=True)
 
-    await ClockCycles(dut.clk, 50000)
+    await ClockCycles(dut.clk, 120000)
 
     result_freq = dut.fsm_max_freq.value.signed_integer
     result_phase = dut.fsm_max_idx.value.integer
@@ -98,6 +98,12 @@ async def test_acquisition(dut):
     # Check mix
     ref_mix = ref_fft.conj() * prn_ref_fft
     out_mix = samples_fft.conj() * prn_out
+
+    # Check fine acquisition
+    dec_samples = inputs[-1][0]
+    dec_fft = outputs[-1][0]
+    dec_samples_ref = tb.samples[4096+16:4096+16+4096*8]
+    dec_samples_ref = np.sum(dec_samples_ref.reshape(-1, 8), axis=1)
 
     plt.figure(figsize=(12, 12), dpi=150)
 
@@ -164,6 +170,16 @@ async def test_acquisition(dut):
 
     plt.tight_layout()
     plt.savefig("mixed.png")
+
+    # Fine acquisition
+    corr = np.correlate(dec_samples, dec_samples_ref, mode="full")
+    plt.figure()
+    # plt.plot(np.abs(dec_samples))
+    plt.plot(np.abs(corr))
+    plt.title(f"{np.mean(tb.samples):.2f}, {np.mean(dec_samples):.2f}")
+
+    plt.tight_layout()
+    plt.savefig("fine.png")
 
     # Do assertions after graphing
 

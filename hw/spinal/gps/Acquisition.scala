@@ -82,8 +82,11 @@ case class Acquisition(
     val max_mag = Reg(UInt(23 bits)) init 0
     val max_idx = Reg(UInt(fft_size_log bits))
     val max_freq = Reg(SInt(shift.getWidth bits))
+    val max_freq_fine = Reg(SInt(fft_size_log bits))
 
     val ref_phase = Reg(UInt(log2Up(period) bits))
+
+    val mode_fine = Reg(Bool())
 
     // Initialize FFT config and flush sample FIFO
     val init: State = new State with EntryPoint {
@@ -232,7 +235,6 @@ case class Acquisition(
 
     // Mix PRN and samples and do inverse FFT
     val mix: State = new State {
-      // TODO: shift PRN
       val delay_counter = Reg(UInt(3 bits)) init 0
       val delay_threshold = 4 // Number of pipeline stages
 
@@ -293,6 +295,8 @@ case class Acquisition(
             delay_counter := 0
             fft.data_in_valid := False
             fft.data_in_last := False
+
+            mode_fine := False
             goto(evaluate)
           }
         }
@@ -340,18 +344,27 @@ case class Acquisition(
         when(mag_valid) {
           when(mag_abs > max_mag) {
             max_mag := mag_abs
-            max_idx := (mag_counter - ref_phase).resized // TODO: why is offset of 1 necessary?
-            max_freq := shift
+            
+            when(mode_fine) {
+              max_freq_fine := mag_counter.resized.asSInt // FFT frequencies are in twos comp order
+            } otherwise {
+              max_freq := shift
+              max_idx := (mag_counter - ref_phase).resized
+            }
           }
 
           when(mag_counter === fft_size - 1) {
             sample_counter.clear()
 
-            when(shift === freq_shift) {
-              goto(fine1)
+            when(mode_fine) {
+              goto(results)
             } otherwise {
-              shift := shift + 1
-              goto(mix)
+              when(shift === freq_shift) {
+                goto(fine1)
+              } otherwise {
+                shift := shift + 1
+                goto(mix)
+              }
             }
           }
         }
@@ -382,7 +395,9 @@ case class Acquisition(
         }
 
         // Adjust PRN code
-        prn2.io.code.ready := True
+        when(max_idx + ref_phase > prn_phase - iq_phase) {
+          prn2.io.code.ready := True
+        }
 
         // Only continue when codes align and FIFO is flushed
         when((max_idx + ref_phase === prn_phase - iq_phase) & flush_done) {
@@ -395,9 +410,11 @@ case class Acquisition(
     // Remove PRN, decimate, send to FFT
     val fine2: State = new State {
       val dec_counter = Counter(8)
-      val dec_sample = Reg(Complex(8+3))
+      val dec_sample = Reg(Complex(8))
 
       onEntry {
+        sample_counter.clear()
+        dec_counter.clear()
         dec_sample.re := 0
         dec_sample.im := 0
         fft.data_in_valid := False
@@ -408,17 +425,36 @@ case class Acquisition(
 
         when(io.iq.fire) {
           dec_counter.increment()
+          prn2.io.code.ready := True
 
-          dec_sample.re := dec_sample.re + iq_complex.c.re // TODO: add PRN in between
-          dec_sample.im := dec_sample.im + iq_complex.c.im
+          // Mix samples with PRN code (TODO: does sign matter?)
+          val re_mixed = prn2.io.code.payload ? iq_complex.c.re | -iq_complex.c.re
+          val im_mixed = prn2.io.code.payload ? iq_complex.c.im | -iq_complex.c.im
 
+          dec_sample.re := dec_sample.re + re_mixed
+          dec_sample.im := dec_sample.im + im_mixed
         }
 
         when(dec_counter.willOverflow) {
-          fft.data_in_payload := dec_sample.im(3, 8 bits) ## dec_sample.re(3, 8 bits)
+          fft.data_in_payload := dec_sample.im ## dec_sample.re
           fft.data_in_valid := True
-        } elsewhen(fft.data_in_valid) {
+
+          dec_sample.re := 0
+          dec_sample.im := 0
+
+          when(sample_counter === fft_size - 1) {
+            fft.data_in_last := True
+          }
+        } elsewhen(fft.inst.io.s_axis_data.fire) {
           fft.data_in_valid := False
+          fft.data_in_last := False
+          sample_counter.increment()
+
+          when(sample_counter === fft_size - 1) {
+            mode_fine := True
+            max_mag := 0
+            goto(evaluate)
+          }
         }
       }
     }

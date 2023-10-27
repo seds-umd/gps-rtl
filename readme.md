@@ -1,11 +1,17 @@
 # Setup
 
-## Icarus Verilog
+## Icarus Verilog + GTKWave
 
 Icarus Verilog (iverilog) is needed to simulate Verilog sources.
 
 ```bash
 sudo apt install iverilog
+```
+
+GTKWave is a tool for viewing waveforms created by a simulation. If you're on Windows, you should still install it in WSL because it will run faster than the native Windows version.
+
+```bash
+sudo apt install gtkwave
 ```
 
 ## SpinalHDL

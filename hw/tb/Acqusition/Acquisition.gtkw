@@ -1,20 +1,20 @@
 [*]
 [*] GTKWave Analyzer v3.3.103 (w)1999-2019 BSI
-[*] Mon Oct 23 17:13:02 2023
+[*] Tue Oct 24 15:28:51 2023
 [*]
 [dumpfile] "/home/nathan/seds/gps-rtl/hw/tb/Acqusition/sim_build/Acquisition.fst"
-[dumpfile_mtime] "Mon Oct 23 17:09:08 2023"
-[dumpfile_size] 1537678
+[dumpfile_mtime] "Tue Oct 24 15:28:24 2023"
+[dumpfile_size] 330
 [savefile] "/home/nathan/seds/gps-rtl/hw/tb/Acqusition/Acquisition.gtkw"
-[timestart] 2011445700
-[size] 2548 1367
-[pos] -1 -1
-*-16.649511 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+[timestart] 1969800000
+[size] 1908 1007
+[pos] 31 31
+*-24.649511 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
 [treeopen] Acquisition.
 [sst_width] 326
 [signals_width] 286
 [sst_expanded] 1
-[sst_vpaned_height] 421
+[sst_vpaned_height] 295
 @28
 Acquisition.clk
 @200
@@ -111,14 +111,6 @@ Acquisition.fft_inst.m_axis_data_tuser[7:0]
 Acquisition.fft_inst.m_axis_data_tready
 Acquisition.fft_inst.m_axis_data_tvalid
 Acquisition.fft_inst.m_axis_data_tlast
-@200
--
--Mix
-@28
-Acquisition.fsm_mix_delay_counter[2:0]
-@22
-Acquisition._zz_prn_mem_port1[15:0]
-Acquisition._zz_sample_mem_port1[15:0]
 @200
 -
 -Evaluate

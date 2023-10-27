@@ -19,6 +19,9 @@ case class Acquisition(
 ) extends Component {
   val fft_size_log = log2Up(fft_size)
 
+  val fake_iq_ready = Bool()
+  fake_iq_ready := False
+
   val io = new Bundle {
     val iq = slave Stream (ComplexTimestamp(iq_size, period).asBits)
 
@@ -27,6 +30,9 @@ case class Acquisition(
   }
 
   io.iq.ready := False
+
+  // Convert from 4092 to 4096 as linearly as possible
+  def to4096(x: UInt): UInt = x + ((x +^ 512) >> 10)
 
   val sample_mem = Mem(Complex(fft_width).asBits, wordCount = fft_size)
   val prn_mem = Mem(Complex(fft_width).asBits, wordCount = fft_size)
@@ -71,7 +77,7 @@ case class Acquisition(
 
   val iq_complex = io.iq.payload.as(ComplexTimestamp(iq_size, period))
 
-  val fsm = new StateMachine {
+  val fsm: StateMachine = new StateMachine {
     val sample_counter = Counter(fft_size_log + 1 bits) // TODO: better to split this up for each state?
 
     val sv = Reg(UInt(6 bits)) init 0
@@ -139,7 +145,7 @@ case class Acquisition(
         fft.data_in_payload := imag ## real
 
         when(io.iq.fire & ~ref_done) {
-          ref_phase := iq_complex.t + iq_complex.t(10, 2 bits) // 4092 to 4096
+          ref_phase := to4096(iq_complex.t)
           ref_done := True
         }
 
@@ -375,8 +381,18 @@ case class Acquisition(
     val fine1: State = new State {
       val flush_done = Reg(Bool())
 
-      val prn_phase = prn2.io.sample_count + prn2.io.sample_count(10, 2 bits) // 4092 to 4096
-      val iq_phase = iq_complex.t + iq_complex.t(10, 2 bits) // 4092 to 4096
+      val prn_phase = to4096(prn2.io.sample_count)
+      val iq_phase = to4096(iq_complex.t)
+
+      /* max_idx + ref_phase === prn_phase - iq_phase
+       *
+       * All adjusted to period 4096
+       * 
+       * max_idx: PRN offset relative to first sample of coarse acquisition
+       * ref_phase: First sample of coarse acquisition relative to IQ phase counter
+       * prn_phase: Absolute phase of PRN generator
+       * iq_phase: IQ phase counter
+       */
 
       onEntry {
         flush_done := False
@@ -422,6 +438,7 @@ case class Acquisition(
 
       whenIsActive {
         io.iq.ready := True
+        fake_iq_ready := True
 
         when(io.iq.fire) {
           dec_counter.increment()
@@ -431,8 +448,8 @@ case class Acquisition(
           val re_mixed = prn2.io.code.payload ? iq_complex.c.re | -iq_complex.c.re
           val im_mixed = prn2.io.code.payload ? iq_complex.c.im | -iq_complex.c.im
 
-          dec_sample.re := dec_sample.re + re_mixed
-          dec_sample.im := dec_sample.im + im_mixed
+          dec_sample.re := dec_sample.re + (re_mixed @@ U"1'b1")
+          dec_sample.im := dec_sample.im + (im_mixed @@ U"1'b1")
         }
 
         when(dec_counter.willOverflow) {

@@ -35,6 +35,7 @@ class TB:
         bus._add_signal("tready", "io_iq_ready")
         self.sample_input = axi.AxiStreamSource(bus, dut.clk, byte_size=16)
         self.sample_input.log.setLevel(logging.WARNING) # Get rid of log messages
+        # self.sample_input.set_pause_generator(itertools.cycle([1, 0, 1, 0, 0]))
 
         # Fine sample input monitor
         bus_fine = axi.AxiStreamBus(self.dut)
@@ -43,11 +44,13 @@ class TB:
         bus_fine._add_signal("tready", "fake_iq_ready")
         self.fine_sample_input = axi.AxiStreamMonitor(bus_fine, dut.clk, byte_size=16)
         self.fine_sample_input.log.setLevel(logging.WARNING) # Get rid of log messages
-        # self.sample_input.set_pause_generator(itertools.cycle([1, 0, 1, 0, 0]))
+        # print(self.fine_sample_input._signals, self.fine_sample_input._optional_signals, self.sample_input._signals)
+
+        cocotb.start_soon(self.state_triggers())
 
     def send_samples(self, count=1e5, sv=1, doppler=0, sample_phase=0, noise=True):
-        # power = -120 if noise else None
-        power = -100 if noise else None
+        power = -120 if noise else None
+        # power = -100 if noise else None
 
         # 3/4 is about optimal for 33% magnitude bit density (per MAX2769 datasheet)
         self.samples = 3/4 * 127 * gps_sim.generate_gps(self.fs, int(count), sv, doppler, sample_phase=sample_phase, signal_power=power)
@@ -69,27 +72,20 @@ class TB:
         await ClockCycles(self.dut.clk, 2)
         self.dut.reset.value = 0
 
-    async def get_fine_offset(self):
+    async def state_triggers(self):
+        last_state = ""
+
         while True:
             await Edge(self.dut.fsm_stateReg)
             await RisingEdge(self.dut.clk)
 
-            state = self.dut.fsm_stateReg_string.value.buff.decode().strip()
+            state: str = self.dut.fsm_stateReg_string.value.buff.decode().strip()
             self.dut._log.info(f"State: {state}")
 
-            if state.startswith("fine1"):
-                self.fine_sample_input.clear()
+            if state.startswith("evaluate") and last_state.startswith("fine2"):
+                self.dec_samples = self.fine_sample_input.read_nowait()
 
-            if state.startswith("fine2"):
-                self.phase_info = [
-                    self.dut.io_iq_payload.value.integer >> 4,
-                    self.dut.fsm_fine1_iq_phase.value.integer,
-                    self.dut.fsm_fine1_prn_phase.value.integer
-                ]
-
-                self.dut._log.info(self.phase_info)
-
-                return
+            last_state = state
 
 @cocotb.test()
 async def test_acquisition(dut):
@@ -100,10 +96,9 @@ async def test_acquisition(dut):
 
     ref_phase = 5 # out of 4096
     sample_phase = ref_phase - 4 if ref_phase >= 4096/2 else ref_phase # out of 4092
-    tb.send_samples(doppler=0, sample_phase=sample_phase, noise=True)
+    tb.send_samples(doppler=-500, sample_phase=sample_phase, noise=True)
 
-    await with_timeout(tb.get_fine_offset(), 2, "ms")
-    await ClockCycles(dut.clk, 10_000)
+    await ClockCycles(dut.clk, 85_000)
 
     result_freq = dut.fsm_max_freq.value.signed_integer
     result_phase = dut.fsm_max_idx.value.integer
@@ -134,10 +129,10 @@ async def test_acquisition(dut):
     # Check fine acquisition
     dec_samples = inputs[-1][0]
     dec_fft = outputs[-1][0]
-    start_idx = 4096 + tb.phase_info[0] + ((tb.phase_info[0] + 512) >> 10)
-    dec_samples_ref = tb.samples[start_idx:start_idx+4096*8]
-    dec_samples_ref = dec_samples_ref * prn.sample(1, 4.092e6, 4096*8, offset_samples=ref_phase)
-    dec_samples_ref = np.sum(dec_samples_ref.reshape(-1, 8), axis=1)
+    # start_idx = 4096 + tb.phase_info[0] + ((tb.phase_info[0] + 512) >> 10)
+    # dec_samples_ref = tb.samples[start_idx:start_idx+4096*8]
+    # dec_samples_ref = dec_samples_ref * prn.sample(1, 4.092e6, 4096*8, offset_samples=ref_phase)
+    # dec_samples_ref = np.sum(dec_samples_ref.reshape(-1, 8), axis=1)
 
     plt.figure(figsize=(12, 12), dpi=150)
 
@@ -206,19 +201,19 @@ async def test_acquisition(dut):
     plt.savefig("mixed.png")
 
     # Fine acquisition
-    corr = np.correlate(dec_samples, dec_samples_ref, mode="full")
+    # corr = np.correlate(dec_samples, dec_samples_ref, mode="full")
     # corr1 = np.correlate(dec_samples, prn.sample(1, 4.092e6), mode="full")
     plt.figure()
 
-    plt.subplot(2, 1, 1)
+    # plt.subplot(2, 1, 1)
     # plt.plot(np.abs(dec_samples))
-    plt.plot(np.abs(corr))
-    plt.title(f"{np.argmax(np.abs(corr))}")
+    # plt.plot(np.abs(corr))
+    # plt.title(f"{np.argmax(np.abs(corr))}")
     # plt.title(f"{np.mean(tb.samples):.2f}, {np.mean(dec_samples):.2f}")
 
-    plt.subplot(2, 1, 2)
+    # plt.subplot(2, 1, 2)
     plt.plot(np.abs(dec_fft))
-    plt.title(f"{np.argmax(np.abs(dec_fft))}")
+    plt.title(f"FFT of decimated signal, max at {np.argmax(np.abs(dec_fft))}")
 
     plt.tight_layout()
     plt.savefig("fine.png")

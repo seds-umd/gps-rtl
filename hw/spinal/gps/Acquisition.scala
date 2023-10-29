@@ -89,6 +89,8 @@ case class Acquisition(
     val max_idx = Reg(UInt(fft_size_log bits))
     val max_freq = Reg(SInt(shift.getWidth bits))
     val max_freq_fine = Reg(SInt(fft_size_log bits))
+    val fine_mean = Reg(UInt(8+fft_size_log bits))
+    val fine_max = Reg(UInt(8 bits))
 
     val ref_phase = Reg(UInt(log2Up(period) bits))
 
@@ -337,7 +339,7 @@ case class Acquisition(
         // TODO: pipeline these?
         mag.io.re := sample.re
         mag.io.im := sample.im
-        mag.io.ready := fft.inst.io.m_axis_data.fire
+        mag.io.ready := fft.inst.io.m_axis_data.fire | Delay(fft.inst.io.m_axis_data.fire, mag_delay)
 
         when(fft.inst.io.m_axis_data.fire) {
           sample_counter.increment()
@@ -348,11 +350,16 @@ case class Acquisition(
         }
 
         when(mag_valid) {
+          when(mode_fine) {
+            fine_mean := fine_mean + mag.io.mag
+          }
+
           when(mag_abs > max_mag) {
             max_mag := mag_abs
-            
+
             when(mode_fine) {
-              max_freq_fine := mag_counter.resized.asSInt // FFT frequencies are in twos comp order
+              // FFT frequencies are in twos comp order
+              max_freq_fine := mag_counter.resized.asSInt
             } otherwise {
               max_freq := shift
               max_idx := (mag_counter - ref_phase).resized
@@ -364,6 +371,9 @@ case class Acquisition(
 
             when(mode_fine) {
               goto(results)
+
+              fine_mean := ((fine_mean + mag.io.mag) >> fft_size_log).resized
+              fine_max := (max_mag >> mag_exp).resized
             } otherwise {
               when(shift === freq_shift) {
                 goto(fine1)
@@ -438,15 +448,18 @@ case class Acquisition(
 
       whenIsActive {
         io.iq.ready := True
-        fake_iq_ready := True
+
+        when(fft.data_in_last) {
+          io.iq.ready := False
+        }
 
         when(io.iq.fire) {
           dec_counter.increment()
           prn2.io.code.ready := True
 
           // Mix samples with PRN code (TODO: does sign matter?)
-          val re_mixed = prn2.io.code.payload ? iq_complex.c.re | -iq_complex.c.re
-          val im_mixed = prn2.io.code.payload ? iq_complex.c.im | -iq_complex.c.im
+          val re_mixed = prn2.io.code.payload ? -iq_complex.c.re | iq_complex.c.re
+          val im_mixed = prn2.io.code.payload ? -iq_complex.c.im | iq_complex.c.im
 
           dec_sample.re := dec_sample.re + (re_mixed @@ U"1'b1")
           dec_sample.im := dec_sample.im + (im_mixed @@ U"1'b1")
@@ -470,14 +483,26 @@ case class Acquisition(
           when(sample_counter === fft_size - 1) {
             mode_fine := True
             max_mag := 0
+            sample_counter.clear()
+            fine_mean := (1 << (fft_size_log-1))
             goto(evaluate)
           }
         }
+
+        fake_iq_ready := io.iq.ready
       }
     }
 
     // Send out results, increment SV, start over
-    val results: State = new State {}
+    val results: State = new State {
+      onEntry {
+
+      }
+
+      whenIsActive {
+
+      }
+    }
   }
 }
 

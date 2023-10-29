@@ -1,28 +1,25 @@
 [*]
 [*] GTKWave Analyzer v3.3.103 (w)1999-2019 BSI
-[*] Tue Oct 24 15:28:51 2023
+[*] Sat Oct 28 23:36:17 2023
 [*]
 [dumpfile] "/home/nathan/seds/gps-rtl/hw/tb/Acqusition/sim_build/Acquisition.fst"
-[dumpfile_mtime] "Tue Oct 24 15:28:24 2023"
-[dumpfile_size] 330
+[dumpfile_mtime] "Sat Oct 28 23:34:59 2023"
+[dumpfile_size] 1455355
 [savefile] "/home/nathan/seds/gps-rtl/hw/tb/Acqusition/Acquisition.gtkw"
-[timestart] 1969800000
+[timestart] 1638918300
 [size] 1908 1007
-[pos] 31 31
-*-24.649511 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+[pos] -1 -1
+*-16.006443 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
 [treeopen] Acquisition.
-[sst_width] 326
+[sst_width] 309
 [signals_width] 286
 [sst_expanded] 1
 [sst_vpaned_height] 295
 @28
 Acquisition.clk
-@200
--
 @820
 Acquisition.fsm_stateReg_string[87:0]
 @24
-Acquisition.fsm_sv[5:0]
 Acquisition.fsm_sample_counter_value[12:0]
 @200
 -
@@ -30,7 +27,7 @@ Acquisition.fsm_sample_counter_value[12:0]
 @28
 Acquisition.io_iq_ready
 Acquisition.io_iq_valid
-@c00022
+@c00024
 Acquisition.io_iq_payload[15:0]
 @28
 (0)Acquisition.io_iq_payload[15:0]
@@ -114,7 +111,7 @@ Acquisition.fft_inst.m_axis_data_tlast
 @200
 -
 -Evaluate
-@22
+@420
 Acquisition.fsm_evaluate_sample_re[7:0]
 Acquisition.fsm_evaluate_sample_im[7:0]
 @10024
@@ -133,8 +130,6 @@ Acquisition.fsm_max_idx[11:0]
 @200
 -
 -Fine
-@28
-Acquisition.fsm_fine1_flush_done
 @c00024
 Acquisition.fsm_fine1_iq_phase[11:0]
 @28
@@ -154,10 +149,9 @@ Acquisition.fsm_fine1_iq_phase[11:0]
 -group_end
 @24
 Acquisition.fsm_fine1_prn_phase[11:0]
-Acquisition.fsm_fine2_dec_counter_value[2:0]
-@420
-Acquisition.fsm_fine2_dec_sample_re[7:0]
-Acquisition.fsm_fine2_dec_sample_im[7:0]
+Acquisition.fsm_fine_max[7:0]
+@25
+Acquisition.fsm_fine_mean[19:0]
 @200
 -
 -Results

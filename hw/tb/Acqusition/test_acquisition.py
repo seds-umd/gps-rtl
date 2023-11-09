@@ -44,7 +44,6 @@ class TB:
         bus_fine._add_signal("tready", "fake_iq_ready")
         self.fine_sample_input = axi.AxiStreamMonitor(bus_fine, dut.clk, byte_size=16)
         self.fine_sample_input.log.setLevel(logging.WARNING) # Get rid of log messages
-        # print(self.fine_sample_input._signals, self.fine_sample_input._optional_signals, self.sample_input._signals)
 
         cocotb.start_soon(self.state_triggers())
 
@@ -54,7 +53,7 @@ class TB:
 
         # 3/4 is about optimal for 33% magnitude bit density (per MAX2769 datasheet)
         self.samples = 3/4 * 127 * gps_sim.generate_gps(self.fs, int(count), sv, doppler, sample_phase=sample_phase, signal_power=power)
-        self.samples = self.samples - np.mean(self.samples) # remove bias (for some reason?)
+        # self.samples = self.samples - np.mean(self.samples) # remove bias (for some reason?)
         timestamp = np.tile(np.arange(4092), int(len(self.samples)/4092)+1).astype(np.uint16)[0:len(self.samples)]
 
         # Convert to 4 bit format
@@ -83,7 +82,17 @@ class TB:
             self.dut._log.info(f"State: {state}")
 
             if state.startswith("evaluate") and last_state.startswith("fine2"):
-                self.dec_samples = self.fine_sample_input.read_nowait()
+                dec_samples = self.fine_sample_input.read_nowait()
+                dec_samples = np.array(dec_samples)
+
+                self.dec_phase = dec_samples[0] >> 4
+
+                dec_samples = dec_samples & 0xF
+                dec_samples = dec_samples.astype(np.uint8)
+                dec_samples_re = (((dec_samples & 0x3) << 6) + 0b100000).astype(np.int8)
+                dec_samples_im = (((dec_samples & 0xC) << 4) + 0b100000).astype(np.int8)
+
+                self.dec_samples = dec_samples_re + dec_samples_im*1j
 
             last_state = state
 
@@ -94,9 +103,9 @@ async def test_acquisition(dut):
 
     await tb.reset()
 
-    ref_phase = 5 # out of 4096
+    ref_phase = 300 # out of 4096
     sample_phase = ref_phase - 4 if ref_phase >= 4096/2 else ref_phase # out of 4092
-    tb.send_samples(doppler=-500, sample_phase=sample_phase, noise=True)
+    tb.send_samples(doppler=600, sample_phase=sample_phase, noise=True)
 
     await ClockCycles(dut.clk, 85_000)
 
@@ -130,9 +139,11 @@ async def test_acquisition(dut):
     dec_samples = inputs[-1][0]
     dec_fft = outputs[-1][0]
     # start_idx = 4096 + tb.phase_info[0] + ((tb.phase_info[0] + 512) >> 10)
-    # dec_samples_ref = tb.samples[start_idx:start_idx+4096*8]
-    # dec_samples_ref = dec_samples_ref * prn.sample(1, 4.092e6, 4096*8, offset_samples=ref_phase)
-    # dec_samples_ref = np.sum(dec_samples_ref.reshape(-1, 8), axis=1)
+    dec_samples_ref = tb.dec_samples
+    # log.info(f"{dec_samples_ref[0:10]}, {type(dec_samples_ref)}, {type(dec_samples_ref[0])}")
+    dec_samples_ref = dec_samples_ref * prn.sample(1, 4.092e6, 4096*8, offset_samples=ref_phase+tb.dec_phase)
+    dec_samples_ref = np.sum(dec_samples_ref.reshape(-1, 8), axis=1)
+    dec_fft_ref = np.fft.fft(dec_samples_ref / 127)
 
     plt.figure(figsize=(12, 12), dpi=150)
 
@@ -201,19 +212,23 @@ async def test_acquisition(dut):
     plt.savefig("mixed.png")
 
     # Fine acquisition
-    # corr = np.correlate(dec_samples, dec_samples_ref, mode="full")
-    # corr1 = np.correlate(dec_samples, prn.sample(1, 4.092e6), mode="full")
-    plt.figure()
+    corr = np.correlate(dec_samples, dec_samples_ref, mode="full")
+    # assert np.argmax(np.abs(corr)) == 4095, np.argmax(np.abs(corr))
+    plt.figure(figsize=(6, 8), dpi=150)
 
-    # plt.subplot(2, 1, 1)
-    # plt.plot(np.abs(dec_samples))
-    # plt.plot(np.abs(corr))
-    # plt.title(f"{np.argmax(np.abs(corr))}")
-    # plt.title(f"{np.mean(tb.samples):.2f}, {np.mean(dec_samples):.2f}")
+    plt.subplot(3, 1, 1)
+    plt.plot(np.abs(corr))
+    plt.title(f"Ref vs sim corr, max at {np.argmax(np.abs(corr))}")
 
-    # plt.subplot(2, 1, 2)
+    plt.subplot(3, 1, 2)
+    plt.plot(np.abs(dec_fft_ref))
+    plt.xlim([0, 16])
+    plt.title(f"Ref FFT, max at {np.argmax(np.abs(dec_fft_ref))}, mean {np.mean(dec_fft_ref):.2f}")
+
+    plt.subplot(3, 1, 3)
     plt.plot(np.abs(dec_fft))
-    plt.title(f"FFT of decimated signal, max at {np.argmax(np.abs(dec_fft))}")
+    plt.xlim([0, 16])
+    plt.title(f"FFT of decimated signal, max at {np.argmax(np.abs(dec_fft))}, mean {np.mean(dec_fft):.2f}")
 
     plt.tight_layout()
     plt.savefig("fine.png")
@@ -230,4 +245,3 @@ async def test_acquisition(dut):
     assert np.argmax(np.abs(corr)) == 4095, np.argmax(np.abs(corr))
 
     assert result_phase == ref_phase, f"{result_phase}, {ref_phase}"
-

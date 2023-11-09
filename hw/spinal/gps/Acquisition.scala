@@ -392,7 +392,7 @@ case class Acquisition(
       val flush_done = Reg(Bool())
 
       val prn_phase = to4096(prn2.io.sample_count)
-      val iq_phase = to4096(iq_complex.t)
+      val iq_phase = to4096(iq_complex.t) + 1 // No idea why +1
 
       /* max_idx + ref_phase === prn_phase - iq_phase
        *
@@ -458,11 +458,11 @@ case class Acquisition(
           prn2.io.code.ready := True
 
           // Mix samples with PRN code (TODO: does sign matter?)
-          val re_mixed = prn2.io.code.payload ? -iq_complex.c.re | iq_complex.c.re
-          val im_mixed = prn2.io.code.payload ? -iq_complex.c.im | iq_complex.c.im
+          val re_mixed = prn2.io.code.payload ? iq_complex.c.re | -iq_complex.c.re
+          val im_mixed = prn2.io.code.payload ? iq_complex.c.im | -iq_complex.c.im
 
-          dec_sample.re := dec_sample.re + (re_mixed @@ U"1'b1")
-          dec_sample.im := dec_sample.im + (im_mixed @@ U"1'b1")
+          dec_sample.re := dec_sample.re + (re_mixed @@ U"1'b1").resized
+          dec_sample.im := dec_sample.im + (im_mixed @@ U"1'b1").resized
         }
 
         when(dec_counter.willOverflow) {

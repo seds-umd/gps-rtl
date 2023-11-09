@@ -1,15 +1,14 @@
 module three_wire_spi 
 #(
-    parameter div=50,
-    //parameter reg0=32'ha2919a3,
-    parameter reg0=28'h0000001,
-    parameter reg1=28'h0550288,
-    parameter reg2=28'heaff1dc,
-    parameter reg3=28'h9ec0008,
-    parameter reg4=28'h0c00080,
-    parameter reg5=28'h8000070,
-    parameter reg6=28'h8000000,
-    parameter reg7=28'h10061b2
+    parameter div=100,
+    parameter reg0=28'hA2951A3, // Config 1
+    parameter reg1=28'h8550488, // Config 2
+    parameter reg2=28'hE6FFDF2, // Config 3
+    parameter reg3=28'h9EC0008, // PLL Config
+    parameter reg4=28'h00C0008, // PLL integer division ratio
+    parameter reg5=28'h4000070, // PLL fractional division ratio
+    parameter reg6=28'h8000000, // Reserved
+    parameter reg7=28'h10061B6  // Clock fractional division ratio
 )
 (
     input wire clk, rst,
@@ -23,7 +22,7 @@ reg [7:0] clk_cnt = 0;
 reg [3:0] reg_cnt = 0;
 reg [6:0] b_cnt = 0;
 
-assign SCLK = (clk_cnt < (div >> 1)) & (b_cnt > 1) & (clk_cnt != 0);
+assign SCLK = (clk_cnt > (div >> 1)) & (b_cnt > 1) & (clk_cnt != 0);
 
 always @(posedge clk)
     if (rst) begin

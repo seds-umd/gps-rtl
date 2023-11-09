@@ -1,0 +1,32 @@
+[*]
+[*] GTKWave Analyzer v3.3.103 (w)1999-2019 BSI
+[*] Fri Oct 27 01:28:56 2023
+[*]
+[dumpfile] "/home/abigu/gps-rtl/hw/tb/ThreeWireSPI/sim_build/three_wire_spi.fst"
+[dumpfile_mtime] "Fri Oct 27 01:28:36 2023"
+[dumpfile_size] 1140
+[savefile] "/home/abigu/gps-rtl/hw/tb/ThreeWireSPI/three_wire_spi.gtkw"
+[timestart] 0
+[size] 1908 1107
+[pos] 32767 32767
+*-12.000000 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+[sst_width] 214
+[signals_width] 126
+[sst_expanded] 1
+[sst_vpaned_height] 330
+@28
+three_wire_spi.CS
+three_wire_spi.SCLK
+three_wire_spi.SDATA
+@22
+three_wire_spi.b_cnt[6:0]
+@28
+three_wire_spi.clk
+@22
+three_wire_spi.clk_cnt[7:0]
+@28
+three_wire_spi.clk_en
+@23
+three_wire_spi.reg_cnt[3:0]
+[pattern_trace] 1
+[pattern_trace] 0

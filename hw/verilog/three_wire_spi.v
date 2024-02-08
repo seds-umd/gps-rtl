@@ -1,19 +1,27 @@
-module three_wire_spi 
-#(
-    parameter div=100,
-    parameter reg0=28'hA2951A3, // Config 1
-    parameter reg1=28'h8550488, // Config 2
-    parameter reg2=28'hE6FFDF2, // Config 3
-    parameter reg3=28'h9EC0008, // PLL Config
-    parameter reg4=28'h00C0008, // PLL integer division ratio
-    parameter reg5=28'h4000070, // PLL fractional division ratio
-    parameter reg6=28'h8000000, // Reserved
-    parameter reg7=28'h10061B6  // Clock fractional division ratio
+module ThreeWireSpi #(
+    parameter div=100
+    // parameter reg0=28'hA2951A3, // Config 1
+    // parameter reg1=28'h8550488, // Config 2
+    // parameter reg2=28'hE6FFDF2, // Config 3
+    // parameter reg3=28'h9EC0008, // PLL Config
+    // parameter reg4=28'h00C0008, // PLL integer division ratio
+    // parameter reg5=28'h4000070, // PLL fractional division ratio
+    // parameter reg6=28'h8000000, // Reserved
+    // parameter reg7=28'h10061B6  // Clock fractional division ratio
 )
 (
     input wire clk, rst,
     output SCLK, 
-    output reg CS, SDATA
+    output reg CS, SDATA,
+
+    input [27:0] reg0,
+    input [27:0] reg1,
+    input [27:0] reg2,
+    input [27:0] reg3,
+    input [27:0] reg4,
+    input [27:0] reg5,
+    input [27:0] reg6,
+    input [27:0] reg7
 );
 
 reg clk_en = 0; 

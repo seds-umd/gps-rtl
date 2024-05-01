@@ -44,17 +44,18 @@ class FFT_Sim:
             size (int): Log2 of size of FFT.
             arch (int): 1=radix 4, 2=radix 2, 3=pipelined, 4=radix 2 lite
             delay (int, optional): Processing delay of core. Defaults to 0.
-            store (bool, optional): If True, store all inputs and outputs. Defaults to False.
+            store (bool, optional): If True, store all inputs and outputs for debugging. Defaults to False.
         """
 
         self.module = module
         self.log = logging.getLogger(f"cocotb.Xilinx_FFT")
 
+        # Create xilinx_fft module to use bit accurate C model
         self.size_log = size
         self.size = 2**size
         self.fft = xilinx_fft.Fft(size, arch)
 
-        self.delay = delay
+        self.delay = delay # TODO: implement delay
         self.fft_inv = False
 
         self.store = store
@@ -108,6 +109,8 @@ class FFT_Sim:
         cocotb.start_soon(self._handle_data())
 
     async def _handle_config(self):
+        """Process config packets as they come in on the config bus.
+        """
         while True:
             frame = await self.config_axis.recv()
 
@@ -116,6 +119,8 @@ class FFT_Sim:
             self.log.info("FFT direction set to " + dir_str)
 
     async def _handle_data(self):
+        """Run FFT on data packets.
+        """
         while True:
             frame = await self.data_in_axis.recv()
             self.log.info("Received data")

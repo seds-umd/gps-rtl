@@ -69,6 +69,7 @@ case class MaxInterface(iq_size: Int = 2, period: Int = 4092) extends Component 
     fifo_push_payload.t := phase_counter
 
     val dump_bit_index = Reg(UInt(4 bits)) init 0 // up to 16
+
     // Dump registers to FIFO
     when(dump_reg) {
       dump_bit_index := dump_bit_index + 1
@@ -86,7 +87,6 @@ case class MaxInterface(iq_size: Int = 2, period: Int = 4092) extends Component 
         fifo_push_payload.c.im := (sample_reg(~reg_index)(2)(dump_bit_index) ## 
                                 sample_reg(~reg_index)(3)(dump_bit_index)).asSInt
       }
-
 
       // Stop when out of bits unless new bits are ready
       when((dump_bit_index === 15)) {

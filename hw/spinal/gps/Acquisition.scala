@@ -12,7 +12,7 @@ case class Acquisition(
     iq_size: Int = 2,
     fft_size: Int = 4096,
     fft_width: Int = 8,
-    freq_shift: Int = 24,
+    freq_shift: Int = 24, // Increasing this number makes the code ITAR
     dec_factor: Int = 8,
     period: Int = 4092,
     flush: Boolean = true
@@ -58,12 +58,14 @@ case class Acquisition(
     inst.io.m_axis_status.ready := True // Don't need status stream
   }
 
+  // Used for initial acquisition
   val prn1 = PRN()
   val prn1_ready = Reg(Bool()) init False
   prn1.io.inc := U"17'h4000" // TODO: automatically calculate based on sample rate
   prn1.io.set := False
   prn1.io.code.ready := prn1_ready
 
+  // Used for code removal in fine acquisition
   val prn2 = PRN()
   prn2.io.inc := U"17'h4000"
   prn2.io.set := False
@@ -91,6 +93,7 @@ case class Acquisition(
     // Initialize FFT config and flush sample FIFO
     val init: State = new State with EntryPoint {
       onStart {
+        // Set FFT config to forward FFT
         fft.config_payload := 1
         fft.config_valid := True
 
@@ -103,11 +106,12 @@ case class Acquisition(
       }
 
       whenIsActive {
-
+        // Finish FFT config
         when(fft.inst.io.s_axis_config.fire) {
           fft.config_valid := False
         }
 
+        // Flush FIFO to get fresh samples
         if (flush) {
           io.iq.ready := True
 
@@ -128,7 +132,7 @@ case class Acquisition(
 
     // Get samples and perform FFT
     val samples_in: State = new State {
-      // Normalize and offset to compensate for twos comp bias
+      // Normalize and offset by 1/2 bit to compensate for twos comp bias
       val real = iq_complex.c.re @@ U"6'b100000"
       val imag = iq_complex.c.im @@ U"6'b100000"
       val ref_done = Reg(Bool()) init False
@@ -138,16 +142,18 @@ case class Acquisition(
         fft.data_in_valid := io.iq.valid
         fft.data_in_payload := imag ## real
 
+        // Record phase of first sample
         when(io.iq.fire & ~ref_done) {
-          ref_phase := iq_complex.t + iq_complex.t(10, 2 bits) // 4092 to 4096
+          ref_phase := iq_complex.t + iq_complex.t(10, 2 bits) // Convert 4092 to 4096
           ref_done := True
         }
 
         when(fft.inst.io.s_axis_data.fire) {
           sample_counter.increment()
 
+          // Indicate last sample
           when(sample_counter === fft_size - 2) {
-            fft.data_in_valid := True
+            fft.data_in_valid := True // TODO: I forget why this needs to force valid but it seems unnecessary and bad?
             fft.data_in_last := True
           }
 
@@ -162,16 +168,16 @@ case class Acquisition(
       }
     }
 
-    // Process output of FFT and store in memory
+    // Conjugate output of FFT and store in memory
     val samples_out: State = new State {
       whenIsActive {
         fft.data_out_ready := True
 
         when(fft.inst.io.m_axis_data.fire) {
-          val data1 = fft.inst.io.m_axis_data.payload.data.as(Complex(fft_width))
-          val data2 = -data1.im ## data1.re
+          val data_out = fft.inst.io.m_axis_data.payload.data.as(Complex(fft_width))
+          val data_conj = -data_out.im ## data_out.re
 
-          sample_mem(sample_counter(0, fft_size_log bits)) := data2
+          sample_mem(sample_counter(0, fft_size_log bits)) := data_conj
           sample_counter.increment()
 
           when(sample_counter === fft_size - 1) {
@@ -185,13 +191,13 @@ case class Acquisition(
 
     // Generate PRN and perform FFT
     val prn_in: State = new State {
-      // Offset PRN to fix timing
+      // Offset PRN to fix timing (TODO: I forget why)
       onEntry {
         prn1_ready := True
       }
 
       whenIsActive {
-        // Scale PRN to +-1 and set imaginary component to zero
+        // Scale PRN to +-1 (127/-128) and zero imaginary component
         val prn_extended = prn1.io.code.payload.asSInt.resize(8 bits) ^ S"8'b10000000"
         fft.data_in_payload := U"8'h0" ## prn_extended
         fft.data_in_valid := prn1.io.code.valid
@@ -267,7 +273,7 @@ case class Acquisition(
         when(advance) {
           sample_counter.increment()
 
-          // Stage 1
+          // Stage 1 - get IQ sample and PRN sample
           s1_sample := sample_mem.readSync(sample_counter(0, fft_size_log bits)).as(Complex(fft_width))
           val prn_addr = sample_counter.value.intoSInt + shift // Do frequency shift
           s1_prn := prn_mem.readSync(prn_addr.asUInt(0, fft_size_log bits)).as(Complex(fft_width))
@@ -278,12 +284,16 @@ case class Acquisition(
           s2_im_mix1 := s1_sample.re * s1_prn.im
           s2_im_mix2 := s1_sample.im * s1_prn.re
 
-          // Stage 3
+          // Stage 3 - sum real and imaginary terms
           s3_re_mix := s2_re_mix1 - s2_re_mix2
           s3_im_mix := s2_im_mix1 + s2_im_mix2
 
-          // Stage 4
-          // This probably cuts off bits but it still works better for some reason
+          // Stage 4 - truncate back to 8 bits
+          // 8 bits doesn't provide enough dynamic range, so we have to do the
+          // mixing in 16 bits then truncate to 8 bits. The offset of 3 is a
+          // guess of where the magnitude of the result might be. This
+          // definitely cuts off bits in some cases, but still works.
+          // TODO: do this better, maybe saturate with upper bits?
           val data_re = s3_re_mix.sign ## s3_re_mix(3, 7 bits)
           val data_im = s3_im_mix.sign ## s3_im_mix(3, 7 bits)
           fft.data_in_payload := data_im ## data_re
@@ -311,6 +321,7 @@ case class Acquisition(
     val evaluate: State = new State {
       val sample = fft.inst.io.m_axis_data.payload.data.as(Complex(fft_width))
 
+      // Set up magnitude approximator
       val mag = Magnitude()
       mag.io.re := 0
       mag.io.im := 0
@@ -319,7 +330,8 @@ case class Acquisition(
       val mag_delay = 5
       val mag_counter = Delay(sample_counter.value(0, fft_size_log bits), mag_delay)
       val mag_exp = Delay(fft.inst.io.m_axis_data.payload.user, mag_delay).asUInt
-      val mag_abs = mag.io.mag << mag_exp(0, 4 bits) // Hopefully exponent will never be greater than 15
+      // Hopefully exponent will never be greater than 4 bits (TODO: saturate)
+      val mag_abs = mag.io.mag << mag_exp(0, 4 bits)
       val mag_valid = Delay(fft.inst.io.m_axis_data.fire, mag_delay)
 
       io.temp_fft_index <> max_idx
@@ -344,7 +356,7 @@ case class Acquisition(
         when(mag_valid) {
           when(mag_abs > max_mag) {
             max_mag := mag_abs
-            
+
             when(mode_fine) {
               max_freq_fine := mag_counter.resized.asSInt // FFT frequencies are in twos comp order
             } otherwise {
@@ -375,8 +387,8 @@ case class Acquisition(
     val fine1: State = new State {
       val flush_done = Reg(Bool())
 
-      val prn_phase = prn2.io.sample_count + prn2.io.sample_count(10, 2 bits) // 4092 to 4096
-      val iq_phase = iq_complex.t + iq_complex.t(10, 2 bits) // 4092 to 4096
+      val prn_phase = prn2.io.sample_count + prn2.io.sample_count(10, 2 bits) // Convert 4092 to 4096
+      val iq_phase = iq_complex.t + iq_complex.t(10, 2 bits) // Convert 4092 to 4096
 
       onEntry {
         flush_done := False
@@ -445,7 +457,7 @@ case class Acquisition(
           when(sample_counter === fft_size - 1) {
             fft.data_in_last := True
           }
-        } elsewhen(fft.inst.io.s_axis_data.fire) {
+        } elsewhen (fft.inst.io.s_axis_data.fire) {
           fft.data_in_valid := False
           fft.data_in_last := False
           sample_counter.increment()

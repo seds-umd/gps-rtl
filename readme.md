@@ -81,3 +81,7 @@ Currently hard coded for $\alpha = 61/64$, $\beta = 13/32$, but could be paramet
 ## PRN
 
 ## XilinxFFT
+
+Wrapper for Xilinx's FFT core. By default, N=4096 (size 12), radix-4 architecture.
+
+Xilinx IP manual [here](https://www.xilinx.com/support/documents/ip_documentation/xfft/v9_1/pg109-xfft.pdf).

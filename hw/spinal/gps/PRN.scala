@@ -28,12 +28,16 @@ case class PRN() extends Component {
   io.code_count <> code_count
   io.sample_count <> sample_count
 
+  // Absolute sample count for debugging. Will be optimized out in synthesis.
+  val debug_count = Counter(64 bits, io.code.fire)
+
   when(io.set) {
     chip_fraction := U"16'h8000"
     increment := io.inc
 
     code_count.clear()
     sample_count.clear()
+    debug_count.clear()
   } elsewhen(io.code.ready) {
     chip_fraction := chip_fraction_next(15 downto 0)
   }

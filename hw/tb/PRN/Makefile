@@ -7,6 +7,8 @@ MODULE = test_prn
 # This is a list of all Verilog files needed, can also use VHDL_SOURCES
 VERILOG_SOURCES = $(PWD)/../../gen/$(DUT).v
 
+SPINAL = "runMain gps.PrnVerilog"
+
 # Simulator settings
 TOPLEVEL_LANG = verilog
 SIM = icarus

@@ -19,3 +19,6 @@ waves: sim
 
 all:
 	@if grep -q "<failure />" "results.xml"; then exit 1; fi
+
+spinal: $(PWD)/../../spinal/gps/$(DUT).scala
+	cd $(PWD)/../../..; sbt $(SPINAL)

@@ -111,8 +111,8 @@ Parameters:
 
 ### Ports
 
-| Port | Type | Description |
-| - | - | - |
-| iq_in | `slave Stream (Complex(iq_size).asBits)` | Input samples |
-| iq_out | `master Stream (Complex(iq_size + factor_size).asBits)` | Output samples |
-| factor | `UInt(factor_size bits)` | Decimation factor |
+| Port   | Type                                                    | Description       |
+| ------ | ------------------------------------------------------- | ----------------- |
+| iq_in  | `slave Stream (Complex(iq_size).asBits)`                | Input samples     |
+| iq_out | `master Stream (Complex(iq_size + factor_size).asBits)` | Output samples    |
+| factor | `UInt(factor_size bits)`                                | Decimation factor |

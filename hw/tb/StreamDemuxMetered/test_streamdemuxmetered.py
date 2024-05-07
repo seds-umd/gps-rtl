@@ -1,5 +1,6 @@
 import cocotb
 from cocotb.clock import Clock
+import cocotb.result
 from cocotb.triggers import ClockCycles, with_timeout
 from cocotbext import axi
 
@@ -21,18 +22,18 @@ class TB:
 
         cocotb.start_soon(Clock(self.dut.clk, period=10, units="ns").start())
 
-        in_buses = [
-            stream_axis_bus(self.dut, f"io_inputs_{i}_") for i in range(self.lanes)
-        ]
-        self.axis_inputs = [
-            axi.AxiStreamSource(bus, self.dut.clk, self.dut.reset) for bus in in_buses
-        ]
-        for axis in self.axis_inputs:
-            axis.log.setLevel(logging.WARNING)
+        in_bus = stream_axis_bus(self.dut, "io_input_")
+        self.axis_input = axi.AxiStreamSource(in_bus, self.dut.clk, self.dut.reset)
+        self.axis_input.log.setLevel(logging.WARNING)
 
-        out_bus = stream_axis_bus(self.dut, "io_output_")
-        self.axis_output = axi.AxiStreamSink(out_bus, dut.clk, dut.reset)
-        self.axis_output.log.setLevel(logging.WARNING)
+        out_buses = [
+            stream_axis_bus(self.dut, f"io_outputs_{i}_") for i in range(self.lanes)
+        ]
+        self.axis_outputs = [
+            axi.AxiStreamSink(bus, self.dut.clk, self.dut.reset) for bus in out_buses
+        ]
+        for axis in self.axis_outputs:
+            axis.log.setLevel(logging.WARNING)
 
     async def reset(self):
         self.dut.reset.value = 0
@@ -42,12 +43,11 @@ class TB:
         self.dut.reset.value = 0
         await ClockCycles(self.dut.clk, 2)
 
-    async def run_test(self, sel: int, n: int):
-        assert sel < self.lanes, "Selection out of bounds"
-
+    async def run_test(self, n: int = 8):
         expected = np.random.bytes(n)
+        sel = np.random.randint(self.lanes)
 
-        self.axis_inputs[sel].send_nowait(expected)
+        self.axis_input.send_nowait(expected)
 
         self.dut.io_sel.value = sel
         self.dut.io_run.value = 1
@@ -55,22 +55,25 @@ class TB:
         self.dut.io_run.value = 0
         await ClockCycles(self.dut.clk, 5)
 
-        await with_timeout(self.axis_inputs[sel].idle_event.wait(), 1000, "ns")
+        await with_timeout(self.axis_input.idle_event.wait(), 1000, "ns")
 
-        actual = self.axis_output.read_nowait(64)
+        actual = self.axis_outputs[sel].read_nowait(n)
         actual = bytes(actual)
 
         assert actual == expected
 
 
 @cocotb.test()
-async def test_streammuxmetered(dut):
-    N = 8
-
+async def test_streamdemuxmetered(dut):
     tb = TB(dut)
     await tb.reset()
 
-    # Test runs
     for _ in range(100):
-        sel = np.random.randint(4)
-        await tb.run_test(sel, N)
+        await tb.run_test(8)
+
+    # Try to send too much data
+    try:
+        await tb.run_test(16)
+        assert False, "This should have thrown a timeout error"
+    except cocotb.result.SimTimeoutError:
+        pass

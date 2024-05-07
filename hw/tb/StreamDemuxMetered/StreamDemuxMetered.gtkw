@@ -1,0 +1,58 @@
+[*]
+[*] GTKWave Analyzer v3.3.103 (w)1999-2019 BSI
+[*] Tue May  7 22:14:05 2024
+[*]
+[dumpfile] "/home/nathan/seds/gps-rtl/hw/tb/StreamDemuxMetered/sim_build/StreamDemuxMeteredTest.fst"
+[dumpfile_mtime] "Tue May  7 22:13:20 2024"
+[dumpfile_size] 3229
+[savefile] "/home/nathan/seds/gps-rtl/hw/tb/StreamDemuxMetered/StreamDemuxMetered.gtkw"
+[timestart] 0
+[size] 1908 1007
+[pos] -1 -1
+*-20.000000 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+[sst_width] 237
+[signals_width] 230
+[sst_expanded] 1
+[sst_vpaned_height] 295
+@28
+StreamDemuxMeteredTest.clk
+StreamDemuxMeteredTest.reset
+StreamDemuxMeteredTest.io_run
+StreamDemuxMeteredTest.io_sel[1:0]
+@200
+-
+@800200
+-Input
+@22
+StreamDemuxMeteredTest.io_input_payload[7:0]
+@28
+StreamDemuxMeteredTest.io_input_ready
+StreamDemuxMeteredTest.io_input_valid
+@1000200
+-Input
+@800200
+-Outputs
+@22
+StreamDemuxMeteredTest.io_outputs_0_payload[7:0]
+@28
+StreamDemuxMeteredTest.io_outputs_0_ready
+StreamDemuxMeteredTest.io_outputs_0_valid
+@22
+StreamDemuxMeteredTest.io_outputs_1_payload[7:0]
+@28
+StreamDemuxMeteredTest.io_outputs_1_ready
+StreamDemuxMeteredTest.io_outputs_1_valid
+@22
+StreamDemuxMeteredTest.io_outputs_2_payload[7:0]
+@28
+StreamDemuxMeteredTest.io_outputs_2_ready
+StreamDemuxMeteredTest.io_outputs_2_valid
+@22
+StreamDemuxMeteredTest.io_outputs_3_payload[7:0]
+@28
+StreamDemuxMeteredTest.io_outputs_3_ready
+StreamDemuxMeteredTest.io_outputs_3_valid
+@1000200
+-Outputs
+[pattern_trace] 1
+[pattern_trace] 0

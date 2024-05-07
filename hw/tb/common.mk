@@ -14,8 +14,10 @@ endif
 
 include $(shell cocotb-config --makefiles)/Makefile.sim
 
+FST_FILE ?= sim_build/$(DUT).fst
+
 waves: sim
-	gtkwave sim_build/$(DUT).fst $(DUT).gtkw
+	gtkwave $(FST_FILE) $(DUT).gtkw
 
 all:
 	@if grep -q "<failure />" "results.xml"; then exit 1; fi

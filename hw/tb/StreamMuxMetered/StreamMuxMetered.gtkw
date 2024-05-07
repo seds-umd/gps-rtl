@@ -1,0 +1,70 @@
+[*]
+[*] GTKWave Analyzer v3.3.103 (w)1999-2019 BSI
+[*] Tue May  7 04:15:23 2024
+[*]
+[dumpfile] "/home/nathan/seds/gps-rtl/hw/tb/StreamMuxMetered/sim_build/StreamMuxMeteredTest.fst"
+[dumpfile_mtime] "Tue May  7 04:15:11 2024"
+[dumpfile_size] 5115
+[savefile] "/home/nathan/seds/gps-rtl/hw/tb/StreamMuxMetered/StreamMuxMetered.gtkw"
+[timestart] 0
+[size] 1908 1007
+[pos] -1 -1
+*-17.000000 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+[treeopen] StreamMuxMeteredTest.
+[sst_width] 214
+[signals_width] 222
+[sst_expanded] 1
+[sst_vpaned_height] 295
+@28
+StreamMuxMeteredTest.clk
+StreamMuxMeteredTest.reset
+StreamMuxMeteredTest.io_run
+StreamMuxMeteredTest.io_sel[1:0]
+@800200
+-Inputs
+@22
+StreamMuxMeteredTest.io_inputs_0_payload[7:0]
+@28
+StreamMuxMeteredTest.io_inputs_0_ready
+StreamMuxMeteredTest.io_inputs_0_valid
+@200
+-
+@22
+StreamMuxMeteredTest.io_inputs_1_payload[7:0]
+@28
+StreamMuxMeteredTest.io_inputs_1_ready
+StreamMuxMeteredTest.io_inputs_1_valid
+@200
+-
+@22
+StreamMuxMeteredTest.io_inputs_2_payload[7:0]
+@28
+StreamMuxMeteredTest.io_inputs_2_ready
+StreamMuxMeteredTest.io_inputs_2_valid
+@200
+-
+@22
+StreamMuxMeteredTest.io_inputs_3_payload[7:0]
+@28
+StreamMuxMeteredTest.io_inputs_3_ready
+StreamMuxMeteredTest.io_inputs_3_valid
+@1000200
+-Inputs
+@800200
+-Output
+@22
+StreamMuxMeteredTest.io_output_payload[7:0]
+@28
+StreamMuxMeteredTest.io_output_ready
+StreamMuxMeteredTest.io_output_valid
+@1000200
+-Output
+@28
+StreamMuxMeteredTest.streamMux_1.io_select[1:0]
+StreamMuxMeteredTest.mux_running
+@22
+StreamMuxMeteredTest.mux_counter[11:0]
+@28
+StreamMuxMeteredTest.mux_select_fire
+[pattern_trace] 1
+[pattern_trace] 0

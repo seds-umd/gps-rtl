@@ -85,3 +85,34 @@ Currently hard coded for $\alpha = 61/64$, $\beta = 13/32$, but could be paramet
 Wrapper for Xilinx's FFT core. By default, N=4096 (size 12), radix-4 architecture.
 
 Xilinx IP manual [here](https://www.xilinx.com/support/documents/ip_documentation/xfft/v9_1/pg109-xfft.pdf).
+
+## Decimate
+
+Simple decimation module used for fine acquisition. For every `factor` samples received, one sample is sent that is the sum of the input samples. The output has the same number of bits as the input, so the least significant bits are truncated. `factor` should be a power of 2 for best performance.
+
+Parameters:
+* `iq_size` - number of bits in a single I or Q value
+* `factor` - decimation factor
+
+### Ports
+
+| Port   | Type                                      | Description    |
+| ------ | ----------------------------------------- | -------------- |
+| iq_in  | `slave Stream (Complex(iq_size).asBits)`  | Input samples  |
+| iq_out | `master Stream (Complex(iq_size).asBits)` | Output samples |
+
+## TrackingDecimate
+
+Decimator for tracking system. The number of samples to sum is dynamically configurable, and no bits are truncated at the output.
+
+Parameters:
+* `iq_size` - number of bits in a single I or Q value at the input
+* `factor_size` - number of bits for the decimation factor
+
+### Ports
+
+| Port | Type | Description |
+| - | - | - |
+| iq_in | `slave Stream (Complex(iq_size).asBits)` | Input samples |
+| iq_out | `master Stream (Complex(iq_size + factor_size).asBits)` | Output samples |
+| factor | `UInt(factor_size bits)` | Decimation factor |

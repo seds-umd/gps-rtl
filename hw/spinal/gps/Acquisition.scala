@@ -28,6 +28,9 @@ case class Acquisition(
 
   io.iq.ready := False
 
+  // Convert from 4092 to 4096 as linearly as possible
+  def to4096(x: UInt): UInt = x + ((x +^ 512) >> 10)
+
   val sample_mem = Mem(Complex(fft_width).asBits, wordCount = fft_size)
   val prn_mem = Mem(Complex(fft_width).asBits, wordCount = fft_size)
   sample_mem.addAttribute("ram_style", "block")
@@ -40,14 +43,14 @@ case class Acquisition(
     val config_payload = Reg(Bits(8 bits)) init 0
 
     inst.io.s_axis_config.valid <> config_valid
-    inst.io.s_axis_config.payload.data <> config_payload
+    inst.io.s_axis_config.payload <> config_payload
 
     val data_in_valid = Reg(Bool()) init False
     val data_in_payload = Reg(Bits(16 bits)) init 0
     val data_in_last = Reg(Bool()) init False
 
     inst.io.s_axis_data.valid <> data_in_valid
-    inst.io.s_axis_data.payload.data <> data_in_payload
+    inst.io.s_axis_data.payload <> data_in_payload
     inst.io.s_axis_data.last <> data_in_last
 
     val data_out_ready = Reg(Bool()) init False
@@ -144,7 +147,7 @@ case class Acquisition(
 
         // Record phase of first sample
         when(io.iq.fire & ~ref_done) {
-          ref_phase := iq_complex.t + iq_complex.t(10, 2 bits) // Convert 4092 to 4096
+          ref_phase := to4096(iq_complex.t)
           ref_done := True
         }
 
@@ -385,13 +388,30 @@ case class Acquisition(
 
     // Adjust PRN generate for code offset and flush sample FIFO
     val fine1: State = new State {
+      /* All phases are converted to be out of 4096 before comparison
+       * 
+       * prn_phase is the absolute phase of the PRN generator
+       * iq_phase is the relative phase of incoming samples
+       * ref_phase is the relative phase of the first sample used for coarse acquisition
+       * max_idx is measured phase offset, the number of samples that ref_phase is ahead of the absolute phase
+       * 
+       * max_idx - ref_phase is the absolute phase offset: add this to iq_phase to get the current absolute phase
+       */
+
       val flush_done = Reg(Bool())
 
-      val prn_phase = prn2.io.sample_count + prn2.io.sample_count(10, 2 bits) // Convert 4092 to 4096
-      val iq_phase = iq_complex.t + iq_complex.t(10, 2 bits) // Convert 4092 to 4096
+      val prn_phase = to4096(prn2.io.sample_count)
+      val iq_phase_4096 = to4096(iq_complex.t)
+
+      // Absolute offset of current IQ sample
+      val iq_prn_offset = iq_phase_4096 + max_idx - ref_phase
 
       onEntry {
         flush_done := False
+
+        // Set FFT config to forward FFT
+        fft.config_payload := 1
+        fft.config_valid := True
       }
 
       whenIsActive {
@@ -407,75 +427,135 @@ case class Acquisition(
         }
 
         // Adjust PRN code
-        when(max_idx + ref_phase > prn_phase - iq_phase) {
-          prn2.io.code.ready := True
-        }
+        // when(iq_prn_offset > prn_phase) {
+          // prn2.io.code.ready := True
+        // }
 
         // Only continue when codes align and FIFO is flushed
-        when((max_idx + ref_phase === prn_phase - iq_phase) & flush_done) {
+        // Use counts out of 4092 to prevent skipped counts
+        val prn_sample_count_offset = UInt(12 bits)
+
+        when (prn2.io.sample_count === 0) {
+          prn_sample_count_offset := 4091
+        } otherwise {
+          prn_sample_count_offset := prn2.io.sample_count - 1
+        }
+
+        when((iq_complex.t === prn_sample_count_offset) & flush_done) {
           sample_counter.clear()
           goto(fine2)
+        }
+
+        // Finish FFT config
+        when(fft.inst.io.s_axis_config.fire) {
+          fft.config_valid := False
         }
       }
     }
 
     // Remove PRN, decimate, send to FFT
     val fine2: State = new State {
-      val dec_counter = Counter(8)
-      val dec_sample = Reg(Complex(8))
+      val dec = Decimate(iq_size = 8, factor = 8)
+
+      // Input buffers
+      val buf_prn = Reg(Bool())
+      val buf_iq = Reg(Complex(iq_size))
+      val buf_prn_valid = Reg(Bool())
+      val buf_iq_valid = Reg(Bool())
+      
+      // Mixed sample
+      val dec_sample = Complex(8)
+      dec_sample.re := (buf_prn ? buf_iq.re | -buf_iq.re) @@ U"6'b100000"
+      dec_sample.im := (buf_prn ? buf_iq.im | -buf_iq.im) @@ U"6'b100000"
+      // DEBUG:
+      // dec_sample.re := (buf_prn ? buf_iq.re | buf_iq.re) @@ U"6'b100000"
+      // dec_sample.im := (buf_prn ? buf_iq.im | buf_iq.im) @@ U"6'b100000"
+
+      // Defaults
+      dec.io.iq_in.payload := dec_sample.asBits
+      dec.io.iq_out.ready := False
+
+      val iq_in_valid = Reg(Bool()) init False
+      dec.io.iq_in.valid := iq_in_valid
 
       onEntry {
         sample_counter.clear()
-        dec_counter.clear()
+
+        buf_prn_valid := False
+        buf_iq_valid := False
+        iq_in_valid := False
+
+        fft.data_in_valid := False // TODO: needed?
+
         dec_sample.re := 0
         dec_sample.im := 0
-        fft.data_in_valid := False
       }
 
+      // Currently 2 cycles per sample, TODO: make single cycle
       whenIsActive {
-        io.iq.ready := True
+        // If buffer is empty, wait for new sample
+        io.iq.ready := !buf_iq_valid
+        prn2.io.code.ready := !buf_prn_valid
 
-        when(io.iq.fire) {
-          dec_counter.increment()
-          prn2.io.code.ready := True
-
-          // Mix samples with PRN code (TODO: does sign matter?)
-          val re_mixed = prn2.io.code.payload ? iq_complex.c.re | -iq_complex.c.re
-          val im_mixed = prn2.io.code.payload ? iq_complex.c.im | -iq_complex.c.im
-
-          dec_sample.re := dec_sample.re + re_mixed
-          dec_sample.im := dec_sample.im + im_mixed
+        // Populate IQ buffer
+        when (io.iq.fire) {
+          buf_iq.re := iq_complex.c.re
+          buf_iq.im := iq_complex.c.im
+          buf_iq_valid := True
         }
 
-        when(dec_counter.willOverflow) {
-          fft.data_in_payload := dec_sample.im ## dec_sample.re
-          fft.data_in_valid := True
+        // Populate PRN buffer
+        when (prn2.io.code.fire) {
+          buf_prn := prn2.io.code.payload
+          buf_prn_valid := True
+        }
 
-          dec_sample.re := 0
-          dec_sample.im := 0
+        // Consume both buffers
+        when (buf_prn_valid && buf_iq_valid) {
+          iq_in_valid := True
 
-          when(sample_counter === fft_size - 1) {
-            fft.data_in_last := True
-          }
-        } elsewhen (fft.inst.io.s_axis_data.fire) {
-          fft.data_in_valid := False
-          fft.data_in_last := False
+          buf_prn_valid := False
+          buf_iq_valid := False
+        } elsewhen (dec.io.iq_in.fire) {
+          iq_in_valid := False
+        }
+
+        // Pipe decimated samples to FFT
+        fft.data_in_payload := dec.io.iq_out.payload
+        fft.data_in_valid := dec.io.iq_out.valid
+        fft.data_in_last := sample_counter >= fft_size - 1
+        dec.io.iq_out.ready := fft.inst.io.s_axis_data.ready
+
+        when (dec.io.iq_out.fire) {
           sample_counter.increment()
+        }
 
-          when(sample_counter === fft_size - 1) {
-            mode_fine := True
-            max_mag := 0
-            goto(evaluate)
-          }
+        when (fft.inst.io.s_axis_data.fire && fft.data_in_last) {
+          fft.data_in_valid := False
+
+          mode_fine := True
+          max_mag := 0
+          goto(evaluate)
         }
       }
     }
 
     // Send out results, increment SV, start over
-    val results: State = new State {}
+    val results: State = new State {
+      onEntry {
+        sv := sv + 1
+      }
+    }
+  }
+
+  // Things for debugging that will be optimized out in synthesis
+  val debug_area = new Area {
+    val abs_sample_count = Counter(64 bits, io.iq.fire)
+    val abs_prn2_count = prn2.debug_count.pull()
   }
 }
 
 object AcquisitionVerilog extends App {
+  // Generate verilog for testbench. If freq_shift is changed, also change in tb.
   Config.spinal.generateVerilog(Acquisition(freq_shift = 1, flush = false))
 }

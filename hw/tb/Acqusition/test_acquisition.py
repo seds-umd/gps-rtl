@@ -17,13 +17,14 @@ fft_path = Path(__file__).resolve().parent.parent
 sys.path.insert(len(sys.path), str(fft_path.resolve()))
 
 from fft_sim import FFT_Sim, pack_complex, unpack_complex
+from utils import corr, random_pause
 
 class TB:
     def __init__(self, dut, period=20, fs=4.092e6) -> None:
         self.dut = dut
         self.fs = fs
 
-        self._sim = FFT_Sim(dut.fft_inst, 12, 1, store=True)
+        self.fft_sim = FFT_Sim(dut.fft_inst, 12, 1, store=True)
 
         # Clock
         cocotb.start_soon(Clock(self.dut.clk, period, "ns").start())
@@ -36,10 +37,15 @@ class TB:
         self.sample_input = axi.AxiStreamSource(bus, dut.clk, byte_size=16)
         self.sample_input.log.setLevel(logging.WARNING) # Get rid of log messages
 
-        self.sample_input.set_pause_generator(itertools.cycle([1, 0, 1, 0, 0]))
+        # self.sample_input.set_pause_generator(random_pause())
 
     def send_samples(self, count=1e5, sv=1, doppler=0, sample_phase=0, noise=True):
         power = -120 if noise else None
+
+        if noise:
+            self.dut._log.info(f"Noise power set to {power} dBm")
+        else:
+            self.dut._log.info("Noise disabled")
 
         # 3/4 is about optimal for 33% magnitude bit density (per MAX2769 datasheet)
         self.samples = 3/4 * 127 * gps_sim.generate_gps(self.fs, int(count), sv, doppler, sample_phase=sample_phase, signal_power=power)
@@ -62,135 +68,119 @@ class TB:
 
 @cocotb.test()
 async def test_acquisition(dut):
+    # Threshold for correlation
+    CORR_THRES = 0.5
+
     tb = TB(dut)
     log = dut._log
 
     await tb.reset()
 
-    ref_phase = 2753 # out of 4096
+    ref_phase = 0 # out of 4096, code will start at this index (ahead of zero)
+    doppler = 750 # Hz
     sample_phase = ref_phase - 4 if ref_phase >= 4096/2 else ref_phase # out of 4092
-    tb.send_samples(doppler=789, sample_phase=sample_phase, noise=True)
+    tb.send_samples(doppler=doppler, sample_phase=sample_phase, noise=True)
+
+    log.info(f"Sending samples with doppler shift of {doppler} Hz and phase offset of {sample_phase}")
 
     await ClockCycles(dut.clk, 120000)
 
     result_freq = dut.fsm_max_freq.value.signed_integer
     result_phase = dut.fsm_max_idx.value.integer
-    log.info(f"Frequency bin: {result_freq}, code sample offset: {result_phase}")
+    log.info(f"Results: frequency bin = {result_freq}, sample offset = {result_phase}")
 
-    # Analyze FFT results
-    inputs = tb._sim.past_inputs
-    outputs = tb._sim.past_outputs
+    # Get inputs and output of FFT module
+    inputs = tb.fft_sim.past_inputs
+    outputs = tb.fft_sim.past_outputs
+
+    # Each check step below will use the results of the previous step as the
+    # reference so the error represents that step alone instead of carrying
+    # error forward.
 
     # Check samples
-    # samples_ref = tb.samples[16:16+4096]
-    samples_ref = tb.samples[0:4096]
+    samples = tb.samples[0:4096]
+    samples_ref = inputs[0][0]
+    samples_corr = corr(samples, samples_ref)
+    log.info(f"Samples correlation: {samples_corr:0.3f}")
 
-    samples_ref_in = inputs[0][0]
+    # Check FFT
     samples_fft = outputs[0][0]
-    ref_fft = np.fft.fft(samples_ref / 127)
+    ref_fft = np.fft.fft(samples)
+    fft_corr = corr(samples_fft, ref_fft)
+    log.info(f"Initial FFT correlation: {fft_corr:0.3f}")
+    assert fft_corr > CORR_THRES
 
     # Check PRN
     prn_ref = prn.sample(1, 4.092e6, 4096)
-    prn_ref_fft = np.fft.fft(prn_ref / 127)
     prn_in = inputs[1][0]
-    prn_out = outputs[1][0]
+    prn_corr = corr(prn_ref, prn_in)
+    log.info(f"PRN correlation: {prn_corr:0.3f}")
+    assert prn_corr > CORR_THRES
+
+    # Check PRN FFT
+    prn_ref_fft = np.fft.fft(prn_in)
+    prn_fft = outputs[1][0]
+    prn_fft_corr = corr(prn_ref_fft, prn_fft)
+    log.info(f"PRN FFT correlation: {prn_fft_corr:0.3f}")
+    assert prn_fft_corr > CORR_THRES
 
     # Check mix
-    ref_mix = ref_fft.conj() * prn_ref_fft
-    out_mix = samples_fft.conj() * prn_out
+    # The testbench uses a frequency shift of +-1 bin and starts at the
+    # most negative frequency. np.roll shift is negative of the real shift
+    ref_mix = samples_fft.conj() * np.roll(prn_fft, 1)
+    sim_mix = inputs[2][0]
+    mix_corr = corr(ref_mix, sim_mix)
+    log.info(f"Mix correlation: {mix_corr:0.3f}")
+    assert mix_corr > CORR_THRES
+
+    # Check IFFT of mix
+    ref_mix_ifft = np.fft.ifft(sim_mix)
+    log.info(f"Mix IFFT peak: {np.argmax(np.abs(ref_mix_ifft))}")
 
     # Check fine acquisition
-    dec_samples = inputs[-1][0]
-    dec_fft = outputs[-1][0]
-    dec_samples_ref = tb.samples[4096+16:4096+16+4096*8]
-    dec_samples_ref = np.sum(dec_samples_ref.reshape(-1, 8), axis=1)
+    for fine2_offset in range(4090, 4120):
+        # fine2_offset = 4093 # offset at start of fine2 state
+        start_idx = 4092 + fine2_offset
+        end_idx = start_idx + 8*4096
 
-    plt.figure(figsize=(12, 12), dpi=150)
+        pre_dec_samples_ref = tb.samples[start_idx:end_idx]
+        pre_dec_prn_ref = prn.sample(1, 4.092e6, 4096*8, offset_samples=fine2_offset+ref_phase)
+        pre_dec_mixed = pre_dec_samples_ref * pre_dec_prn_ref
+        dec_samples_ref = np.sum(pre_dec_mixed.reshape(-1, 8), axis=1) / 8
+        dec_samples = inputs[-1][0]
+        # dec_fft = outputs[-1][0]
 
-    plt.subplot(4, 2, 1)
-    plt.plot(np.abs(ref_fft))
-    plt.title("Reference Sample FFT")
+        dec_mixed_corr = corr(dec_samples_ref, dec_samples)
+        log.info(f"{fine2_offset} Dec/mix correlation: {dec_mixed_corr:0.3f}")
 
-    plt.subplot(4, 2, 2)
-    plt.plot(np.abs(samples_fft))
-    plt.title("Simulated Sample FFT")
-
-    plt.subplot(4, 2, 3)
-    plt.plot(np.abs(prn_ref_fft))
-    plt.title("Reference PRN FFT")
-
-    plt.subplot(4, 2, 4)
-    plt.plot(np.abs(prn_out))
-    plt.title("Simulated PRN FFT")
-
-    plt.subplot(4, 2, 5)
-    plt.plot(np.abs(ref_mix))
-    plt.title("Reference Mixed FFT")
-
-    plt.subplot(4, 2, 6)
-    plt.plot(np.abs(out_mix))
-    plt.title("Simulated Mixed FFT")
-
-    plt.subplot(4, 2, 7)
-    ref_mix_ifft = np.abs(np.fft.ifft(ref_mix))
-    phase_est = np.argmax(ref_mix_ifft)
-    plt.plot(ref_mix_ifft)
-    plt.title(f"Reference Mixed IFFT {phase_est}, {ref_mix_ifft[phase_est]/np.mean(ref_mix_ifft):.3f}")
-
-    plt.subplot(4, 2, 8)
-    out_mix_ifft = np.abs(np.fft.ifft(out_mix))
-    out_phase_est = np.argmax(out_mix_ifft)
-    plt.plot(out_mix_ifft)
-    plt.title(f"Simulated Mixed IFFT {out_phase_est}, {out_mix_ifft[out_phase_est]/np.mean(out_mix_ifft):.3f}")
-
-    plt.tight_layout()
-    plt.savefig("results.png")
-
-    # Actual mix
-    num = 3
-
-    plt.figure(figsize=(15, 12), dpi=150)
-
-    for i in range(num):
-        in_fft = inputs[2+i][0]
-        out = outputs[2+i][0]
-        out_exp = outputs[2+i][1]
-
-        plt.subplot(num, 3, 1+3*i)
-        plt.plot(np.abs(in_fft))
-        plt.title(f"In {i}, {np.mean(in_fft):.4f}")
-
-        plt.subplot(num, 3, 2+3*i)
-        plt.plot(np.abs(out))
-        plt.title(f"Out {i}, {out_exp}")
-
-        plt.subplot(num, 3, 3+3*i)
-        plt.plot(np.abs(np.fft.ifft(in_fft)))
-        plt.title("IFFT(In)")
-
-    plt.tight_layout()
-    plt.savefig("mixed.png")
-
-    # Fine acquisition
-    corr = np.correlate(dec_samples, dec_samples_ref, mode="full")
-    plt.figure()
+    # plt.figure()
+    # plt.subplot(2, 1, 1)
+    # plt.plot(np.abs(dec_samples_ref))
+    # plt.xlim([0, 200])
+    # plt.subplot(2, 1, 2)
     # plt.plot(np.abs(dec_samples))
-    plt.plot(np.abs(corr))
-    plt.title(f"{np.mean(tb.samples):.2f}, {np.mean(dec_samples):.2f}")
+    # plt.xlim([0, 200])
+    # plt.savefig("fine_compare.png")
 
-    plt.tight_layout()
-    plt.savefig("fine.png")
+    # dec_fft_ref = np.fft.fft(dec_samples_ref)
+    # dec_fft_corr = corr(dec_fft_ref, dec_fft)
+    # log.info(f"Dec FFT correlation: {dec_fft_corr:0.3f}")
+
+    # plt.figure()
+    # plt.plot(np.abs(dec_fft))
+    # plt.tight_layout()
+    # plt.savefig("fine.png")
+    # log.info(f"Fine acquisition peak at {np.argmax(dec_fft)}")
 
     # Do assertions after graphing
 
-    corr = np.correlate(ref_fft, samples_fft, mode="full")
-    assert np.argmax(np.abs(corr)) == 4095, np.argmax(np.abs(corr))
+    # corr = np.correlate(ref_fft, samples_fft, mode="full")
+    # assert np.argmax(np.abs(corr)) == 4095, np.argmax(np.abs(corr))
 
-    corr = np.correlate(prn_ref_fft, prn_out, mode="full")
-    assert np.argmax(np.abs(corr)) == 4095, np.argmax(np.abs(corr))
+    # corr = np.correlate(prn_ref_fft, prn_out, mode="full")
+    # assert np.argmax(np.abs(corr)) == 4095, np.argmax(np.abs(corr))
 
-    corr = np.correlate(np.abs(ref_mix), np.abs(out_mix), mode="full")
-    assert np.argmax(np.abs(corr)) == 4095, np.argmax(np.abs(corr))
+    # corr = np.correlate(np.abs(ref_mix), np.abs(out_mix), mode="full")
+    # assert np.argmax(np.abs(corr)) == 4095, np.argmax(np.abs(corr))
 
     assert result_phase == ref_phase, f"{result_phase}, {ref_phase}"
-

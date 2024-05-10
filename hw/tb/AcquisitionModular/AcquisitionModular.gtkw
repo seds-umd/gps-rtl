@@ -1,0 +1,92 @@
+[*]
+[*] GTKWave Analyzer v3.3.103 (w)1999-2019 BSI
+[*] Fri May 10 22:21:06 2024
+[*]
+[dumpfile] "/home/nathan/seds/gps-rtl/hw/tb/AcquisitionModular/sim_build/AcquisitionModular.fst"
+[dumpfile_mtime] "Fri May 10 22:13:03 2024"
+[dumpfile_size] 40415
+[savefile] "/home/nathan/seds/gps-rtl/hw/tb/AcquisitionModular/AcquisitionModular.gtkw"
+[timestart] 0
+[size] 1908 1007
+[pos] -1 -1
+*-16.000000 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+[treeopen] AcquisitionModular.
+[sst_width] 214
+[signals_width] 214
+[sst_expanded] 1
+[sst_vpaned_height] 295
+@28
+AcquisitionModular.clk
+AcquisitionModular.reset
+@820
++{state} AcquisitionModular.fsm_stateReg_string[79:0]
+@800200
+-IQ Input
+@c00022
++{AcquisitionModular.io_iq_payload} AcquisitionModular.io_iq_payload[15:0]
+@28
+(0)AcquisitionModular.io_iq_payload[15:0]
+(1)AcquisitionModular.io_iq_payload[15:0]
+(2)AcquisitionModular.io_iq_payload[15:0]
+(3)AcquisitionModular.io_iq_payload[15:0]
+(4)AcquisitionModular.io_iq_payload[15:0]
+(5)AcquisitionModular.io_iq_payload[15:0]
+(6)AcquisitionModular.io_iq_payload[15:0]
+(7)AcquisitionModular.io_iq_payload[15:0]
+(8)AcquisitionModular.io_iq_payload[15:0]
+(9)AcquisitionModular.io_iq_payload[15:0]
+(10)AcquisitionModular.io_iq_payload[15:0]
+(11)AcquisitionModular.io_iq_payload[15:0]
+(12)AcquisitionModular.io_iq_payload[15:0]
+(13)AcquisitionModular.io_iq_payload[15:0]
+(14)AcquisitionModular.io_iq_payload[15:0]
+(15)AcquisitionModular.io_iq_payload[15:0]
+@1401200
+-group_end
+@28
+AcquisitionModular.io_iq_ready
+AcquisitionModular.io_iq_valid
+@1000200
+-IQ Input
+@800200
+-FFT Input
+@c00022
++{AcquisitionModular.fft_inst.s_axis_data_tdata} AcquisitionModular.fft_inst.s_axis_data_tdata[15:0]
+@28
+(0)AcquisitionModular.fft_inst.s_axis_data_tdata[15:0]
+(1)AcquisitionModular.fft_inst.s_axis_data_tdata[15:0]
+(2)AcquisitionModular.fft_inst.s_axis_data_tdata[15:0]
+(3)AcquisitionModular.fft_inst.s_axis_data_tdata[15:0]
+(4)AcquisitionModular.fft_inst.s_axis_data_tdata[15:0]
+(5)AcquisitionModular.fft_inst.s_axis_data_tdata[15:0]
+(6)AcquisitionModular.fft_inst.s_axis_data_tdata[15:0]
+(7)AcquisitionModular.fft_inst.s_axis_data_tdata[15:0]
+(8)AcquisitionModular.fft_inst.s_axis_data_tdata[15:0]
+(9)AcquisitionModular.fft_inst.s_axis_data_tdata[15:0]
+(10)AcquisitionModular.fft_inst.s_axis_data_tdata[15:0]
+(11)AcquisitionModular.fft_inst.s_axis_data_tdata[15:0]
+(12)AcquisitionModular.fft_inst.s_axis_data_tdata[15:0]
+(13)AcquisitionModular.fft_inst.s_axis_data_tdata[15:0]
+(14)AcquisitionModular.fft_inst.s_axis_data_tdata[15:0]
+(15)AcquisitionModular.fft_inst.s_axis_data_tdata[15:0]
+@1401200
+-group_end
+@28
+AcquisitionModular.fft_inst.s_axis_data_tlast
+AcquisitionModular.fft_inst.s_axis_data_tready
+AcquisitionModular.fft_inst.s_axis_data_tvalid
+@1000200
+-FFT Input
+@800200
+-FFT Output
+@22
+AcquisitionModular.fft_inst.m_axis_data_tdata[15:0]
+AcquisitionModular.fft_inst.m_axis_data_tuser[7:0]
+@28
+AcquisitionModular.fft_inst.m_axis_data_tlast
+AcquisitionModular.fft_inst.m_axis_data_tready
+AcquisitionModular.fft_inst.m_axis_data_tvalid
+@1000200
+-FFT Output
+[pattern_trace] 1
+[pattern_trace] 0

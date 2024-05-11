@@ -38,17 +38,17 @@ def stream_axis_bus(dut, prefix: str, fragment: bool = False):
     return axi_bus
 
 
-def axis_sink(dut, prefix: str, fragment: bool = False):
+def axis_sink(dut, prefix: str, fragment: bool = False, **kwargs):
     bus = stream_axis_bus(dut, prefix, fragment)
-    sink = axi.AxiStreamSink(bus, dut.clk, dut.reset)
+    sink = axi.AxiStreamSink(bus, dut.clk, dut.reset, **kwargs)
     sink.log.setLevel(logging.WARNING)
 
     return sink
 
 
-def axis_source(dut, prefix: str, fragment: bool = False):
+def axis_source(dut, prefix: str, fragment: bool = False, **kwargs):
     bus = stream_axis_bus(dut, prefix, fragment)
-    source = axi.AxiStreamSource(bus, dut.clk, dut.reset)
+    source = axi.AxiStreamSource(bus, dut.clk, dut.reset, **kwargs)
     source.log.setLevel(logging.WARNING)
 
     return source

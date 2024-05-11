@@ -9,11 +9,4 @@ VERILOG_SOURCES = $(PWD)/../../gen/$(DUT).v $(PWD)/../../verilog/*.v
 
 SPINAL = "runMain gps.$(DUT)Verilog"
 
-spinal: $(PWD)/../../spinal/gps/$(DUT).scala
-	cd $(PWD)/../../..; sbt $(SPINAL)
-
-# Simulator settings
-TOPLEVEL_LANG = verilog
-SIM = icarus
-
 include ../common.mk

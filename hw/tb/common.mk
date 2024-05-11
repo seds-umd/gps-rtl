@@ -15,6 +15,7 @@ endif
 include $(shell cocotb-config --makefiles)/Makefile.sim
 
 FST_FILE ?= sim_build/$(DUT).fst
+SPINAL ?= "runMain gps.$(DUT)Verilog"
 
 waves: sim
 	gtkwave $(FST_FILE) $(DUT).gtkw
@@ -24,3 +25,5 @@ all:
 
 spinal: $(PWD)/../../spinal/gps/$(DUT).scala
 	cd $(PWD)/../../..; sbt $(SPINAL)
+
+$(PWD)/../../gen/$(DUT).v: spinal

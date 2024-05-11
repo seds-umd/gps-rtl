@@ -12,36 +12,19 @@ from pathlib import Path
 utils_path = Path(__file__).resolve().parent.parent
 sys.path.insert(len(sys.path), str(utils_path.resolve()))
 
-from utils import stream_axis_bus
+from utils import TB_Template, axis_sink, axis_source
 
 
-class TB:
+class TB(TB_Template):
     def __init__(self, dut, lanes=4):
-        self.dut = dut
         self.lanes = lanes
 
-        cocotb.start_soon(Clock(self.dut.clk, period=10, units="ns").start())
+        super().__init__(dut)
 
-        in_bus = stream_axis_bus(self.dut, "io_input_")
-        self.axis_input = axi.AxiStreamSource(in_bus, self.dut.clk, self.dut.reset)
-        self.axis_input.log.setLevel(logging.WARNING)
-
-        out_buses = [
-            stream_axis_bus(self.dut, f"io_outputs_{i}_") for i in range(self.lanes)
-        ]
+        self.axis_input = axis_source(dut, "io_input_")
         self.axis_outputs = [
-            axi.AxiStreamSink(bus, self.dut.clk, self.dut.reset) for bus in out_buses
+            axis_sink(dut, f"io_outputs_{i}_") for i in range(self.lanes)
         ]
-        for axis in self.axis_outputs:
-            axis.log.setLevel(logging.WARNING)
-
-    async def reset(self):
-        self.dut.reset.value = 0
-        await ClockCycles(self.dut.clk, 2)
-        self.dut.reset.value = 1
-        await ClockCycles(self.dut.clk, 2)
-        self.dut.reset.value = 0
-        await ClockCycles(self.dut.clk, 2)
 
     async def run_test(self, n: int = 8):
         expected = np.random.bytes(n)

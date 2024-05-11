@@ -26,4 +26,5 @@ all:
 spinal: $(PWD)/../../spinal/gps/$(DUT).scala
 	cd $(PWD)/../../..; sbt $(SPINAL)
 
-$(PWD)/../../gen/$(DUT).v: spinal
+$(PWD)/../../gen/$(DUT).v: $(PWD)/../../spinal/gps/$(DUT).scala
+	cd $(PWD)/../../..; sbt $(SPINAL)

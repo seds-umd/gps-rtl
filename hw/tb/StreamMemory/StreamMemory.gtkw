@@ -1,0 +1,46 @@
+[*]
+[*] GTKWave Analyzer v3.3.103 (w)1999-2019 BSI
+[*] Sat May 11 03:14:31 2024
+[*]
+[dumpfile] "/home/nathan/seds/gps-rtl/hw/tb/StreamMemory/sim_build/StreamMemory.fst"
+[dumpfile_mtime] "Sat May 11 03:14:23 2024"
+[dumpfile_size] 11426
+[savefile] "/home/nathan/seds/gps-rtl/hw/tb/StreamMemory/StreamMemory.gtkw"
+[timestart] 0
+[size] 2548 1367
+[pos] -1 -1
+*-23.000000 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+[sst_width] 214
+[signals_width] 278
+[sst_expanded] 1
+[sst_vpaned_height] 421
+@28
+StreamMemory.clk
+StreamMemory.reset
+@200
+-
+@22
+StreamMemory.io_output_offset[3:0]
+@200
+-
+@22
+StreamMemory.io_input_payload_fragment[7:0]
+@28
+StreamMemory.io_input_payload_last
+StreamMemory.io_input_ready
+StreamMemory.io_input_valid
+@200
+-
+@22
+StreamMemory.io_output_payload_fragment[7:0]
+@28
+StreamMemory.io_output_payload_last
+StreamMemory.io_output_ready
+StreamMemory.io_output_valid
+@200
+-
+@22
+StreamMemory.rd_addr[3:0]
+StreamMemory.wr_addr_value[3:0]
+[pattern_trace] 1
+[pattern_trace] 0

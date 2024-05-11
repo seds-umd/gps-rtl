@@ -57,6 +57,7 @@ def axis_source(dut, prefix: str, fragment: bool = False, **kwargs):
 class TB_Template:
     def __init__(self, dut, period=10):
         self.dut = dut
+        self.period = period
 
         cocotb.start_soon(Clock(self.dut.clk, period=period, units="ns").start())
 

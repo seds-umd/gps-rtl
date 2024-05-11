@@ -12,7 +12,7 @@ case class Mixer(width: Int = 8) extends Component {
 
   io.output.re.setAsReg()
   io.output.im.setAsReg()
-  io.output.valid.setAsReg()
+  io.output.valid.setAsReg() init(False)
   io.output.last.setAsReg()
 
   // Pipeline advanced when previous stage is valid

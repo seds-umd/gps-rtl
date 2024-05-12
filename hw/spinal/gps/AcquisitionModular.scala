@@ -33,13 +33,26 @@ case class AcquisitionModular(
     })
   }
 
+  def shift_sat(stream_in: Stream[Fragment[Complex]], shift: Int): Stream[Fragment[Complex]] = {
+    stream_in.translateInto(stream_in.clone())((to, from) => {
+      to.fragment.re := (from.fragment.re << shift).sat(shift bits)
+      to.fragment.im := (from.fragment.im << shift).sat(shift bits)
+      to.last := from.last
+    })
+  }
+
   val sample_mem = StreamMemory(Complex(8), fft_size_log)
+  sample_mem.io.output_offset := 0
   val prn_mem = StreamMemory(Complex(8), fft_size_log)
 
   val prn_gen = PRN()
   prn_gen.io.inc := U"17'h4000" // TODO: automatically calculate based on sample rate
-  prn_gen.io.sv := 1
   prn_gen.io.set := False
+
+  // Feed sample and PRN memory into mixer
+  val mixer = Mixer(8)
+  mixer.io.input_a << sample_mem.io.output
+  mixer.io.input_b << prn_mem.io.output
 
   val fft = new Area {
     // Get stream without exponent
@@ -68,11 +81,14 @@ case class AcquisitionModular(
       to.im := 0
     })
 
-    val inputs = Vec(input_gps, input_prn)
+    val input_mixed = mixer.io.output.toStreamOfFragment
+
+    val inputs = Vec(input_gps, input_prn, input_mixed)
     val input_sel = Reg(UInt(log2Up(inputs.length) bits)) init 0
 
     val INPUT_SEL_GPS = 0
     val INPUT_SEL_PRN = 1
+    val INPUT_SEL_MIX = 2
 
     // Input gate
     val in_gate = StreamToFragmentMetered(inst.io.s_axis_data.dataType)
@@ -85,7 +101,7 @@ case class AcquisitionModular(
     val in_gate_config = in_gate.io.config.clone()
     in_gate_config >> in_gate.io.config
     in_gate_config.payload.setAsReg()
-    in_gate_config.valid.setAsReg() init(False)
+    in_gate_config.valid.setAsReg() init (False)
 
     //// Outputs
 
@@ -96,14 +112,15 @@ case class AcquisitionModular(
     val OUT_SEL_SAMPLE_MEM = 0
     val OUT_SEL_PRN_MEM = 1
 
-    sample_mem.io.input << conj(stream_no_exp(outputs(OUT_SEL_SAMPLE_MEM)))
-    prn_mem.io.input << stream_no_exp(outputs(OUT_SEL_PRN_MEM))
+    // Shift bits to get more dynamic range and saturate
+    sample_mem.io.input << shift_sat(conj(stream_no_exp(outputs(OUT_SEL_SAMPLE_MEM))), 2)
+    prn_mem.io.input << shift_sat(stream_no_exp(outputs(OUT_SEL_PRN_MEM)), 1)
 
     // FFT config
     val config = inst.io.s_axis_config.clone()
     config >> inst.io.s_axis_config
     config.payload.setAsReg()
-    config.valid.setAsReg() init(False)
+    config.valid.setAsReg() init (False)
 
     val CONFIG_FWD = 1
     val CONFIG_REV = 0
@@ -129,12 +146,19 @@ case class AcquisitionModular(
     val active = input_active || output_active
   }
 
+  val shift = Reg(SInt(log2Up(2 * freq_shift + 1) bits))
+  prn_mem.io.output_offset := shift.resized
+
+  val sv = Reg(UInt(6 bits)) init 0
+  prn_gen.io.sv := sv
+
   val fsm = new StateMachine {
     val init: State = new State with EntryPoint {
       onEntry {
         fft.config.payload := fft.CONFIG_FWD
         fft.config.valid := True
 
+        shift := -freq_shift
         prn_gen.io.set := True
       }
 
@@ -152,7 +176,7 @@ case class AcquisitionModular(
       }
 
       whenIsActive {
-        when (!fft.input_active) {
+        when(!fft.active) {
           goto(prn_in)
         }
       }
@@ -167,14 +191,33 @@ case class AcquisitionModular(
       }
 
       whenIsActive {
-        when (!fft.active) {
+        when(!fft.active) {
           goto(shift_mix)
         }
       }
     }
 
     // Perform frequency search: shift PRN, mix samples and run IFFT
-    val shift_mix: State = new State {}
+    val shift_mix: State = new State {
+      onEntry {
+        fft.config.payload := fft.CONFIG_REV
+        fft.config.valid := True
+
+        fft.input_sel := fft.INPUT_SEL_MIX
+        // fft.output_sel := fft.OUT_SEL_ // TODO
+
+        transfer(fft.in_gate_config)
+      }
+
+      whenIsActive {
+        when(!fft.active) {
+          goto(evaluate)
+        }
+      }
+    }
+
+    // Take magnitude of FFT output and keep track of max
+    val evaluate: State = new State {}
   }
 }
 

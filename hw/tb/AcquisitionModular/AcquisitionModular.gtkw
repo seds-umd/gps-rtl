@@ -1,18 +1,18 @@
 [*]
 [*] GTKWave Analyzer v3.3.103 (w)1999-2019 BSI
-[*] Sat May 11 04:48:21 2024
+[*] Sun May 12 00:06:32 2024
 [*]
 [dumpfile] "/home/nathan/seds/gps-rtl/hw/tb/AcquisitionModular/sim_build/AcquisitionModular.fst"
-[dumpfile_mtime] "Sat May 11 04:47:46 2024"
-[dumpfile_size] 153928
+[dumpfile_mtime] "Sat May 11 23:59:06 2024"
+[dumpfile_size] 536896
 [savefile] "/home/nathan/seds/gps-rtl/hw/tb/AcquisitionModular/AcquisitionModular.gtkw"
 [timestart] 0
 [size] 2548 1367
 [pos] -1 -1
 *-26.000000 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
 [treeopen] AcquisitionModular.
-[sst_width] 214
-[signals_width] 254
+[sst_width] 278
+[signals_width] 294
 [sst_expanded] 1
 [sst_vpaned_height] 421
 @28
@@ -20,7 +20,11 @@ AcquisitionModular.clk
 AcquisitionModular.reset
 @820
 +{state} AcquisitionModular.fsm_stateReg_string[79:0]
-@800200
+@22
+AcquisitionModular.sv[5:0]
+@420
+AcquisitionModular.shift[1:0]
+@c00200
 -IQ Input
 @c00022
 +{AcquisitionModular.io_iq_payload} AcquisitionModular.io_iq_payload[15:0]
@@ -46,8 +50,10 @@ AcquisitionModular.reset
 @28
 AcquisitionModular.io_iq_ready
 AcquisitionModular.io_iq_valid
-@1000200
+@1401200
 -IQ Input
+@28
+AcquisitionModular.fft_active
 @c00200
 -FFT Config
 @22
@@ -57,7 +63,7 @@ AcquisitionModular.fft_inst.s_axis_config_tready
 AcquisitionModular.fft_inst.s_axis_config_tvalid
 @1401200
 -FFT Config
-@800200
+@c00200
 -FFT Input
 @22
 +{gate_counter} AcquisitionModular.fft_in_gate.counter[12:0]
@@ -87,19 +93,19 @@ AcquisitionModular.fft_inst.s_axis_data_tlast
 AcquisitionModular.fft_inst.s_axis_data_tready
 AcquisitionModular.fft_inst.s_axis_data_tvalid
 AcquisitionModular.fft_in_gate.io_running
-@1000200
+@1401200
 -FFT Input
-@800200
+@c00200
 -FFT In Gate
 @24
-AcquisitionModular.fft_input_sel
+AcquisitionModular.fft_input_sel[1:0]
 @22
 AcquisitionModular.fft_in_gate.io_config_payload[12:0]
 AcquisitionModular.fft_in_gate.counter[12:0]
 @28
 AcquisitionModular.fft_in_gate.io_config_ready
 AcquisitionModular.fft_in_gate.io_config_valid
-@1000200
+@1401200
 -FFT In Gate
 @800200
 -FFT Output
@@ -112,9 +118,77 @@ AcquisitionModular.fft_inst.m_axis_data_tready
 AcquisitionModular.fft_inst.m_axis_data_tvalid
 @1000200
 -FFT Output
+@c00200
+-PRN
 @28
-AcquisitionModular.fft_active
+AcquisitionModular.prn_gen.io_code_payload
+AcquisitionModular.prn_gen.io_code_fire
 @22
-AcquisitionModular.fft_active_frames_value[3:0]
+AcquisitionModular.prn_gen.io_code_count[9:0]
+AcquisitionModular.prn_gen.io_sample_count[11:0]
+AcquisitionModular.prn_gen.io_sv[5:0]
+@28
+AcquisitionModular.prn_gen.io_set
+@22
+AcquisitionModular.prn_gen.io_inc[16:0]
+@1401200
+-PRN
+@c00200
+-Mixer
+@28
+AcquisitionModular.mixer_1.joined_fire
+AcquisitionModular.mixer_1.io_output_ready
+AcquisitionModular.mixer_1.io_output_valid
+@800200
+-Pipeline
+@22
+AcquisitionModular.mixer_1.joined_payload_1_fragment_re[7:0]
+AcquisitionModular.mixer_1.joined_payload_1_fragment_im[7:0]
+AcquisitionModular.mixer_1.joined_payload_2_fragment_re[7:0]
+AcquisitionModular.mixer_1.joined_payload_2_fragment_im[7:0]
+AcquisitionModular.mixer_1.s1_a_re[7:0]
+AcquisitionModular.mixer_1.s1_a_im[7:0]
+AcquisitionModular.mixer_1.s1_b_re[7:0]
+AcquisitionModular.mixer_1.s1_b_im[7:0]
+AcquisitionModular.mixer_1.s2_re_mix1[15:0]
+AcquisitionModular.mixer_1.s2_re_mix2[15:0]
+AcquisitionModular.mixer_1.s2_im_mix1[15:0]
+AcquisitionModular.mixer_1.s2_im_mix2[15:0]
+AcquisitionModular.mixer_1.s3_re_mix[15:0]
+AcquisitionModular.mixer_1.s3_im_mix[15:0]
+@1000200
+-Pipeline
+@1401200
+-Mixer
+@c00200
+-Sample Mem
+@22
+AcquisitionModular.sample_mem.io_input_payload_fragment_im[7:0]
+AcquisitionModular.sample_mem.io_input_payload_fragment_re[7:0]
+@28
+AcquisitionModular.sample_mem.io_input_payload_last
+AcquisitionModular.sample_mem.io_input_ready
+AcquisitionModular.sample_mem.io_input_valid
+AcquisitionModular.sample_mem.io_input_fire
+@22
+AcquisitionModular.sample_mem.io_output_payload_fragment_im[7:0]
+AcquisitionModular.sample_mem.io_output_payload_fragment_re[7:0]
+@28
+AcquisitionModular.sample_mem.io_output_payload_last
+AcquisitionModular.sample_mem.io_output_ready
+AcquisitionModular.sample_mem.io_output_valid
+AcquisitionModular.sample_mem.io_output_fire
+@22
+AcquisitionModular.sample_mem.io_output_offset[11:0]
+@1401200
+-Sample Mem
+@c00200
+-PRN Mem
+@22
+AcquisitionModular.prn_mem.io_output_offset[11:0]
+@28
+AcquisitionModular.prn_mem.io_output_fire
+@1401200
+-PRN Mem
 [pattern_trace] 1
 [pattern_trace] 0

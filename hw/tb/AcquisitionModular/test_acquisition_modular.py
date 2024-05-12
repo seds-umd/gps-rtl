@@ -70,6 +70,22 @@ class TB(TB_Template):
             await ClockCycles(self.dut.clk, 1)
 
 
+def graph_samples(samples, filename):
+    plt.figure(figsize=(6, 4), dpi=300)
+    plt.plot(samples.real)
+    plt.plot(samples.imag)
+    plt.tight_layout()
+    plt.savefig(filename)
+
+
+def shift_saturate(samples, bits):
+    samples = samples * (1 << bits)
+    samples.real = np.clip(samples.real, -1, 1)
+    samples.imag = np.clip(samples.imag, -1, 1)
+
+    return samples
+
+
 @cocotb.test()
 async def test_acquisition(dut):
     tb = TB(dut)
@@ -84,8 +100,7 @@ async def test_acquisition(dut):
 
     log.info(f"Shift: {doppler} Hz, Phase: {sample_phase}")
 
-    # await ClockCycles(dut.clk, 10000)
-    await with_timeout(tb.wait_state("shift_mix"), 1000000, "ns")
+    await with_timeout(tb.wait_state("evaluate"), 1000000, "ns")
 
     # Get inputs and output of FFT module
     inputs = tb.fft_sim.past_inputs
@@ -101,6 +116,26 @@ async def test_acquisition(dut):
 
     # Check FFT output
     fft_expected = np.fft.fft(ref_quant)
-    fft_actual = outputs[0][0]
+    fft_actual = shift_saturate(outputs[0][0], 2)
     fft_corr = corr(fft_expected, fft_actual)
     log.info(f"FFT correlation: {fft_corr:0.3f}")
+
+    # Check PRN
+    prn_expected = prn.sample(1, 4.092e6, 4096)
+    prn_actual = inputs[1][0]
+    prn_corr = corr(prn_expected, prn_actual)
+    log.info(f"PRN correlation: {prn_corr:0.3f}")
+
+    # Check PRN FFT
+    prn_fft_expected = np.fft.fft(prn_expected)
+    prn_fft_actual = shift_saturate(outputs[1][0], 1)
+    prn_fft_corr = corr(prn_fft_expected, prn_fft_actual)
+    log.info(f"PRN FFT correlation: {prn_fft_corr:0.3f}")
+
+    # Check mix
+    # The testbench uses a frequency shift of +-1 bin and starts at the
+    # most negative frequency. np.roll shift is negative of the real shift
+    mix_expected = fft_actual.conj() * np.roll(prn_fft_actual, 1)
+    mix_actual = inputs[2][0]
+    mix_corr = corr(mix_expected, mix_actual)
+    log.info(f"Mix correlation: {mix_corr:0.3f}")

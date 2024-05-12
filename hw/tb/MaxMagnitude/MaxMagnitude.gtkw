@@ -1,19 +1,19 @@
 [*]
 [*] GTKWave Analyzer v3.3.103 (w)1999-2019 BSI
-[*] Sun May 12 01:20:35 2024
+[*] Sun May 12 01:31:45 2024
 [*]
 [dumpfile] "/home/nathan/seds/gps-rtl/hw/tb/MaxMagnitude/sim_build/MaxMagnitude.fst"
-[dumpfile_mtime] "Sun May 12 01:18:47 2024"
-[dumpfile_size] 155779
+[dumpfile_mtime] "Sun May 12 01:31:40 2024"
+[dumpfile_size] 156089
 [savefile] "/home/nathan/seds/gps-rtl/hw/tb/MaxMagnitude/MaxMagnitude.gtkw"
 [timestart] 0
-[size] 2548 1367
+[size] 1908 1007
 [pos] -1 -1
 *-24.000000 7748000 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
 [sst_width] 304
 [signals_width] 366
 [sst_expanded] 1
-[sst_vpaned_height] 421
+[sst_vpaned_height] 295
 @28
 MaxMagnitude.clk
 MaxMagnitude.reset

@@ -46,7 +46,7 @@ class TB(TB_Template):
         data = np.random.uniform(-1, 1, (size, size))
         data = data + 1j * np.random.uniform(-1, 1, (size, size))
         data /= 4
-        data[i_max, j_max] *= np.random.uniform(0.3, 1) / np.abs(data[i_max, j_max])
+        data[i_max, j_max] *= np.random.uniform(0.5, 1) / np.abs(data[i_max, j_max])
 
         for i in range(size):
             self.dut.io_freq.value = int(freqs[i])
@@ -61,12 +61,16 @@ class TB(TB_Template):
 
         max_val = int(self.dut.io_max_mag)
         max_idx = int(self.dut.io_max_idx)
-        max_freq = int(self.dut.io_max_freq.value.signed_integer) + int(size / 2)
+        max_freq = int(self.dut.io_max_freq.value.signed_integer)
+
+        debug_info = f" ({i_max}, {j_max}) = {data[i_max, j_max]:.3f}, ({max_freq + int(size/2)}, {max_idx}) = {data[max_freq + int(size/2), max_idx]:.3f}"
+
+        i_max -= int(size / 2)
 
         expected_max = np.max(np.abs(data)) * 128 * (1 << exponent)
 
-        assert i_max == max_freq, f"Frequency expected: {i_max}, actual: {max_freq}"
-        assert j_max == max_idx, f"Index expected: {j_max}, actual: {max_idx}"
+        assert i_max == max_freq, f"Frequency expected: {i_max}, actual: {max_freq}" + debug_info
+        assert j_max == max_idx, f"Index expected: {j_max}, actual: {max_idx}" + debug_info
 
         self.dut._log.info(f"Magnitude expected: {expected_max}, actual: {max_val}")
 
@@ -77,5 +81,5 @@ async def test_dut(dut):
 
     await tb.reset()
 
-    for _ in range(16):
-        await with_timeout(tb.test_grid(exponent=0), 100000, "ns")
+    for i in range(16):
+        await with_timeout(tb.test_grid(size=64, exponent=i), 100000, "ns")

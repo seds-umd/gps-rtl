@@ -61,5 +61,5 @@ object MaxMagnitudeVerilog extends App {
     useUser = true
   )
 
-  Config.spinal.generateVerilog(MaxMagnitude(8, 8, 4, axis_config))
+  Config.spinal.generateVerilog(MaxMagnitude(8, 8, log2Up(64), axis_config))
 }

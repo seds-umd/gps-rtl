@@ -116,3 +116,20 @@ Parameters:
 | iq_in  | `slave Stream (Complex(iq_size).asBits)`                | Input samples     |
 | iq_out | `master Stream (Complex(iq_size + factor_size).asBits)` | Output samples    |
 | factor | `UInt(factor_size bits)`                                | Decimation factor |
+
+## MaxMagnitude
+
+Consume samples of convolved PRN and GPS signals. Calculate magnitude and keep track of max value, index of max value, and frequency of max value.
+
+Parameters:
+* `freqWidth` - number of bits in frequency bin
+
+### Ports
+
+| Port     | Type                                | Description                |
+| -------- | ----------------------------------- | -------------------------- |
+| input    | `slave Stream Fragment(Complex(8))` | Input samples              |
+| freq     | `in UInt(freqWidth bits)`           | Current frequency bin      |
+| max_val  | `out UInt (iqWidth + 15 bits)`      | Maximum value found        |
+| max_idx  | `out UInt (fftWidth bits)`          | Index of maximum value     |
+| max_freq | `out SInt (freqWidth bits)`         | Frequency of maximum value |

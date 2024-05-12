@@ -26,21 +26,21 @@ def random_pause():
 def stream_axis_bus(dut, prefix: str, fragment: bool = False, user: bool = False):
     axi_bus = axi.AxiStreamBus(dut)
 
-    # Janky way to handle different names for payload by seeing which one actually exists
-    data_name = ""
-
-    for element in dut:
-        if element._name == prefix + "payload_fragment":
-            data_name = "payload_fragment"
-
-        if element._name == prefix + "payload_data":
-            data_name = "payload_data"
-
-    assert len(data_name) > 0
-
     # Add signals to bus
 
     if fragment:
+        # Janky way to handle different names for payload by seeing which one actually exists
+        data_name = ""
+
+        for element in dut:
+            if element._name == prefix + "payload_fragment":
+                data_name = "payload_fragment"
+
+            if element._name == prefix + "payload_data":
+                data_name = "payload_data"
+
+        assert len(data_name) > 0
+
         axi_bus._add_signal("tdata", prefix + data_name)
         axi_bus._add_signal("tlast", prefix + "payload_last")
     else:

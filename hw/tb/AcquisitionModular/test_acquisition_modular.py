@@ -135,7 +135,7 @@ async def test_acquisition(dut):
     # Check mix
     # The testbench uses a frequency shift of +-1 bin and starts at the
     # most negative frequency. np.roll shift is negative of the real shift
-    mix_expected = fft_actual.conj() * np.roll(prn_fft_actual, 1)
+    mix_expected = fft_actual.conj() * np.roll(prn_fft_actual, -1)
     mix_actual = inputs[2][0]
     mix_corr = corr(mix_expected, mix_actual)
     log.info(f"Mix correlation: {mix_corr:0.3f}")

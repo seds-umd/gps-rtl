@@ -15,9 +15,14 @@ case class AcquisitionModular(
     flush: Boolean = true
 ) extends Component {
   val fft_size_log = log2Up(fft_size)
+  val freq_width = log2Up(2 * freq_shift + 1)
 
   val io = new Bundle {
     val iq = slave Stream (ComplexTimestamp(iq_size, period).asBits)
+
+    val debug_synth_fft_index = out UInt (fft_size_log bits)
+    val debug_synth_fft_val = out UInt (23 bits)
+    val debug_synth_fft_freq = out SInt (freq_width bits)
   }
 
   def transfer(gateConfig: Stream[UInt], n: Int = 4096) = {
@@ -41,10 +46,12 @@ case class AcquisitionModular(
     })
   }
 
+  // Memories
   val sample_mem = StreamMemory(Complex(8), fft_size_log)
   sample_mem.io.output_offset := 0
   val prn_mem = StreamMemory(Complex(8), fft_size_log)
 
+  // PRN
   val prn_gen = PRN()
   prn_gen.io.inc := U"17'h4000" // TODO: automatically calculate based on sample rate
   prn_gen.io.set := False
@@ -105,16 +112,18 @@ case class AcquisitionModular(
 
     //// Outputs
 
-    val output_count = 2
+    val output_count = 3
     val output_sel = Reg(UInt(log2Up(output_count) bits)) init 0
     val outputs = StreamDemux(inst.io.m_axis_data, output_sel, output_count)
 
     val OUT_SEL_SAMPLE_MEM = 0
     val OUT_SEL_PRN_MEM = 1
+    val OUT_SEL_MAG = 2
 
     // Shift bits to get more dynamic range and saturate
     sample_mem.io.input << shift_sat(conj(stream_no_exp(outputs(OUT_SEL_SAMPLE_MEM))), 2)
     prn_mem.io.input << shift_sat(stream_no_exp(outputs(OUT_SEL_PRN_MEM)), 1)
+    val out_mag = outputs(OUT_SEL_MAG)
 
     // FFT config
     val config = inst.io.s_axis_config.clone()
@@ -146,11 +155,21 @@ case class AcquisitionModular(
     val active = input_active || output_active
   }
 
-  val shift = Reg(SInt(log2Up(2 * freq_shift + 1) bits))
-  prn_mem.io.output_offset := shift.resized
+  val shift = Reg(SInt(freq_width bits))
+  prn_mem.io.output_offset := (-shift).resized
 
   val sv = Reg(UInt(6 bits)) init 0
   prn_gen.io.sv := sv
+
+  // Magnitude
+  val max_mag = MaxMagnitude(fft_width, freq_width, fft_size_log, fft.inst.data_out_config)
+  max_mag.io.input << fft.out_mag
+  max_mag.io.freq <> shift
+  max_mag.io.restart := False
+
+  max_mag.io.max_mag <> io.debug_synth_fft_val
+  max_mag.io.max_idx <> io.debug_synth_fft_index
+  max_mag.io.max_freq <> io.debug_synth_fft_freq
 
   val fsm = new StateMachine {
     val init: State = new State with EntryPoint {
@@ -160,6 +179,8 @@ case class AcquisitionModular(
 
         shift := -freq_shift
         prn_gen.io.set := True
+
+        max_mag.io.restart := True
       }
 
       whenIsActive {
@@ -204,15 +225,28 @@ case class AcquisitionModular(
         fft.config.valid := True
 
         fft.input_sel := fft.INPUT_SEL_MIX
-        // fft.output_sel := fft.OUT_SEL_ // TODO
+        fft.output_sel := fft.OUT_SEL_MAG
 
         transfer(fft.in_gate_config)
       }
 
       whenIsActive {
         when(!fft.active) {
-          goto(evaluate)
+          when(shift === freq_shift) {
+            goto(evaluate)
+          } otherwise {
+            goto(do_shift)
+          }
         }
+      }
+    }
+
+    // Shift frequency and search again. This doesn't need to be a separate state
+    // but it was the easiest solution and I was lazy
+    val do_shift: State = new State {
+      whenIsActive {
+        shift := shift + 1
+        goto(shift_mix)
       }
     }
 

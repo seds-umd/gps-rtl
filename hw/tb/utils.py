@@ -6,6 +6,8 @@ from cocotbext import axi
 import numpy as np
 import logging
 
+from gps import gps_sim
+
 
 # Calculate correlation between two signals, between 1 and -1
 def corr(a: np.ndarray, b: np.ndarray):
@@ -69,6 +71,56 @@ def axis_source(dut, prefix: str, fragment: bool = False, user: bool = False, **
     source.log.setLevel(logging.WARNING)
 
     return source
+
+
+def generate_gps_samples(
+    fs: float,
+    count: int,
+    sv: int,
+    doppler: float,
+    sample_phase: int,
+    noise_power: float,
+):
+    """Generate GPS samples to send in IQ timestamp format.
+
+    Args:
+        fs (float): Sample rate in Hz
+        count (int): Number of samples to generate
+        sv (int): SV number (1 indexed)
+        doppler (float): Doppler frequency shift
+        sample_phase (int): Phase offset in number of samples
+        noise_power (float): Noise power in dBm
+
+    Returns:
+        (list[int], np.ndarray, np.ndarray): Packed bits, original samples, quantized samples
+    """
+
+    # 3/4 is about optimal for 33% magnitude bit density (per MAX2769 datasheet)
+    samples = (3 / 4 * 127) * gps_sim.generate_gps(
+        f_s=fs,
+        n=int(count),
+        sv=sv,
+        doppler=doppler,
+        sample_phase=sample_phase,
+        signal_power=noise_power,
+    )
+    timestamp = np.tile(np.arange(4092), int(len(samples) / 4092) + 1)
+    timestamp = timestamp.astype(np.uint16)[0 : len(samples)]
+
+    # Convert to 4 bit format
+    samples_re = samples.real.astype(np.int8).astype(np.uint8) >> 6
+    samples_im = samples.imag.astype(np.int8).astype(np.uint8) >> 6
+    bits = samples_re | (samples_im << 2) | (timestamp << 4)
+    bits = [int(x) for x in bits]
+
+    # Get quantized samples
+    samples_re = (samples_re << 6).astype(np.int8) | 0b100000
+    samples_im = (samples_im << 6).astype(np.int8) | 0b100000
+
+    samples_quant = samples_re + samples_im * 1j
+    samples_quant /= 128
+
+    return bits, samples, samples_quant
 
 
 class TB_Template:

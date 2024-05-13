@@ -14,7 +14,9 @@ utils_path = Path(__file__).resolve().parent.parent
 sys.path.insert(len(sys.path), str(utils_path.resolve()))
 
 from fft_sim import FFT_Sim, pack_complex, unpack_complex
-from utils import TB_Template, corr, random_pause, axis_source
+from utils import TB_Template, corr, random_pause, axis_source, generate_gps_samples
+
+CORR_THRESHOLD = 0.99
 
 
 class TB(TB_Template):
@@ -36,32 +38,11 @@ class TB(TB_Template):
         else:
             self.dut._log.info("Noise disabled")
 
-        # 3/4 is about optimal for 33% magnitude bit density (per MAX2769 datasheet)
-        self.samples = (3 / 4 * 127) * gps_sim.generate_gps(
-            f_s=self.fs,
-            n=int(count),
-            sv=sv,
-            doppler=doppler,
-            sample_phase=sample_phase,
-            signal_power=power,
+        self.sample_bits, self.samples, self.samples_quant = generate_gps_samples(
+            self.fs, count, sv, doppler, sample_phase, power
         )
-        timestamp = np.tile(np.arange(4092), int(len(self.samples) / 4092) + 1)
-        timestamp = timestamp.astype(np.uint16)[0 : len(self.samples)]
 
-        # Convert to 4 bit format
-        samples_re = self.samples.real.astype(np.int8).astype(np.uint8) >> 6
-        samples_im = self.samples.imag.astype(np.int8).astype(np.uint8) >> 6
-        bits = samples_re | (samples_im << 2) | (timestamp << 4)
-        bits = [int(x) for x in bits]
-
-        self.sample_input.send_nowait(bits)
-
-        # Get quantized samples
-        samples_re = (samples_re << 6).astype(np.int8) | 0b100000
-        samples_im = (samples_im << 6).astype(np.int8) | 0b100000
-
-        self.samples_quant = samples_re + samples_im * 1j
-        self.samples_quant /= 128
+        self.sample_input.send_nowait(self.sample_bits)
 
     async def wait_state(self, state: str):
         curr_state = self.dut.fsm_stateReg_string
@@ -93,13 +74,15 @@ async def test_acquisition(dut):
 
     await tb.reset()
 
-    ref_phase = 0  # out of 4096, code will start at this index (ahead of zero)
+    # out of 4096, code will start at this index (ahead of zero)
+    ref_phase = np.random.randint(4096)
     doppler = 750  # Hz
     sample_phase = ref_phase - 4 if ref_phase >= 4096 / 2 else ref_phase  # out of 4092
     tb.send_samples(doppler=doppler, sample_phase=sample_phase, noise=True)
 
     log.info(f"Shift: {doppler} Hz, Phase: {sample_phase}")
 
+    # Run until coarse acquisition is done
     await with_timeout(tb.wait_state("evaluate"), 1000000, "ns")
 
     # Get inputs and output of FFT module
@@ -110,27 +93,32 @@ async def test_acquisition(dut):
     ref_quant = tb.samples_quant[:4096]
     ref_quant_corr = corr(tb.samples[:4096], tb.samples_quant[:4096])
     log.info(f"Reference to quantized correlation: {ref_quant_corr:0.3f}")
+    assert ref_quant_corr > 0.4  # Some information is lost here
 
     sample_in_corr = corr(tb.samples_quant[:4096], inputs[0][0])
     log.info(f"Sample input to FFT input correlation: {sample_in_corr:0.3f}")
+    assert sample_in_corr > CORR_THRESHOLD
 
     # Check FFT output
     fft_expected = np.fft.fft(ref_quant)
     fft_actual = shift_saturate(outputs[0][0], 2)
     fft_corr = corr(fft_expected, fft_actual)
     log.info(f"FFT correlation: {fft_corr:0.3f}")
+    assert fft_corr > CORR_THRESHOLD
 
     # Check PRN
     prn_expected = prn.sample(1, 4.092e6, 4096)
     prn_actual = inputs[1][0]
     prn_corr = corr(prn_expected, prn_actual)
     log.info(f"PRN correlation: {prn_corr:0.3f}")
+    assert prn_corr > CORR_THRESHOLD
 
     # Check PRN FFT
     prn_fft_expected = np.fft.fft(prn_expected)
     prn_fft_actual = shift_saturate(outputs[1][0], 1)
     prn_fft_corr = corr(prn_fft_expected, prn_fft_actual)
     log.info(f"PRN FFT correlation: {prn_fft_corr:0.3f}")
+    assert prn_fft_corr > CORR_THRESHOLD
 
     # Check mix
     # The testbench uses a frequency shift of +-1 bin and starts at the
@@ -139,3 +127,10 @@ async def test_acquisition(dut):
     mix_actual = inputs[2][0]
     mix_corr = corr(mix_expected, mix_actual)
     log.info(f"Mix correlation: {mix_corr:0.3f}")
+
+    # Check result
+    result_freq = dut.max_mag_io_max_freq.value.signed_integer
+    result_phase = dut.max_mag_io_max_idx.value.integer
+    log.info(f"Output: frequency={result_freq}, phase={result_phase}")
+    # assert result_freq ==
+    assert result_phase == ref_phase

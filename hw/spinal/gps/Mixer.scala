@@ -25,14 +25,14 @@ case class Mixer(width: Int = 8) extends Component {
   val s1_b = Reg(Complex(width))
   val s1_valid = Reg(Bool()) init False
 
-  val s2_re_mix1 = Reg(SInt(16 bits))
-  val s2_re_mix2 = Reg(SInt(16 bits))
-  val s2_im_mix1 = Reg(SInt(16 bits))
-  val s2_im_mix2 = Reg(SInt(16 bits))
+  val s2_re_mix1 = Reg(SInt(2*width bits))
+  val s2_re_mix2 = Reg(SInt(2*width bits))
+  val s2_im_mix1 = Reg(SInt(2*width bits))
+  val s2_im_mix2 = Reg(SInt(2*width bits))
   val s2_valid = Reg(Bool()) init False
 
-  val s3_re_mix = Reg(SInt(16 bits))
-  val s3_im_mix = Reg(SInt(16 bits))
+  val s3_re_mix = Reg(SInt(2*width bits))
+  val s3_im_mix = Reg(SInt(2*width bits))
   val s3_valid = Reg(Bool()) init False
 
   // Advance only when output is ready
@@ -66,10 +66,10 @@ case class Mixer(width: Int = 8) extends Component {
       s3_valid := False
     }
 
-    // Truncate to 8 bits
+    // Truncate to original size
     when(s3_valid) {
-      io.output.re := s3_re_mix.round(8)
-      io.output.im := s3_im_mix.round(8)
+      io.output.re := s3_re_mix.round(width)
+      io.output.im := s3_im_mix.round(width)
       io.output.valid := True
     } otherwise {
       io.output.valid := False

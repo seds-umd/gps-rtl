@@ -133,3 +133,9 @@ Parameters:
 | max_val  | `out UInt (iqWidth + 15 bits)`      | Maximum value found        |
 | max_idx  | `out UInt (fftWidth bits)`          | Index of maximum value     |
 | max_freq | `out SInt (freqWidth bits)`         | Frequency of maximum value |
+
+## RemovePrn
+
+Align IQ samples and PRN code and mix them to remove the code.
+
+Incoming samples must be consumed fast enough that none are dropped.

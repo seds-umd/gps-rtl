@@ -59,7 +59,7 @@ case class MaxSpiConfig(div: Int = 100, config: RegConfig = RegConfig()) extends
     }
 
     val run: State = new State {
-      val bit = Counter(config.addrBits + config.regBits)
+      val bit = Counter(config.addrBits + config.regBits + 1)
 
       whenIsActive {
         io.cs := False
@@ -72,10 +72,10 @@ case class MaxSpiConfig(div: Int = 100, config: RegConfig = RegConfig()) extends
 
           when(bit < config.regBits) {
             // Send data
-            io.sdata := data(config.regBits - bit.value - 1)
+            io.sdata := data((config.regBits - bit.value - 1).resized)
           } otherwise {
             // Send address
-            io.sdata := addr((config.addrBits - (bit.value - config.regBits) - 2).resized)
+            io.sdata := addr((config.addrBits - (bit.value - config.regBits) - 1).resized)
           }
         }
 
@@ -130,5 +130,5 @@ case class MaxSpiConfig(div: Int = 100, config: RegConfig = RegConfig()) extends
 }
 
 object MaxSpiConfigVerilog extends App {
-  Config.spinal.generateVerilog(MaxSpiConfig())
+  Config.spinal.generateVerilog(MaxSpiConfig(div = 20))
 }

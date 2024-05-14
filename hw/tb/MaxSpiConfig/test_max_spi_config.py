@@ -12,4 +12,4 @@ async def test_three_wire_spi(dut):
     dut.reset.value = 1
     await ClockCycles(dut.clk, 100)
     dut.reset.value = 0
-    await ClockCycles(dut.clk, 50000)
+    await ClockCycles(dut.clk, 10000)

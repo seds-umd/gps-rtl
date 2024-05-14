@@ -18,7 +18,7 @@ case class ThreeWireSpi() extends BlackBox {
 
     noIoPrefix()
 
-    mapClockDomain(clock = io.clk)
+    mapClockDomain(clock = io.clk, reset = io.rst)
 
     // Rename ports to match verilog names
     private def renameIO(): Unit = {

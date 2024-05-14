@@ -21,7 +21,7 @@ case class GpsTop() extends Component {
   max.io.data_sync <> io.data_sync
   max.io.time_sync <> io.time_sync
 
-  acq.io.iq << max.io.iq
+  // acq.io.iq << max.io.iq
 
   io.debug_out <> acq.io.debug_synth_fft_index ## acq.io.debug_synth_fft_val ## acq.io.debug_synth_fft_freq
 }

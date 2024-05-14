@@ -30,7 +30,7 @@ case class UartTop() extends Component {
   val uart = UartControl(
     iqSize = 2,
     baud = 115200,
-    memoryBits = 1800 * 1024
+    memoryBits = 1500 * 1024
   )
   uart.io.uart <> io.uart
   uart.io.iq << max.io.iq.translateInto(Stream(Complex(2)))((to, from) => {

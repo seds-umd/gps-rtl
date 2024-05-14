@@ -45,6 +45,20 @@ Or enter the sbt terminal with `sbt` and run `runMain gps.GpsTopVerilog` (this i
 
 To simulate, make sure the venv is activated and then go to it's testbench directory and run `make`, or `make waves` to open GTKwave after the simulation finished (this part only works on WSL).
 
+# LiteX Integration
+
+LiteX is used as an integration tool to generate constraints, create and run tcl build scripts for Vivado, and flash bitstreams. Both Vivado and LiteX must be installed.
+
+Before generating a bitstream, make sure the relevant top verilog module is generated as mentioned above. Then run the python script like so:
+
+```bash
+cd hw/integration/uart_top
+./uart_top.py --build # Build bitstream
+./uart_top.py --load # Flash to FPGA board
+```
+
+Each python file is specific to a certain board and specifies the IO connections and clocks. LiteX is intended to be used to generate SoCs, so some unnecessary interconnect code is generated, but is optimized out by Vivado since it has no real function.
+
 # Modules
 
 Hierarchy:

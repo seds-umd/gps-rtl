@@ -29,7 +29,7 @@ case class UartTop() extends Component {
 
   val uart = UartControl(
     iqSize = 2,
-    baud = 115200,
+    baud = 3125*1000,
     memoryBits = 1500 * 1024
   )
   uart.io.uart <> io.uart

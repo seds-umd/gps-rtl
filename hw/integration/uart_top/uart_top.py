@@ -1,10 +1,7 @@
 #!/usr/bin/env python3
 
-import os
-
 from migen import *
 
-from litex.gen import LiteXModule
 from litex.build.openfpgaloader import OpenFPGALoader
 from litex.build.generic_platform import Subsignal, Pins, IOStandard
 

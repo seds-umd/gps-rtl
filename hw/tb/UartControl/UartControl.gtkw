@@ -1,0 +1,71 @@
+[*]
+[*] GTKWave Analyzer v3.3.103 (w)1999-2019 BSI
+[*] Tue May 14 02:28:50 2024
+[*]
+[dumpfile] "/home/nathan/seds/gps-rtl/hw/tb/UartControl/sim_build/UartControlWrapper.fst"
+[dumpfile_mtime] "Tue May 14 02:28:09 2024"
+[dumpfile_size] 9209
+[savefile] "/home/nathan/seds/gps-rtl/hw/tb/UartControl/UartControl.gtkw"
+[timestart] 0
+[size] 1908 1007
+[pos] -1 -1
+*-27.000000 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+[treeopen] UartControlWrapper.
+[treeopen] UartControlWrapper.uart_ctrl.
+[sst_width] 214
+[signals_width] 230
+[sst_expanded] 1
+[sst_vpaned_height] 295
+@28
+UartControlWrapper.clk
+UartControlWrapper.reset
+@820
+UartControlWrapper.uart_ctrl.fsm_stateReg_string[39:0]
+@200
+-
+@28
++{UartControlWrapper.io_uart_rxd in} UartControlWrapper.io_uart_rxd
++{UartControlWrapper.io_uart_txd out} UartControlWrapper.io_uart_txd
+@200
+-
+@22
+UartControlWrapper.io_iq_payload[3:0]
+@28
+UartControlWrapper.io_iq_ready
+UartControlWrapper.io_iq_valid
+@200
+-
+@22
+UartControlWrapper.uart_ctrl.fifo_io_push_payload[7:0]
+@28
+UartControlWrapper.uart_ctrl.fifo_io_push_ready
+UartControlWrapper.uart_ctrl.fifo_io_push_valid
+@200
+-
+@c00022
+UartControlWrapper.uart_ctrl.uartCtrl_1.io_read_payload[7:0]
+@28
+(0)UartControlWrapper.uart_ctrl.uartCtrl_1.io_read_payload[7:0]
+(1)UartControlWrapper.uart_ctrl.uartCtrl_1.io_read_payload[7:0]
+(2)UartControlWrapper.uart_ctrl.uartCtrl_1.io_read_payload[7:0]
+(3)UartControlWrapper.uart_ctrl.uartCtrl_1.io_read_payload[7:0]
+(4)UartControlWrapper.uart_ctrl.uartCtrl_1.io_read_payload[7:0]
+(5)UartControlWrapper.uart_ctrl.uartCtrl_1.io_read_payload[7:0]
+(6)UartControlWrapper.uart_ctrl.uartCtrl_1.io_read_payload[7:0]
+(7)UartControlWrapper.uart_ctrl.uartCtrl_1.io_read_payload[7:0]
+@1401200
+-group_end
+@28
+UartControlWrapper.uart_ctrl.uartCtrl_1.io_read_ready
+UartControlWrapper.uart_ctrl.uartCtrl_1.io_read_valid
+UartControlWrapper.uart_ctrl.throw_iq
+@200
+-
+@22
+UartControlWrapper.uart_ctrl.uartCtrl_1.io_write_payload[7:0]
+@28
+UartControlWrapper.uart_ctrl.uartCtrl_1.io_write_ready
+UartControlWrapper.uart_ctrl.uartCtrl_1.io_write_valid
+UartControlWrapper.uart_ctrl.fifo_io_flush
+[pattern_trace] 1
+[pattern_trace] 0

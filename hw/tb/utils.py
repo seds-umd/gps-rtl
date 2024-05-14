@@ -73,6 +73,31 @@ def axis_source(dut, prefix: str, fragment: bool = False, user: bool = False, **
     return source
 
 
+def pack_iq(samples: np.ndarray):
+    samples /= np.max([samples.real, samples.imag])
+    samples *= 127 * 3 / 4
+
+    samples_re = samples.real.astype(np.int8).astype(np.uint8) >> 6
+    samples_im = samples.imag.astype(np.int8).astype(np.uint8) >> 6
+    bits = samples_re | (samples_im << 2)
+    bits = [int(x) for x in bits]
+
+    return bits
+
+# Simulate sample rate
+def iq_pause(f=50, fs=4.092):
+    x = 0
+
+    while True:
+        x += 1 / f
+
+        if x > 1 / fs:
+            x -= 1 / fs
+            yield False
+        else:
+            yield True
+
+
 def generate_gps_samples(
     fs: float,
     count: int,

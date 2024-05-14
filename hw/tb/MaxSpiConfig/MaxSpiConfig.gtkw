@@ -1,0 +1,78 @@
+[*]
+[*] GTKWave Analyzer v3.3.103 (w)1999-2019 BSI
+[*] Tue May 14 19:15:13 2024
+[*]
+[dumpfile] "/home/nathan/seds/gps-rtl/hw/tb/MaxSpiConfig/sim_build/MaxSpiConfig.fst"
+[dumpfile_mtime] "Tue May 14 19:14:48 2024"
+[dumpfile_size] 4654
+[savefile] "/home/nathan/seds/gps-rtl/hw/tb/MaxSpiConfig/MaxSpiConfig.gtkw"
+[timestart] 0
+[size] 1908 1007
+[pos] -1 -1
+*-28.000000 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+[sst_width] 310
+[signals_width] 286
+[sst_expanded] 1
+[sst_vpaned_height] 295
+@28
+MaxSpiConfig.clk
+MaxSpiConfig.reset
+@200
+-
+@28
+MaxSpiConfig.io_cs
+MaxSpiConfig.io_sclk
+MaxSpiConfig.io_sdata
+@200
+-
+@820
+MaxSpiConfig.reg_fsm_stateReg_string[95:0]
+@28
+MaxSpiConfig.start
+MaxSpiConfig.transfer_done
+@200
+-
+@c00029
+MaxSpiConfig.data[27:0]
+@29
+(0)MaxSpiConfig.data[27:0]
+(1)MaxSpiConfig.data[27:0]
+(2)MaxSpiConfig.data[27:0]
+(3)MaxSpiConfig.data[27:0]
+(4)MaxSpiConfig.data[27:0]
+(5)MaxSpiConfig.data[27:0]
+(6)MaxSpiConfig.data[27:0]
+(7)MaxSpiConfig.data[27:0]
+(8)MaxSpiConfig.data[27:0]
+(9)MaxSpiConfig.data[27:0]
+(10)MaxSpiConfig.data[27:0]
+(11)MaxSpiConfig.data[27:0]
+(12)MaxSpiConfig.data[27:0]
+(13)MaxSpiConfig.data[27:0]
+(14)MaxSpiConfig.data[27:0]
+(15)MaxSpiConfig.data[27:0]
+(16)MaxSpiConfig.data[27:0]
+(17)MaxSpiConfig.data[27:0]
+(18)MaxSpiConfig.data[27:0]
+(19)MaxSpiConfig.data[27:0]
+(20)MaxSpiConfig.data[27:0]
+(21)MaxSpiConfig.data[27:0]
+(22)MaxSpiConfig.data[27:0]
+(23)MaxSpiConfig.data[27:0]
+(24)MaxSpiConfig.data[27:0]
+(25)MaxSpiConfig.data[27:0]
+(26)MaxSpiConfig.data[27:0]
+(27)MaxSpiConfig.data[27:0]
+@1401201
+-group_end
+@22
+MaxSpiConfig.addr[3:0]
+MaxSpiConfig.spi_fsm_div_counter_value[6:0]
+@28
+MaxSpiConfig.spi_fsm_div_counter_willOverflow
+@24
+MaxSpiConfig.spi_fsm_run_bit_value[4:0]
+@28
+MaxSpiConfig.spi_fsm_run_bit_willOverflow
+[pattern_trace] 1
+[pattern_trace] 0

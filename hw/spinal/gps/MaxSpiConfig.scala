@@ -27,17 +27,17 @@ case class RegConfig(
 case class MaxSpiConfig(div: Int = 100, config: RegConfig = RegConfig()) extends Component {
   val io = new Bundle {
     val sclk = out Bool ()
-    val cs = out Bool ()
-    val sdata = out Bool ()
+    val cs = out Bool()
+    val sdata = out Bool()
   }
 
   io.sclk := False
-  io.cs := True
-  io.sdata := False
+  io.cs.setAsReg() init(True)
+  io.sdata.setAsReg() init(False)
 
   val addr = UInt(config.addrBits bits)
   val data = UInt(config.regBits bits)
-  val start = Bool()
+  val start = Reg(Bool())
   val transfer_done = Bool()
   addr := 0
   data := 0
@@ -61,32 +61,38 @@ case class MaxSpiConfig(div: Int = 100, config: RegConfig = RegConfig()) extends
     val run: State = new State {
       val bit = Counter(config.addrBits + config.regBits)
 
-      onEntry {
-        bit.clear()
-      }
-
       whenIsActive {
         io.cs := False
         io.sclk := div_counter > (div / 2).toInt
 
         div_counter.increment()
 
-        when(div_counter.willOverflow) {
+        when(div_counter === 0) {
           bit.increment()
 
           when(bit < config.regBits) {
             // Send data
-            io.sdata := data(config.regBits - bit.value)
+            io.sdata := data(config.regBits - bit.value - 1)
           } otherwise {
             // Send address
-            io.sdata := addr((config.addrBits - (bit.value - config.regBits)).resized)
+            io.sdata := addr((config.addrBits - (bit.value - config.regBits) - 2).resized)
           }
         }
 
         when(bit.willOverflow) {
-          transfer_done := True
-          goto(init)
+          goto(cooldown)
         }
+      }
+    }
+
+    val cooldown: State = new StateDelay(cyclesCount = div) {
+      whenIsActive {
+        io.cs := True
+        io.sdata := False
+      }
+      whenCompleted {
+        transfer_done := True
+        goto(init)
       }
     }
   }

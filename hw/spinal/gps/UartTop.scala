@@ -37,22 +37,10 @@ case class UartTop() extends Component {
     to := from.c
   })
 
-  val spi_config = Vec(
-    U"hA2951A3", // CONF1
-    U"h8550488", // CONF2
-    U"hEAFE1DC", // CONF3
-    U"h9EC0008", // PLLCONF
-    U"h0C00080", // DIV
-    U"h8000070", // FDIV
-    U"h8000000", // RESERVED
-    U"h400400B" // CLK
-  )
-
-  val spi = ThreeWireSpi()
-  spi.io.SCLK <> io.SCLK
-  spi.io.CS <> io.CS
-  spi.io.SDATA <> io.SDATA
-  spi.io.reg <> spi_config
+  val spi = MaxSpiConfig()
+  spi.io.sclk <> io.SCLK
+  spi.io.cs <> io.CS
+  spi.io.sdata <> io.SDATA
 }
 
 object UartTopVerilog extends App {

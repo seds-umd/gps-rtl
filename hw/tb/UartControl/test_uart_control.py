@@ -48,7 +48,9 @@ async def test_dut(dut):
 
     data = np.random.uniform(-1, 1, N) + 1j * np.random.uniform(-1, 1, N)
 
-    await tb.send_uart(b"0")
+    commanded_len = 5
+
+    await tb.send_uart([commanded_len])
     await tb.uart_source.wait()
 
     data = pack_iq(data)
@@ -66,3 +68,5 @@ async def test_dut(dut):
 
     # Account for data dropped due to FIFO overflow
     assert actual in expected
+
+    assert len(actual) == 2**commanded_len

@@ -20,7 +20,7 @@ case class UartControl(iqSize: Int = 2, baud: Int = 115200, memoryBits: Int = 18
     )
   )
   uartCtrl.io.uart <> io.uart
-  uartCtrl.io.read.ready := True
+  uartCtrl.io.read.ready := False
 
   val throw_iq = Bool()
   throw_iq := True
@@ -33,14 +33,32 @@ case class UartControl(iqSize: Int = 2, baud: Int = 115200, memoryBits: Int = 18
   // Discard samples when not running
 
   val fifo = StreamFifo(Bits(8 bits), depth = (memoryBits / 8))
-  fifo.io.pop >> uartCtrl.io.write
   val width_adapter = StreamWidthAdapter(iq_bits, fifo.io.push)
   fifo.io.flush := False
 
+  val uart_gate = StreamGate(Bits(8 bits), log2Up(memoryBits / 4))
+  uart_gate.io.input << fifo.io.pop
+  uart_gate.io.output >> uartCtrl.io.write
+
+  val uart_gate_config = uart_gate.io.config.clone()
+  uart_gate_config >> uart_gate.io.config
+  uart_gate_config.payload.setAsReg()
+  uart_gate_config.valid.setAsReg() init (False)
+
+  when (uart_gate_config.fire) {
+    uart_gate_config.valid := False
+  }
+
   val fsm = new StateMachine {
-    always {
-      when(uartCtrl.io.read.fire) {
-        goto(start)
+    val idle: State = new State with EntryPoint {
+      whenIsActive {
+        uartCtrl.io.read.ready := True
+
+        when(uartCtrl.io.read.fire) {
+          uart_gate_config.payload := (U"1" << uartCtrl.io.read.payload.asUInt).resized
+          uart_gate_config.valid := True
+          goto(start)
+        }
       }
     }
 
@@ -55,13 +73,12 @@ case class UartControl(iqSize: Int = 2, baud: Int = 115200, memoryBits: Int = 18
     val run: State = new State {
       whenIsActive {
         throw_iq := False
-        when(fifo.io.availability === 0) {
+
+        when(!uart_gate.io.running) {
           goto(idle)
         }
       }
     }
-
-    val idle: State = new State with EntryPoint {}
   }
 }
 

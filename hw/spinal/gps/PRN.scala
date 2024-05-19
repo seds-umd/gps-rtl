@@ -96,7 +96,7 @@ case class PRN() extends Component {
     g2 := B"10'h3FF"
   }
 
-  when(advance_code & !io.set) {
+  when(advance_code & !io.set & io.code.fire) {
     g1 := g1(8 downto 0) ## g1_new
     g2 := g2(8 downto 0) ## g2_new
   }

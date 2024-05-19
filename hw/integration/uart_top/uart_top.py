@@ -31,7 +31,7 @@ class UartTop(SoCCore):
         self.platform = platform
 
         # Verilog sources
-        platform.add_source_dir("../../gen")
+        platform.add_sources("../../gen", "UartTop.v")
         platform.add_source_dir("../../verilog")
 
         self.crg = _CRG(platform, sys_clk_freq)

@@ -13,9 +13,9 @@ scp .patch ${REMOTE}:~/.remote_builds/${GIT_REPO_NAME}
 ssh ${REMOTE} << EOF
     cd ~/.remote_builds/${GIT_REPO_NAME} &&
     source venv/bin/activate &&
+    git reset --hard &&
     git pull &&
     git checkout ${GIT_BRANCH} &&
-    git reset --hard &&
     git apply .patch &&
     cd hw/tb/$SIM_NAME &&
     make spinal &&

@@ -18,7 +18,7 @@ FST_FILE ?= sim_build/$(TOPLEVEL).fst
 SCALA_FILE ?= $(DUT).scala
 SPINAL ?= "runMain gps.$(DUT)Verilog"
 
-waves: sim
+waves:
 	gtkwave $(FST_FILE) $(DUT).gtkw
 
 all:

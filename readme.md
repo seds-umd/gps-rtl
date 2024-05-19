@@ -16,7 +16,13 @@ sudo apt install gtkwave
 
 ## SpinalHDL
 
-Follow SpinalHDL [Linux Installation](https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Getting%20Started/Install%20and%20setup.html#linux-installation) instructions if not already installed.
+Scala:
+
+```bash
+sudo apt install scala openjdk-8-jdk
+```
+
+sbt: https://www.scala-sbt.org/download/
 
 ## Cocotb
 
@@ -32,6 +38,30 @@ pip install -r requirements.txt
 * `hw/spinal/gps` - SpinalHDL source.
 * `hw/verilog` and `hw/vhdl` - Non-generated Verilog and VHDL files. These files do get committed to git. This can include custom or 3rd party modules.
 * `hw/tb` - Testbenches written using cocotb. Each module should have it's own testbench. Each testbench will have a python file containing the actual testbench, a Makefile to run it, and likely a .gtkw file for viewing the traces.
+
+## Remote Simulations
+
+A script is included to run simulations on a remote machine if the local machine isn't very fast (for example, a laptop). The script clones the repo to a hidden directory (`~/.remote_builds`), switches to the current branch and latest commit of the local repo, and applies any uncommitted changes listed by `git diff` (which only includes modified files, new files must be committed at least once).
+
+In the commands below, the `REMOTE` variable is the name of the remote machine used by SSH. Replace it with the hostname of the machine you want to use. You must have SSH access to this machine. This must be included with all commands, but can be stored in the local shell session with `export REMOTE=host`.
+
+The remote machine must have `iverilog` and scala+sbt installed to run simulations. It must also have read permissions for the git repo.
+
+First, a setup script is run to initialize the repo on the remote machine.
+
+```bash
+cd scripts
+REMOTE=remote-host ./remote_setup.sh
+```
+
+To run a sim, run the following command, replacing `Testbench` with the name of the testbench folder of the sim (since you're in the `tb` dir, tab completion is helpful here).
+
+```bash
+cd hw/tb
+REMOTE=remote-host ./remote_sim.sh Testbench
+```
+
+After the simulation, the .fst file will be copied back to the local machine so the waveforms can be viewed locally.
 
 # SpinalHDL
 

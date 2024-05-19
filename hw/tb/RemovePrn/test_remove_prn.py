@@ -4,6 +4,7 @@ from cocotb.triggers import ClockCycles, with_timeout
 from cocotbext import axi
 
 import numpy as np
+import matplotlib.pyplot as plt
 import sys
 from pathlib import Path
 from gps import prn
@@ -65,19 +66,20 @@ async def test_dut(dut):
     await tb.reset()
 
     offset = 1234
-    await tb.configure(offset=1234)
-    bits, samples, quant = generate_gps_samples(4.092e6, 4096, 1, 0, offset, -120)
+    await tb.configure(offset=offset)
+    bits, samples, quant = generate_gps_samples(4.092e6, 2*4096, 1, 0, offset, -120)
 
-    await with_timeout(tb.send_data(bits), 1000000, "ns")
+    await with_timeout(tb.send_data(bits), 1500000, "ns")
 
     # Receive data
     actual = await tb.get_data()
     actual = unpack_complex(actual)
 
     # Reference data
-    prn_data = prn.sample(1, 4.092e6, 4096, offset_samples=offset)
+    prn_data = prn.sample(1, 4.092e6, 2*4096, offset_samples=offset)
     mixed = quant * prn_data
-    mixed = mixed[len(mixed) - len(actual):]
 
-    print(len(mixed), len(actual))
+    # Get correct offset
+    mixed = mixed[len(mixed) - len(actual) - 1:-1]
+
     print(corr(mixed, actual))

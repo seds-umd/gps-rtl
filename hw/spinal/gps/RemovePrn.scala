@@ -24,7 +24,7 @@ case class RemovePrn(iqInWidth: Int, iqOutWidth: Int, period: Int, phaseWidth: I
   val current_freq = ClockDomain.current.frequency.getValue
 
   val clocks_per_sample = (current_freq / sampleRate)
-  val threshold = ((1 << phaseWidth) * (clocks_per_sample - 1) / clocks_per_sample).toInt
+  val threshold = period - ((1 << phaseWidth) * (clocks_per_sample - 1) / clocks_per_sample).toInt
 
   val io = new Bundle {
     val input = slave Stream (ComplexTimestamp(iqInWidth, period))
@@ -35,36 +35,56 @@ case class RemovePrn(iqInWidth: Int, iqOutWidth: Int, period: Int, phaseWidth: I
     val phase_offset = in UInt (phaseWidth bits)
   }
 
+  // Wrap phase at period instead of integer overflow
+  def wrap_phase(phase: UInt): UInt = {
+    val wrapped_phase = UInt(phaseWidth bits)
+    when(phase >= period) {
+      wrapped_phase := (phase - period).resized
+    } otherwise {
+      wrapped_phase := phase.resized
+    }
+    wrapped_phase
+  }
+
+  val absolute_offset = Reg(UInt(phaseWidth bits))
+
   val prn = PRN()
   prn.io.sv := io.sv
   prn.io.set := io.set
   prn.io.inc := U"17'h4000"
 
-  val offset = (io.input.t + 1 - prn.io.sample_count - io.phase_offset).resize(phaseWidth bits)
-  // val aligned = offset === 0
+  val last_iq_phase = RegNextWhen(io.input.t, io.input.fire)
+  val last_prn_phase = RegNextWhen(prn.io.sample_count, prn.io.code.fire)
+
+  val offset = (last_prn_phase - last_iq_phase - absolute_offset)
 
   // Advance PRN if it will get to alignment faster
-  // val advance_prn = offset < threshold
-  val throw_prn = Bool()
-  val throw_iq = Bool()
+  val throw_prn = Reg(Bool())
+  val throw_iq = Reg(Bool())
   val aligned = Bool()
 
-  val mixer = Mixer(iqInWidth)
+  val mixerWidth = iqInWidth * 2
+  val mixer = Mixer(mixerWidth)
 
   mixer.io.input_a << io.input
     .throwWhen(throw_iq) // Don't send to mixer before alignment
-    .translateInto(Stream(Fragment(Complex(iqInWidth))))((to, from) => {
-      to.fragment := from.c
+    .translateInto(Stream(Fragment(Complex(mixerWidth))))((to, from) => {
+      to.fragment.re := from.c.re @@ (U"1'b1" << (mixerWidth - iqInWidth - 1))
+      to.fragment.im := from.c.im @@ (U"1'b1" << (mixerWidth - iqInWidth - 1))
       to.last := False // Don't care
     })
-    .stage()
 
   mixer.io.input_b << prn.io.code
     .throwWhen(throw_prn)
-    .translateInto(Stream(Fragment(Complex(iqInWidth))))((to, from) => {
+    .translateInto(Stream(Fragment(Complex(mixerWidth))))((to, from) => {
       // Scale PRN to +-1 (127/-128) and zero imaginary component
       // XOR to convert False to 0x80 (-128) and True to 0x7F (127)
-      to.re := from.asSInt.resize(iqInWidth bits) ^ (S"1'b1" << iqInWidth - 1)
+      when(from) {
+        to.re := (1 << mixerWidth - 1) - 1
+      } otherwise {
+        to.re := -((1 << mixerWidth - 1) - 1)
+      }
+
       to.im := 0
       to.last := False
     })
@@ -72,40 +92,76 @@ case class RemovePrn(iqInWidth: Int, iqOutWidth: Int, period: Int, phaseWidth: I
   io.output << mixer.io.output
     .haltWhen(!aligned)
     .translateInto(Stream(Complex(iqOutWidth)))((to, from) => {
-      to.re := from.re.resized
-      to.im := from.im.resized
+      // Shift to use full scale of output
+      to.re := (from.re << (iqOutWidth - mixerWidth + 1)).resized
+      to.im := (from.im << (iqOutWidth - mixerWidth + 1)).resized
     })
 
   val fsm = new StateMachine {
     always {
       when(io.set) {
-        when(offset < threshold) {
+        absolute_offset := io.phase_offset
+
+        goto(prime)
+      }
+    }
+
+    aligned := False
+
+    // Discard first sample to get fresh data
+    val prime: State = new State with EntryPoint {
+      onEntry {
+        throw_iq := True
+        throw_prn := True
+      }
+
+      whenIsActive {
+        when(io.input.fire) {
+          throw_iq := False
+        }
+
+        when(prn.io.code.fire) {
+          throw_prn := False
+        }
+
+        when(!throw_iq & !throw_prn) {
+          goto(idle)
+        }
+      }
+    }
+
+    // Empty, always block handles initialization
+    val idle: State = new State {
+      whenIsActive {
+        when(offset > threshold) {
           goto(advance_prn)
         } otherwise {
           goto(advance_iq)
         }
-      } elsewhen (offset === 1) {
-        goto(locked)
       }
     }
-
-    throw_prn := False
-    throw_iq := False
-    aligned := False
-
-    // Empty, always block handles initialization
-    val idle: State = new State with EntryPoint {}
 
     val advance_prn: State = new State {
       whenIsActive {
         throw_prn := True
         throw_iq := True
+
+        when(offset === 4095) {
+          throw_prn := False
+          throw_iq := False
+          goto(locked)
+        }
       }
     }
 
     val advance_iq: State = new State {
       whenIsActive {
         throw_iq := True
+
+        when(offset === 4) {
+          throw_iq := False
+          goto(locked)
+        }
       }
     }
 

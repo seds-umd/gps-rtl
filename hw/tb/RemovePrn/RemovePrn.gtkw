@@ -1,19 +1,19 @@
 [*]
 [*] GTKWave Analyzer v3.3.103 (w)1999-2019 BSI
-[*] Sun May 12 17:29:13 2024
+[*] Sun May 19 05:40:45 2024
 [*]
 [dumpfile] "/home/nathan/seds/gps-rtl/hw/tb/RemovePrn/sim_build/RemovePrnWrapper.fst"
-[dumpfile_mtime] "Sun May 12 17:28:33 2024"
-[dumpfile_size] 265319
+[dumpfile_mtime] "Sun May 19 05:36:00 2024"
+[dumpfile_size] 314662
 [savefile] "/home/nathan/seds/gps-rtl/hw/tb/RemovePrn/RemovePrn.gtkw"
-[timestart] 136457700
+[timestart] 0
 [size] 1908 1007
 [pos] -1 -1
-*-17.000000 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+*-27.347851 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
 [treeopen] RemovePrnWrapper.
 [treeopen] RemovePrnWrapper.dut.
 [sst_width] 310
-[signals_width] 246
+[signals_width] 374
 [sst_expanded] 1
 [sst_vpaned_height] 295
 @28
@@ -25,18 +25,109 @@ RemovePrnWrapper.io_sv[5:0]
 RemovePrnWrapper.io_phase_offset[11:0]
 @200
 -
-@22
-RemovePrnWrapper.io_input_payload[15:0]
+@c00200
+-Input
+@420
+RemovePrnWrapper.dut.io_input_payload_c_re[1:0]
+RemovePrnWrapper.dut.io_input_payload_c_im[1:0]
+@24
+RemovePrnWrapper.dut.io_input_payload_t[11:0]
 @28
 RemovePrnWrapper.io_input_ready
 RemovePrnWrapper.io_input_valid
+@1401200
+-Input
+@800200
+-Mixer IQ In
+@420
+RemovePrnWrapper.dut.mixer_1.io_input_a_payload_fragment_re[3:0]
+RemovePrnWrapper.dut.mixer_1.io_input_a_payload_fragment_im[3:0]
+@28
+RemovePrnWrapper.dut.mixer_1.io_input_a_ready
+RemovePrnWrapper.dut.mixer_1.io_input_a_valid
+@1000200
+-Mixer IQ In
+@c00200
+-PRN Gen
+@28
+RemovePrnWrapper.dut.prn_1.io_set
+@22
+RemovePrnWrapper.dut.prn_1.io_sv[5:0]
 @200
 -
+@28
+RemovePrnWrapper.dut.prn_1.io_code_payload
+RemovePrnWrapper.dut.prn_1.io_code_fire
+RemovePrnWrapper.dut.prn_1.io_code_ready
+RemovePrnWrapper.dut.prn_1.io_code_valid
+@24
+RemovePrnWrapper.dut.prn_1.io_code_count[9:0]
 @22
-RemovePrnWrapper.io_output_payload[15:0]
+RemovePrnWrapper.dut.prn_1.io_inc[16:0]
+@24
+RemovePrnWrapper.dut.prn_1.io_sample_count[11:0]
+@28
+RemovePrnWrapper.dut.prn_1.advance_code
+@1401200
+-PRN Gen
+@800200
+-Mixer PRN In
+@420
+RemovePrnWrapper.dut.mixer_1.io_input_b_payload_fragment_re[3:0]
+RemovePrnWrapper.dut.mixer_1.io_input_b_payload_fragment_im[3:0]
+@28
+RemovePrnWrapper.dut.mixer_1.io_input_b_ready
+RemovePrnWrapper.dut.mixer_1.io_input_b_valid
+@1000200
+-Mixer PRN In
+@c00200
+-Mixer Pipeline
+@420
+RemovePrnWrapper.dut.mixer_1.s1_a_im[3:0]
+RemovePrnWrapper.dut.mixer_1.s1_a_re[3:0]
+RemovePrnWrapper.dut.mixer_1.s1_b_im[3:0]
+RemovePrnWrapper.dut.mixer_1.s1_b_re[3:0]
+RemovePrnWrapper.dut.mixer_1.s2_im_mix1[7:0]
+RemovePrnWrapper.dut.mixer_1.s2_im_mix2[7:0]
+RemovePrnWrapper.dut.mixer_1.s2_re_mix1[7:0]
+RemovePrnWrapper.dut.mixer_1.s2_re_mix2[7:0]
+RemovePrnWrapper.dut.mixer_1.s3_im_mix[7:0]
+RemovePrnWrapper.dut.mixer_1.s3_re_mix[7:0]
+@1401200
+-Mixer Pipeline
+@800200
+-Output
+@c00420
+RemovePrnWrapper.dut.io_output_payload_re[7:0]
+@28
+(0)RemovePrnWrapper.dut.io_output_payload_re[7:0]
+(1)RemovePrnWrapper.dut.io_output_payload_re[7:0]
+(2)RemovePrnWrapper.dut.io_output_payload_re[7:0]
+(3)RemovePrnWrapper.dut.io_output_payload_re[7:0]
+(4)RemovePrnWrapper.dut.io_output_payload_re[7:0]
+(5)RemovePrnWrapper.dut.io_output_payload_re[7:0]
+(6)RemovePrnWrapper.dut.io_output_payload_re[7:0]
+(7)RemovePrnWrapper.dut.io_output_payload_re[7:0]
+@1401200
+-group_end
+@c00420
+RemovePrnWrapper.dut.io_output_payload_im[7:0]
+@28
+(0)RemovePrnWrapper.dut.io_output_payload_im[7:0]
+(1)RemovePrnWrapper.dut.io_output_payload_im[7:0]
+(2)RemovePrnWrapper.dut.io_output_payload_im[7:0]
+(3)RemovePrnWrapper.dut.io_output_payload_im[7:0]
+(4)RemovePrnWrapper.dut.io_output_payload_im[7:0]
+(5)RemovePrnWrapper.dut.io_output_payload_im[7:0]
+(6)RemovePrnWrapper.dut.io_output_payload_im[7:0]
+(7)RemovePrnWrapper.dut.io_output_payload_im[7:0]
+@1401200
+-group_end
 @28
 RemovePrnWrapper.io_output_ready
 RemovePrnWrapper.io_output_valid
+@1000200
+-Output
 @200
 -
 @28
@@ -51,7 +142,12 @@ RemovePrnWrapper.dut.throw_iq
 RemovePrnWrapper.dut.throw_prn
 @24
 RemovePrnWrapper.dut.prn_1_io_sample_count[11:0]
-RemovePrnWrapper.dut.offset[11:0]
 RemovePrnWrapper.dut.io_input_payload_t[11:0]
+RemovePrnWrapper.dut.offset[11:0]
+@200
+-
+@24
+RemovePrnWrapper.dut.last_iq_phase[11:0]
+RemovePrnWrapper.dut.last_prn_phase[11:0]
 [pattern_trace] 1
 [pattern_trace] 0

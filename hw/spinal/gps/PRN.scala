@@ -20,7 +20,7 @@ case class PRN() extends Component {
   val chip_fraction = Reg(UInt(16 bits)) init U"16'h8000"
   val increment = Reg(UInt(17 bits)) init 0
   val chip_fraction_next = chip_fraction +^ increment
-  val advance_code = chip_fraction_next(16)
+  val advance_code = chip_fraction_next(16) & io.code.fire
 
   val code_count = Counter(1023, advance_code)
   val sample_count = Counter(4 * 1023, io.code.ready) // TODO: don't hard code sample rate
@@ -96,7 +96,7 @@ case class PRN() extends Component {
     g2 := B"10'h3FF"
   }
 
-  when(advance_code & !io.set & io.code.fire) {
+  when(advance_code & !io.set) {
     g1 := g1(8 downto 0) ## g1_new
     g2 := g2(8 downto 0) ## g2_new
   }

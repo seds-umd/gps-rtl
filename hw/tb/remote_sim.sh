@@ -1,8 +1,12 @@
 GIT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
-GIT_DIFF=$(git diff)
+GIT_DIFF=$(git diff HEAD)
 GIT_REPO_NAME=$(basename -s .git `git config --get remote.origin.url`)
 
 SIM_NAME=${1%/}
+
+if [ -z "${GIT_DIFF}" ]; then
+    NO_PATCH="#"
+fi
 
 git diff HEAD > .patch
 
@@ -16,7 +20,7 @@ ssh ${REMOTE} << EOF
     git reset --hard &&
     git pull &&
     git checkout ${GIT_BRANCH} &&
-    git apply .patch &&
+    ${NO_PATCH:=''}git apply .patch &&
     cd hw/tb/$SIM_NAME &&
     make spinal &&
     make sim

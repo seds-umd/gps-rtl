@@ -58,6 +58,53 @@ class TB(TB_Template):
         self.dut.io_set.value = 0
         await ClockCycles(self.dut.clk, 1)
 
+    async def run_test(self, offset=0, timestamp_offset=0, cycles=1):
+        await self.configure(offset=offset)
+        self.output.read_nowait()
+
+        bits, samples, quant = generate_gps_samples(
+            4.092e6, cycles * 4096, 1, 0, offset, -120, timestamp_offset
+        )
+
+        await with_timeout(self.send_data(bits), 1500000, "ns")
+
+        # Receive data
+        actual = await with_timeout(self.get_data(), 150000, "ns")
+        actual = unpack_complex(actual)
+
+        # Reference data
+        prn_data = prn.sample(
+            1, 4.092e6, cycles * 4096, offset_samples=offset + timestamp_offset
+        )
+        mixed = quant * prn_data
+
+        # Get correct offset
+        mixed = mixed[len(mixed) - len(actual) - 1 : -1]
+
+        result_corr = corr(mixed, actual)
+        self.dut._log.info(
+            f"IQ offset {offset}, timestamp offset {timestamp_offset}, corr={result_corr}, mixed samples={len(mixed)}"
+        )
+
+        # Graph data if failed
+        if result_corr < 0.99:
+            plt.figure()
+
+            plt.subplot(2, 1, 1)
+            plt.plot(mixed.real)
+            plt.plot(mixed.imag)
+            plt.xlim([0, 50])
+
+            plt.subplot(2, 1, 2)
+            plt.plot(actual.real)
+            plt.plot(actual.imag)
+            plt.xlim([0, 50])
+
+            plt.tight_layout()
+            plt.savefig("sim_build/comparison.png")
+
+        assert result_corr > 0.99
+
 
 @cocotb.test()
 async def test_dut(dut):
@@ -65,21 +112,6 @@ async def test_dut(dut):
 
     await tb.reset()
 
-    offset = 1234
-    await tb.configure(offset=offset)
-    bits, samples, quant = generate_gps_samples(4.092e6, 2*4096, 1, 0, offset, -120)
-
-    await with_timeout(tb.send_data(bits), 1500000, "ns")
-
-    # Receive data
-    actual = await tb.get_data()
-    actual = unpack_complex(actual)
-
-    # Reference data
-    prn_data = prn.sample(1, 4.092e6, 2*4096, offset_samples=offset)
-    mixed = quant * prn_data
-
-    # Get correct offset
-    mixed = mixed[len(mixed) - len(actual) - 1:-1]
-
-    print(corr(mixed, actual))
+    for phase_offset in [0, 10, 1234, 3456, 3910, 4091]:
+        for iq_offset in [0, 5, 4050]:
+            await tb.run_test(phase_offset, iq_offset)

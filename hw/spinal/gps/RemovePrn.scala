@@ -56,7 +56,38 @@ case class RemovePrn(iqInWidth: Int, iqOutWidth: Int, period: Int, phaseWidth: I
   val last_iq_phase = RegNextWhen(io.input.t, io.input.fire)
   val last_prn_phase = RegNextWhen(prn.io.sample_count, prn.io.code.fire)
 
-  val offset = (last_prn_phase - last_iq_phase - absolute_offset)
+  // Intermediate signed value to properly handle overflows
+  val offset_wide = (last_prn_phase.resize(phaseWidth + 1 bits) -
+    last_iq_phase.resize(phaseWidth + 1 bits) -
+    absolute_offset.resize(phaseWidth + 1 bits)).asSInt
+  val offset = UInt(phaseWidth bits)
+
+  when(offset_wide < 0) {
+    offset := (offset_wide + period).asUInt.resized
+  } otherwise {
+    offset := offset_wide.asUInt.resized
+  }
+
+  // Figure out next offset value
+  val offset_next = UInt(phaseWidth bits)
+
+  when(io.input.fire & prn.io.code.fire) {
+    offset_next := offset
+  } elsewhen (prn.io.code.fire) {
+    when(offset === period - 1) {
+      offset_next := 0
+    } otherwise {
+      offset_next := offset + 1
+    }
+  } elsewhen (io.input.fire) {
+    when(offset === 0) {
+      offset_next := period - 1
+    } otherwise {
+      offset_next := offset - 1
+    }
+  } otherwise {
+    offset_next := offset
+  }
 
   // Advance PRN if it will get to alignment faster
   val throw_prn = Reg(Bool())
@@ -130,7 +161,6 @@ case class RemovePrn(iqInWidth: Int, iqOutWidth: Int, period: Int, phaseWidth: I
       }
     }
 
-    // Empty, always block handles initialization
     val idle: State = new State {
       whenIsActive {
         when(offset > threshold) {
@@ -146,7 +176,7 @@ case class RemovePrn(iqInWidth: Int, iqOutWidth: Int, period: Int, phaseWidth: I
         throw_prn := True
         throw_iq := True
 
-        when(offset === 4095) {
+        when(offset_next === 0) {
           throw_prn := False
           throw_iq := False
           goto(locked)
@@ -158,7 +188,7 @@ case class RemovePrn(iqInWidth: Int, iqOutWidth: Int, period: Int, phaseWidth: I
       whenIsActive {
         throw_iq := True
 
-        when(offset === 4) {
+        when(offset_next === 0) {
           throw_iq := False
           goto(locked)
         }

@@ -1,19 +1,19 @@
 [*]
 [*] GTKWave Analyzer v3.3.103 (w)1999-2019 BSI
-[*] Sun May 19 05:40:45 2024
+[*] Sun May 19 22:04:48 2024
 [*]
 [dumpfile] "/home/nathan/seds/gps-rtl/hw/tb/RemovePrn/sim_build/RemovePrnWrapper.fst"
-[dumpfile_mtime] "Sun May 19 05:36:00 2024"
-[dumpfile_size] 314662
+[dumpfile_mtime] "Sun May 19 22:04:30 2024"
+[dumpfile_size] 215340
 [savefile] "/home/nathan/seds/gps-rtl/hw/tb/RemovePrn/RemovePrn.gtkw"
 [timestart] 0
 [size] 1908 1007
 [pos] -1 -1
-*-27.347851 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+*-16.347851 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
 [treeopen] RemovePrnWrapper.
 [treeopen] RemovePrnWrapper.dut.
 [sst_width] 310
-[signals_width] 374
+[signals_width] 246
 [sst_expanded] 1
 [sst_vpaned_height] 295
 @28
@@ -37,7 +37,7 @@ RemovePrnWrapper.io_input_ready
 RemovePrnWrapper.io_input_valid
 @1401200
 -Input
-@800200
+@c00200
 -Mixer IQ In
 @420
 RemovePrnWrapper.dut.mixer_1.io_input_a_payload_fragment_re[3:0]
@@ -45,7 +45,7 @@ RemovePrnWrapper.dut.mixer_1.io_input_a_payload_fragment_im[3:0]
 @28
 RemovePrnWrapper.dut.mixer_1.io_input_a_ready
 RemovePrnWrapper.dut.mixer_1.io_input_a_valid
-@1000200
+@1401200
 -Mixer IQ In
 @c00200
 -PRN Gen
@@ -70,7 +70,7 @@ RemovePrnWrapper.dut.prn_1.io_sample_count[11:0]
 RemovePrnWrapper.dut.prn_1.advance_code
 @1401200
 -PRN Gen
-@800200
+@c00200
 -Mixer PRN In
 @420
 RemovePrnWrapper.dut.mixer_1.io_input_b_payload_fragment_re[3:0]
@@ -78,7 +78,7 @@ RemovePrnWrapper.dut.mixer_1.io_input_b_payload_fragment_im[3:0]
 @28
 RemovePrnWrapper.dut.mixer_1.io_input_b_ready
 RemovePrnWrapper.dut.mixer_1.io_input_b_valid
-@1000200
+@1401200
 -Mixer PRN In
 @c00200
 -Mixer Pipeline
@@ -144,6 +144,7 @@ RemovePrnWrapper.dut.throw_prn
 RemovePrnWrapper.dut.prn_1_io_sample_count[11:0]
 RemovePrnWrapper.dut.io_input_payload_t[11:0]
 RemovePrnWrapper.dut.offset[11:0]
+RemovePrnWrapper.dut.offset_next[11:0]
 @200
 -
 @24

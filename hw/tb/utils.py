@@ -133,14 +133,19 @@ def generate_gps_samples(
         signal_power=noise_power,
     )
 
-    timestamp = np.tile(np.arange(4092), int(len(samples) / 4092) + 1)
-    timestamp = timestamp.astype(np.uint16)[0 : len(samples)]
-    timestamp += timestamp_offset
+    times_single = np.arange(4092)
+
+    # Apply offset
+    times_single = np.roll(times_single, -timestamp_offset)
+
+    # Repeat
+    times = np.tile(times_single, int(len(samples) / 4092) + 1)
+    times = times.astype(np.uint16)[0 : len(samples)]
 
     # Convert to 4 bit format
     samples_re = samples.real.astype(np.int8).astype(np.uint8) >> 6
     samples_im = samples.imag.astype(np.int8).astype(np.uint8) >> 6
-    bits = samples_re | (samples_im << 2) | ((timestamp & 0xFFF) << 4)
+    bits = samples_re | (samples_im << 2) | (times << 4)
     bits = [int(x) for x in bits]
 
     # Get quantized samples

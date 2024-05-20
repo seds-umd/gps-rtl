@@ -27,7 +27,7 @@ SUCCESS=$?
 if [ $SUCCESS -eq 0 ]; then
     # Copy fst file back
     mkdir -p ./${SIM_NAME}/sim_build
-    scp "${REMOTE}:~/.remote_builds/${GIT_REPO_NAME}/hw/tb/${SIM_NAME}/sim_build/"'*.fst' ./${SIM_NAME}/sim_build/.
+    scp "${REMOTE}:~/.remote_builds/${GIT_REPO_NAME}/hw/tb/${SIM_NAME}/sim_build/"'*.{fst,png}' ./${SIM_NAME}/sim_build/.
 fi
 
 exit $SUCCESS

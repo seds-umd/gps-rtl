@@ -18,8 +18,14 @@ import spinal.lib.fsm._
  * At 50 MHz clock and 4.092 Msps, rate = 12, threshold ~= 3755
  */
 
-case class RemovePrn(iqInWidth: Int, iqOutWidth: Int, period: Int, phaseWidth: Int, sampleRate: HertzNumber)
-    extends Component {
+case class RemovePrn(
+    iqInWidth: Int,
+    iqOutWidth: Int,
+    period: Int,
+    phaseWidth: Int,
+    sampleRate: HertzNumber,
+    debug: Boolean = false
+) extends Component {
 
   val current_freq = ClockDomain.current.frequency.getValue
 
@@ -163,10 +169,15 @@ case class RemovePrn(iqInWidth: Int, iqOutWidth: Int, period: Int, phaseWidth: I
 
     val idle: State = new State {
       whenIsActive {
-        when(offset > threshold) {
-          goto(advance_prn)
-        } otherwise {
+        // In sims, IQ samples aren't limited by sample rate
+        if (debug) {
           goto(advance_iq)
+        } else {
+          when(offset > threshold) {
+            goto(advance_prn)
+          } otherwise {
+            goto(advance_iq)
+          }
         }
       }
     }

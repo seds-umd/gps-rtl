@@ -23,7 +23,7 @@ case class GpsTop() extends Component {
 
   // acq.io.iq << max.io.iq
 
-  io.debug_out <> acq.io.debug_synth_fft_index ## acq.io.debug_synth_fft_val ## acq.io.debug_synth_fft_freq
+  // io.debug_out <> acq.io.debug_synth_fft_index ## acq.io.debug_synth_fft_val ## acq.io.debug_synth_fft_freq
 }
 
 object GpsTopVerilog extends App {

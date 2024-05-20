@@ -68,7 +68,7 @@ def shift_saturate(samples, bits):
 
 
 @cocotb.test()
-async def test_acquisition(dut):
+async def test_acquisition(dut, freq_span=2):
     tb = TB(dut)
     log = dut._log
 
@@ -76,14 +76,21 @@ async def test_acquisition(dut):
 
     # out of 4096, code will start at this index (ahead of zero)
     ref_phase = np.random.randint(4096)
-    doppler = 750  # Hz
-    sample_phase = ref_phase - 4 if ref_phase >= 4096 / 2 else ref_phase  # out of 4092
+
+    freq_bin_size = 4096 / 4.092
+    doppler = np.random.uniform(-freq_span * freq_bin_size, freq_span * freq_bin_size)
+
+    expected_coarse_freq = int(np.round(doppler / freq_bin_size))
+    expected_fine_freq = int(np.round(8 * doppler / freq_bin_size))
+
+    sample_phase = int(np.round(ref_phase * 4092 / 4096))
+
     tb.send_samples(doppler=doppler, sample_phase=sample_phase, noise=True)
 
-    log.info(f"Shift: {doppler} Hz, Phase: {sample_phase}")
+    log.info(f"Shift: {doppler:0.1f} Hz, Phase: {sample_phase}")
 
     # Run until coarse acquisition is done
-    await with_timeout(tb.wait_state("evaluate"), 1000000, "ns")
+    await with_timeout(tb.wait_state("fine_setup"), 2000 * 1000, "ns")
 
     # Get inputs and output of FFT module
     inputs = tb.fft_sim.past_inputs
@@ -129,8 +136,15 @@ async def test_acquisition(dut):
     log.info(f"Mix correlation: {mix_corr:0.3f}")
 
     # Check result
-    result_freq = dut.max_mag_io_max_freq.value.signed_integer
-    result_phase = dut.max_mag_io_max_idx.value.integer
-    log.info(f"Output: frequency={result_freq}, phase={result_phase}")
-    # assert result_freq ==
-    assert result_phase == ref_phase
+    result_coarse_freq = dut.coarse_freq.value.signed_integer
+    result_phase = dut.phase_offset.value.integer
+    log.info(f"Coarse results: frequency={result_coarse_freq}, phase={result_phase}")
+    assert result_coarse_freq == expected_coarse_freq
+    assert abs(result_phase - sample_phase) < 2
+
+    # Run fine acquisition
+    await with_timeout(tb.wait_state("done"), 2000 * 1000, "ns")
+
+    result_fine_freq = dut.fine_freq.value.signed_integer
+    log.info(f"Fine frequency: {result_fine_freq}")
+    assert result_fine_freq == expected_fine_freq, f"Expected {expected_fine_freq}"

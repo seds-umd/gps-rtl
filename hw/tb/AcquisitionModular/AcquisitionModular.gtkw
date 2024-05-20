@@ -1,15 +1,16 @@
 [*]
 [*] GTKWave Analyzer v3.3.103 (w)1999-2019 BSI
-[*] Sun May 12 02:40:03 2024
+[*] Mon May 20 04:48:39 2024
 [*]
 [dumpfile] "/home/nathan/seds/gps-rtl/hw/tb/AcquisitionModular/sim_build/AcquisitionModular.fst"
-[dumpfile_mtime] "Sun May 12 02:38:43 2024"
-[dumpfile_size] 1276620
+[dumpfile_mtime] "Mon May 20 04:48:10 2024"
+[dumpfile_size] 3189369
 [savefile] "/home/nathan/seds/gps-rtl/hw/tb/AcquisitionModular/AcquisitionModular.gtkw"
 [timestart] 0
 [size] 1908 1007
 [pos] -1 -1
-*-27.000000 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+*-29.000000 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+[treeopen] AcquisitionModular.
 [sst_width] 278
 [signals_width] 294
 [sst_expanded] 1
@@ -21,8 +22,27 @@ AcquisitionModular.reset
 +{state} AcquisitionModular.fsm_stateReg_string[79:0]
 @22
 AcquisitionModular.sv[5:0]
-@420
-AcquisitionModular.shift[1:0]
+@28
+AcquisitionModular.fft_active
+@24
+AcquisitionModular.phase_offset[11:0]
+@c00420
+AcquisitionModular.fine_freq[11:0]
+@28
+(0)AcquisitionModular.fine_freq[11:0]
+(1)AcquisitionModular.fine_freq[11:0]
+(2)AcquisitionModular.fine_freq[11:0]
+(3)AcquisitionModular.fine_freq[11:0]
+(4)AcquisitionModular.fine_freq[11:0]
+(5)AcquisitionModular.fine_freq[11:0]
+(6)AcquisitionModular.fine_freq[11:0]
+(7)AcquisitionModular.fine_freq[11:0]
+(8)AcquisitionModular.fine_freq[11:0]
+(9)AcquisitionModular.fine_freq[11:0]
+(10)AcquisitionModular.fine_freq[11:0]
+(11)AcquisitionModular.fine_freq[11:0]
+@1401200
+-group_end
 @c00200
 -IQ Input
 @c00022
@@ -51,8 +71,6 @@ AcquisitionModular.io_iq_ready
 AcquisitionModular.io_iq_valid
 @1401200
 -IQ Input
-@28
-AcquisitionModular.fft_active
 @c00200
 -FFT Config
 @22
@@ -100,13 +118,14 @@ AcquisitionModular.fft_in_gate.io_running
 AcquisitionModular.fft_input_sel[1:0]
 @22
 AcquisitionModular.fft_in_gate.io_config_payload[12:0]
+@24
 AcquisitionModular.fft_in_gate.counter[12:0]
 @28
 AcquisitionModular.fft_in_gate.io_config_ready
 AcquisitionModular.fft_in_gate.io_config_valid
 @1401200
 -FFT In Gate
-@800200
+@c00200
 -FFT Output
 @22
 AcquisitionModular.fft_inst.m_axis_data_tdata[15:0]
@@ -115,7 +134,7 @@ AcquisitionModular.fft_inst.m_axis_data_tuser[7:0]
 AcquisitionModular.fft_inst.m_axis_data_tlast
 AcquisitionModular.fft_inst.m_axis_data_tready
 AcquisitionModular.fft_inst.m_axis_data_tvalid
-@1000200
+@1401200
 -FFT Output
 @c00200
 -PRN
@@ -134,27 +153,8 @@ AcquisitionModular.prn_gen.io_inc[16:0]
 -PRN
 @c00200
 -Mixer
-@28
-AcquisitionModular.mixer_1.joined_fire
-AcquisitionModular.mixer_1.io_output_ready
-AcquisitionModular.mixer_1.io_output_valid
 @800200
 -Pipeline
-@22
-AcquisitionModular.mixer_1.joined_payload_1_fragment_re[7:0]
-AcquisitionModular.mixer_1.joined_payload_1_fragment_im[7:0]
-AcquisitionModular.mixer_1.joined_payload_2_fragment_re[7:0]
-AcquisitionModular.mixer_1.joined_payload_2_fragment_im[7:0]
-AcquisitionModular.mixer_1.s1_a_re[7:0]
-AcquisitionModular.mixer_1.s1_a_im[7:0]
-AcquisitionModular.mixer_1.s1_b_re[7:0]
-AcquisitionModular.mixer_1.s1_b_im[7:0]
-AcquisitionModular.mixer_1.s2_re_mix1[15:0]
-AcquisitionModular.mixer_1.s2_re_mix2[15:0]
-AcquisitionModular.mixer_1.s2_im_mix1[15:0]
-AcquisitionModular.mixer_1.s2_im_mix2[15:0]
-AcquisitionModular.mixer_1.s3_re_mix[15:0]
-AcquisitionModular.mixer_1.s3_im_mix[15:0]
 @1000200
 -Pipeline
 @1401200
@@ -189,18 +189,45 @@ AcquisitionModular.prn_mem.io_output_offset[11:0]
 AcquisitionModular.prn_mem.io_output_fire
 @1401200
 -PRN Mem
-@800200
+@c00200
 -Magnitude
-@420
-AcquisitionModular.max_mag.io_freq[1:0]
 @28
 AcquisitionModular.max_mag.io_input_fire
-@420
-AcquisitionModular.max_mag.io_max_freq[1:0]
+AcquisitionModular.max_mag.io_input_payload_last
 @24
 AcquisitionModular.max_mag.io_max_idx[11:0]
 AcquisitionModular.max_mag.io_max_mag[22:0]
-@1000200
+@28
+AcquisitionModular.max_mag.io_done_last
+@10022
+AcquisitionModular.max_mag.mag_abs[22:0]
+@20000
+-
+@1401200
 -Magnitude
+@200
+-Fine Acquisition
+@c00200
+-Remove PRN
+@820
+AcquisitionModular.fine_acq_remove_prn.fsm_stateReg_string[87:0]
+@28
+AcquisitionModular.fine_acq_remove_prn.io_input_payload_c_im[1:0]
+AcquisitionModular.fine_acq_remove_prn.io_input_payload_c_re[1:0]
+@22
+AcquisitionModular.fine_acq_remove_prn.io_input_payload_t[11:0]
+@28
+AcquisitionModular.fine_acq_remove_prn.io_input_ready
+AcquisitionModular.fine_acq_remove_prn.io_input_valid
+@200
+-
+@28
+AcquisitionModular.fine_acq_remove_prn.io_set
+@24
+AcquisitionModular.fine_acq_remove_prn.io_phase_offset[11:0]
+@22
+AcquisitionModular.fine_acq_remove_prn.offset[11:0]
+@1401200
+-Remove PRN
 [pattern_trace] 1
 [pattern_trace] 0

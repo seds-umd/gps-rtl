@@ -12,7 +12,8 @@ case class AcquisitionModular(
     freq_shift: Int = 24,
     dec_factor: Int = 8,
     period: Int = 4092,
-    flush: Boolean = true
+    flush: Boolean = true,
+    debug: Boolean = false
 ) extends Component {
   val fft_size_log = log2Up(fft_size)
   val freq_width = log2Up(2 * freq_shift + 1)
@@ -20,9 +21,9 @@ case class AcquisitionModular(
   val io = new Bundle {
     val iq = slave Stream (ComplexTimestamp(iq_size, period).asBits)
 
-    val debug_synth_fft_index = out UInt (fft_size_log bits)
-    val debug_synth_fft_val = out UInt (23 bits)
-    val debug_synth_fft_freq = out SInt (freq_width bits)
+    val debug_synth_phase_offset = out UInt(fft_size_log bits)
+    val debug_synth_coarse_freq = out SInt(freq_width bits)
+    val debug_synth_fine_freq = out SInt(fft_size_log bits)
   }
 
   def transfer(gateConfig: Stream[UInt], n: Int = 4096) = {
@@ -46,6 +47,37 @@ case class AcquisitionModular(
     })
   }
 
+  def scale4096_4092(value: UInt): UInt = {
+    val scaled = UInt(fft_size_log bits)
+    when(value < 4092 * 1 / 5) {
+      scaled := value
+    } elsewhen (value < 4092 * 2 / 5) {
+      scaled := value - 1
+    } elsewhen (value < 4092 * 3 / 5) {
+      scaled := value - 2
+    } elsewhen (value < 4092 * 4 / 5) {
+      scaled := value - 3
+    } otherwise {
+      scaled := value - 4
+    }
+    scaled
+  }
+
+  val iq_area = new Area {
+    val iq_converted = io.iq.translateInto(Stream(ComplexTimestamp(iq_size)))((to, from) => {
+      to.assignFromBits(from)
+    })
+    val output_count = 2
+    val output_sel = Reg(UInt(log2Up(output_count) bits)) init 0
+    val outputs = StreamDemux(iq_converted, output_sel, output_count)
+
+    val OUT_SEL_COARSE = 0
+    val OUT_SEL_FINE = 1
+
+    val output_coarse = outputs(OUT_SEL_COARSE)
+    val output_fine = outputs(OUT_SEL_FINE)
+  }
+
   // Memories
   val sample_mem = StreamMemory(Complex(8), fft_size_log)
   sample_mem.io.output_offset := 0
@@ -56,10 +88,28 @@ case class AcquisitionModular(
   prn_gen.io.inc := U"17'h4000" // TODO: automatically calculate based on sample rate
   prn_gen.io.set := False
 
+  val sv = Reg(UInt(6 bits)) init 0
+  prn_gen.io.sv := sv
+
   // Feed sample and PRN memory into mixer
   val mixer = Mixer(8)
   mixer.io.input_a << sample_mem.io.output
   mixer.io.input_b << prn_mem.io.output
+
+  val fine_acq = new Area {
+    val remove_prn = RemovePrn(iq_size, fft_width, period, fft_size_log, 4.092 MHz, debug)
+    remove_prn.io.sv := sv
+    remove_prn.io.set := False
+    remove_prn.io.input << iq_area.output_fine
+
+    val decimator = Decimate(fft_width, dec_factor)
+    decimator.io.iq_in << remove_prn.io.output.translateInto(Stream(Complex(fft_width).asBits))((to, from) => {
+      to := from.asBits
+    })
+    val dec_out = decimator.io.iq_out.translateInto(Stream(Complex(fft_width)))((to, from) => {
+      to.assignFromBits(from)
+    })
+  }
 
   val fft = new Area {
     // Get stream without exponent
@@ -75,11 +125,11 @@ case class AcquisitionModular(
     //// Inputs
 
     // Convert IQ input into 8 bit complex
-    val input_gps = io.iq.translateInto(Stream(Complex(8)))((to, from) => {
-      val from_iq = from.as(ComplexTimestamp(iq_size, period))
-      to.re := from_iq.c.re @@ U"6'b100000"
-      to.im := from_iq.c.im @@ U"6'b100000"
+    val input_gps = iq_area.output_coarse.translateInto(Stream(Complex(8)))((to, from) => {
+      to.re := from.c.re @@ U"6'b100000"
+      to.im := from.c.im @@ U"6'b100000"
     })
+    val input_gps_time = io.iq.payload.as(ComplexTimestamp(iq_size, period)).t
 
     val input_prn = prn_gen.io.code.translateInto(Stream(Complex(8)))((to, from) => {
       // Scale PRN to +-1 (127/-128) and zero imaginary component
@@ -90,12 +140,15 @@ case class AcquisitionModular(
 
     val input_mixed = mixer.io.output.toStreamOfFragment
 
-    val inputs = Vec(input_gps, input_prn, input_mixed)
+    val input_dec = fine_acq.dec_out
+
+    val inputs = Vec(input_gps, input_prn, input_mixed, input_dec)
     val input_sel = Reg(UInt(log2Up(inputs.length) bits)) init 0
 
     val INPUT_SEL_GPS = 0
     val INPUT_SEL_PRN = 1
     val INPUT_SEL_MIX = 2
+    val INPUT_SEL_DEC = 3
 
     // Input gate
     val in_gate = StreamToFragmentMetered(inst.io.s_axis_data.dataType)
@@ -158,18 +211,21 @@ case class AcquisitionModular(
   val shift = Reg(SInt(freq_width bits))
   prn_mem.io.output_offset := (-shift).resized
 
-  val sv = Reg(UInt(6 bits)) init 0
-  prn_gen.io.sv := sv
-
   // Magnitude
   val max_mag = MaxMagnitude(fft_width, freq_width, fft_size_log, fft.inst.data_out_config)
   max_mag.io.input << fft.out_mag
   max_mag.io.freq <> shift
   max_mag.io.restart := False
 
-  max_mag.io.max_mag <> io.debug_synth_fft_val
-  max_mag.io.max_idx <> io.debug_synth_fft_index
-  max_mag.io.max_freq <> io.debug_synth_fft_freq
+  val first_sample_time = Reg(UInt(log2Up(period) bits))
+  val phase_offset = Reg(UInt(fft_size_log bits))
+  val coarse_freq = Reg(SInt(freq_width bits))
+  val fine_freq = Reg(SInt(fft_size_log bits))
+  fine_acq.remove_prn.io.phase_offset := phase_offset
+
+  io.debug_synth_phase_offset := phase_offset
+  io.debug_synth_coarse_freq := coarse_freq
+  io.debug_synth_fine_freq := fine_freq
 
   val fsm = new StateMachine {
     val init: State = new State with EntryPoint {
@@ -191,12 +247,16 @@ case class AcquisitionModular(
     // Grab IQ samples, run FFT and store in memory
     val samples_in: State = new State {
       onEntry {
+        iq_area.output_sel := iq_area.OUT_SEL_COARSE
         fft.input_sel := fft.INPUT_SEL_GPS
         fft.output_sel := fft.OUT_SEL_SAMPLE_MEM
         transfer(fft.in_gate_config)
       }
 
       whenIsActive {
+        when(fft.in_gate.io.output.firstFire) {
+          first_sample_time := fft.input_gps_time
+        }
         when(!fft.active) {
           goto(prn_in)
         }
@@ -231,7 +291,7 @@ case class AcquisitionModular(
       }
 
       whenIsActive {
-        when(!fft.active) {
+        when(!fft.active & max_mag.io.done_last) {
           when(shift === freq_shift) {
             goto(evaluate)
           } otherwise {
@@ -251,11 +311,56 @@ case class AcquisitionModular(
     }
 
     // Take magnitude of FFT output and keep track of max
-    val evaluate: State = new State {}
+    val evaluate: State = new State {
+      whenIsActive {
+        // TODO: make it out of 4092
+        phase_offset := scale4096_4092(max_mag.io.max_idx - first_sample_time)
+        coarse_freq := max_mag.io.max_freq
+        goto(fine_setup)
+      }
+    }
+
+    val fine_setup: State = new State {
+      whenIsActive {
+        fft.config.payload := fft.CONFIG_FWD
+        fft.config.valid := True
+
+        iq_area.output_sel := iq_area.OUT_SEL_FINE
+        fft.input_sel := fft.INPUT_SEL_DEC
+        fft.output_sel := fft.OUT_SEL_MAG
+
+        max_mag.io.restart := True
+
+        goto(fine_run)
+      }
+    }
+
+    val fine_run: State = new State {
+      onEntry {
+        transfer(fft.in_gate_config)
+
+        fine_acq.remove_prn.io.set := True
+      }
+
+      whenIsActive {
+        when(!fft.active & max_mag.io.done_last) {
+          goto(fine_eval)
+        }
+      }
+    }
+
+    val fine_eval: State = new State {
+      whenIsActive {
+        fine_freq := max_mag.io.max_idx.asSInt
+        goto(done)
+      }
+    }
+
+    val done: State = new State {}
   }
 }
 
 object AcquisitionModularVerilog extends App {
   // Generate verilog for testbench. If freq_shift is changed, also change in tb.
-  Config.spinal.generateVerilog(AcquisitionModular(freq_shift = 1, flush = false))
+  Config.spinal.generateVerilog(AcquisitionModular(freq_shift = 2, flush = false, debug = true))
 }

@@ -1,5 +1,4 @@
 import cocotb
-import cocotb.result
 from cocotb.triggers import ClockCycles, with_timeout
 from cocotbext import axi
 

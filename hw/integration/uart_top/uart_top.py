@@ -59,9 +59,9 @@ class UartTop(SoCCore):
             i_io_data_in=max_interface.data_in,
             i_io_data_sync=max_interface.data_sync,
             i_io_time_sync=max_interface.time_sync,
-            o_io_SCLK=max_interface.sclk,
-            o_io_CS=max_interface.cs,
-            o_io_SDATA=max_interface.sdata,
+            o_io_spi_cs=max_interface.cs,
+            o_io_spi_sclk=max_interface.sclk,
+            o_io_spi_sdata=max_interface.sdata,
             o_io_uart_txd=uart.tx,
             i_io_uart_rxd=uart.rx,
         )

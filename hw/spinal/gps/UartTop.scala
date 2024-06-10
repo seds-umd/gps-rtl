@@ -16,9 +16,7 @@ case class UartTop() extends Component {
     val uart = master(Uart())
 
     // Config SPI
-    val SCLK = out Bool ()
-    val CS = out Bool ()
-    val SDATA = out Bool ()
+    val spi = master(SpiBundle())
   }
 
   val max = MaxInterface(iq_size = 2)
@@ -38,9 +36,8 @@ case class UartTop() extends Component {
   })
 
   val spi = MaxSpiConfig()
-  spi.io.sclk <> io.SCLK
-  spi.io.cs <> io.CS
-  spi.io.sdata <> io.SDATA
+  spi.io.spi >> io.spi
+  uart.io.spi_data >> spi.io.data
 }
 
 object UartTopVerilog extends App {

@@ -26,76 +26,19 @@ case class RegConfig(
 
 case class MaxSpiConfig(div: Int = 100, config: RegConfig = RegConfig()) extends Component {
   val io = new Bundle {
-    val sclk = out Bool ()
-    val cs = out Bool()
-    val sdata = out Bool()
+    val spi = master(SpiBundle())
+    val data = slave Stream(Bits(32 bits))
   }
 
-  io.sclk := False
-  io.cs.setAsReg() init(True)
-  io.sdata.setAsReg() init(False)
+  io.data.ready := False
 
-  val addr = UInt(config.addrBits bits)
-  val data = UInt(config.regBits bits)
-  val start = Reg(Bool())
-  val transfer_done = Bool()
-  addr := 0
-  data := 0
-  start := False
-  transfer_done := False
-
-  val spi_fsm = new StateMachine {
-    val div_counter = Counter(div)
-
-    val init: State = new State with EntryPoint {
-      whenIsActive {
-        div_counter.clear()
-
-        when(start) {
-          goto(run)
-          io.cs := False
-        }
-      }
-    }
-
-    val run: State = new State {
-      val bit = Counter(config.addrBits + config.regBits + 1)
-
-      whenIsActive {
-        io.cs := False
-        io.sclk := div_counter > (div / 2).toInt
-
-        div_counter.increment()
-
-        when(div_counter === 0) {
-          bit.increment()
-
-          when(bit < config.regBits) {
-            // Send data
-            io.sdata := data((config.regBits - bit.value - 1).resized)
-          } otherwise {
-            // Send address
-            io.sdata := addr((config.addrBits - (bit.value - config.regBits) - 1).resized)
-          }
-        }
-
-        when(bit.willOverflow) {
-          goto(cooldown)
-        }
-      }
-    }
-
-    val cooldown: State = new StateDelay(cyclesCount = div) {
-      whenIsActive {
-        io.cs := True
-        io.sdata := False
-      }
-      whenCompleted {
-        transfer_done := True
-        goto(init)
-      }
-    }
-  }
+  val spi_phy = MaxSpiPhy(div = div)
+  spi_phy.io.spi >> io.spi
+  val spi_in = spi_phy.io.data.clone()
+  spi_phy.io.data << spi_in
+  spi_in.valid := False
+  spi_in.payload.setAsReg()
+  spi_in.valid.setAsReg()
 
   val reg_fsm = new StateMachine {
     val reg_states = List.fill(config.regVals.length)(new State)
@@ -108,14 +51,11 @@ case class MaxSpiConfig(div: Int = 100, config: RegConfig = RegConfig()) extends
 
     for (i <- 0 to (reg_states.length - 1)) {
       reg_states(i)
-        .onEntry {
-          start := True
-        }
         .whenIsActive {
-          addr := config.regVals(i)._1
-          data := config.regVals(i)._2
+          spi_in.valid := True
+          spi_in.payload := B(config.regVals(i)._2, 28 bits) ## B(config.regVals(i)._1, 4 bits)
 
-          when(transfer_done) {
+          when(spi_in.fire) {
             if (i < (reg_states.length - 1)) {
               goto(reg_states(i + 1))
             } else {
@@ -125,7 +65,18 @@ case class MaxSpiConfig(div: Int = 100, config: RegConfig = RegConfig()) extends
         }
     }
 
-    val done: State = new State {}
+    val done: State = new State {
+      whenIsActive {
+        when(spi_in.ready) {
+          io.data.ready := True
+        }
+
+        when(io.data.valid) {
+          spi_in.valid := True
+          spi_in.payload := io.data.payload
+        }
+      }
+    }
   }
 }
 

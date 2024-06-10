@@ -11,7 +11,7 @@ from pathlib import Path
 utils_path = Path(__file__).resolve().parent.parent
 sys.path.insert(len(sys.path), str(utils_path.resolve()))
 
-from utils import TB_Template, axis_source, iq_pause, pack_iq
+from utils import TB_Template, axis_source, axis_sink, iq_pause, pack_iq
 
 
 class TB(TB_Template):
@@ -25,6 +25,8 @@ class TB(TB_Template):
 
         self.uart_source.log.setLevel(logging.WARNING)
         self.uart_sink.log.setLevel(logging.WARNING)
+
+        self.spi_data = axis_sink(dut, "io_spi_data_", byte_size=32)
 
     async def send_iq(self, data):
         await self.iq_in.send(data)
@@ -62,7 +64,7 @@ async def test_dut(dut):
     expected = expected.astype(np.uint8).tobytes()
 
     CLK_PER_BYTE = int(10 * CLK / BAUD)
-    await ClockCycles(dut.clk, CLK_PER_BYTE * len(expected))
+    await ClockCycles(dut.clk, CLK_PER_BYTE * 2**commanded_len)
 
     actual = await tb.get_uart()
 
@@ -70,3 +72,12 @@ async def test_dut(dut):
     assert actual in expected
 
     assert len(actual) == 2**commanded_len
+
+    # Try register write
+    for _ in range(10):
+        word = np.random.randint(0, 2**32 - 1)
+        await tb.send_uart([0x20])
+        await tb.send_uart(int(word).to_bytes(4, 'big'))
+
+        actual = (await tb.spi_data.read(1))[0]
+        assert word == actual

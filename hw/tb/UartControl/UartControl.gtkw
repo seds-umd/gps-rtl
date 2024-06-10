@@ -1,10 +1,10 @@
 [*]
 [*] GTKWave Analyzer v3.3.103 (w)1999-2019 BSI
-[*] Tue May 14 02:28:50 2024
+[*] Mon Jun 10 04:49:20 2024
 [*]
 [dumpfile] "/home/nathan/seds/gps-rtl/hw/tb/UartControl/sim_build/UartControlWrapper.fst"
-[dumpfile_mtime] "Tue May 14 02:28:09 2024"
-[dumpfile_size] 9209
+[dumpfile_mtime] "Mon Jun 10 04:40:14 2024"
+[dumpfile_size] 16306
 [savefile] "/home/nathan/seds/gps-rtl/hw/tb/UartControl/UartControl.gtkw"
 [timestart] 0
 [size] 1908 1007
@@ -13,14 +13,14 @@
 [treeopen] UartControlWrapper.
 [treeopen] UartControlWrapper.uart_ctrl.
 [sst_width] 214
-[signals_width] 230
+[signals_width] 294
 [sst_expanded] 1
 [sst_vpaned_height] 295
 @28
 UartControlWrapper.clk
 UartControlWrapper.reset
 @820
-UartControlWrapper.uart_ctrl.fsm_stateReg_string[39:0]
+UartControlWrapper.uart_ctrl.fsm_stateReg_string[103:0]
 @200
 -
 @28
@@ -67,5 +67,15 @@ UartControlWrapper.uart_ctrl.uartCtrl_1.io_write_payload[7:0]
 UartControlWrapper.uart_ctrl.uartCtrl_1.io_write_ready
 UartControlWrapper.uart_ctrl.uartCtrl_1.io_write_valid
 UartControlWrapper.uart_ctrl.fifo_io_flush
+@200
+-
+@22
+UartControlWrapper.io_spi_data_payload[31:0]
+UartControlWrapper.uart_ctrl.spi_word[31:0]
+UartControlWrapper.uart_ctrl.fsm_reg_write_word[31:0]
+@28
+UartControlWrapper.io_spi_data_ready
+UartControlWrapper.io_spi_data_valid
+UartControlWrapper.uart_ctrl.uart_ctrl_uartCtrl_1_io_read_fire
 [pattern_trace] 1
 [pattern_trace] 0

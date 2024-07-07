@@ -1,0 +1,3 @@
+-r common.txt
+-e ../gps-model
+-e ../fpga-utils

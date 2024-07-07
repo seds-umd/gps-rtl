@@ -24,12 +24,24 @@ sudo apt install scala openjdk-8-jdk
 
 sbt: https://www.scala-sbt.org/download/
 
-## Cocotb
+## Python/Cocotb
+
+Set up a Python environment for using cocotb.
 
 ```bash
 python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
+```
+
+### fpga-utils and gps-model development
+
+If you will be making changes to the [fpga-utils](https://github.com/seds-umd/fpga-utils) and [gps-model](https://github.com/seds-umd/gps-model) repos, you may want to point this repo's (gps-rtl's) venv at your local copies of those repos. This allows you to test changes in those repos before committing them, because those changes will be immediately reflected in this venv. 
+
+To use the local repos (which must both be in the same parent directly as this repo):
+
+```bash
+pip install -r requirements/dev.txt
 ```
 
 ## Directories

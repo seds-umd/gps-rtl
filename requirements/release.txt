@@ -1,0 +1,3 @@
+-r common.txt
+gps-model @ git+ssh://git@github.com/seds-umd/gps-model.git
+fpga-utils @ git+ssh://git@github.com:seds-umd/fpga-utils.git

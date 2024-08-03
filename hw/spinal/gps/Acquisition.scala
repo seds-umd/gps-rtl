@@ -62,14 +62,14 @@ case class Acquisition(
   }
 
   // Used for initial acquisition
-  val prn1 = PRN()
+  val prn1 = Prn()
   val prn1_ready = Reg(Bool()) init False
   prn1.io.inc := U"17'h4000" // TODO: automatically calculate based on sample rate
   prn1.io.set := False
   prn1.io.code.ready := prn1_ready
 
   // Used for code removal in fine acquisition
-  val prn2 = PRN()
+  val prn2 = Prn()
   prn2.io.inc := U"17'h4000"
   prn2.io.set := False
   prn2.io.code.ready := False

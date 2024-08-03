@@ -1,21 +1,18 @@
+#!/usr/bin/env python
+
 import cocotb
 from cocotb.triggers import RisingEdge, ClockCycles
 
 import logging
 import numpy as np
-import sys
-from pathlib import Path
-from gps import prn
+from gps import prn_gen
 
-utils_path = Path(__file__).resolve().parent.parent
-sys.path.insert(len(sys.path), str(utils_path.resolve()))
-
-from utils import TB_Template, axis_sink, corr, random_pause
+from fpga_utils import TbTemplate, axis_sink, corr, random_pause, test_runner
 
 
-class TB(TB_Template):
+class TB(TbTemplate):
     def __init__(self, dut, period=10):
-        super().__init__(dut, period)
+        super().__init__(dut, period=period)
 
         self.output = axis_sink(dut, "io_code_", byte_size=1)
 
@@ -36,7 +33,7 @@ class TB(TB_Template):
         self.output.read_nowait()
 
         code_len = int(np.ceil(1023 * divider))
-        expected = np.array(prn.sample(sv, 1.023e6 * divider, code_len).real, dtype=int)
+        expected = np.array(prn_gen.sample(sv, 1.023e6 * divider, code_len).real, dtype=int)
 
         while self.output.queue_occupancy_bytes < code_len:
             await ClockCycles(self.dut.clk, 10)
@@ -73,3 +70,13 @@ async def test_prn(dut):
         sv = np.random.randint(1, 33)
 
         await tb.run_test(sv)
+
+
+if __name__ == "__main__":
+    test_runner.run_wrapper(
+        top_level="Prn",
+        package="gps",
+        proj_dir="../../..",
+        source_dir="hw/spinal/gps",
+        gen_dir="hw/gen",
+    )

@@ -54,7 +54,7 @@ case class RemovePrn(
 
   val absolute_offset = Reg(UInt(phaseWidth bits))
 
-  val prn = PRN()
+  val prn = Prn()
   prn.io.sv := io.sv
   prn.io.set := io.set
   prn.io.inc := U"17'h4000"

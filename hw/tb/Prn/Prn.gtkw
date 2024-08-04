@@ -2,10 +2,10 @@
 [*] GTKWave Analyzer v3.3.103 (w)1999-2019 BSI
 [*] Sun May 19 03:46:54 2024
 [*]
-[dumpfile] "/home/nathan/seds/gps-rtl/hw/tb/PRN/sim_build/PRN.fst"
+[dumpfile] "/home/nathan/seds/gps-rtl/hw/tb/Prn/sim_build/Prn.fst"
 [dumpfile_mtime] "Sun May 19 03:44:56 2024"
 [dumpfile_size] 324075
-[savefile] "/home/nathan/seds/gps-rtl/hw/tb/PRN/PRN.gtkw"
+[savefile] "/home/nathan/seds/gps-rtl/hw/tb/Prn/Prn.gtkw"
 [timestart] 0
 [size] 1908 1007
 [pos] -1 -1
@@ -15,36 +15,36 @@
 [sst_expanded] 1
 [sst_vpaned_height] 295
 @28
-PRN.clk
-PRN.reset
+Prn.clk
+Prn.reset
 @200
 -
 @28
-PRN.io_set
+Prn.io_set
 @22
-PRN.io_sv[5:0]
-PRN.io_inc[16:0]
+Prn.io_sv[5:0]
+Prn.io_inc[16:0]
 @200
 -
 @28
-PRN.io_code_ready
-PRN.io_code_valid
-PRN.io_code_payload
+Prn.io_code_ready
+Prn.io_code_valid
+Prn.io_code_payload
 @200
 -
 @22
-PRN.chip_fraction[15:0]
+Prn.chip_fraction[15:0]
 @28
-PRN.advance_code
+Prn.advance_code
 @24
-PRN.code_count_value[9:0]
-PRN.sample_count_value[11:0]
+Prn.code_count_value[9:0]
+Prn.sample_count_value[11:0]
 @200
 -
 @22
-PRN.g1[9:0]
-PRN.g2[9:0]
-PRN.g2_tap1[3:0]
-PRN.g2_tap2[3:0]
+Prn.g1[9:0]
+Prn.g2[9:0]
+Prn.g2_tap1[3:0]
+Prn.g2_tap2[3:0]
 [pattern_trace] 1
 [pattern_trace] 0

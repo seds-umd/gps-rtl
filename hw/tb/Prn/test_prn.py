@@ -3,7 +3,6 @@
 import cocotb
 from cocotb.triggers import RisingEdge, ClockCycles
 
-import logging
 import numpy as np
 from gps import prn_gen
 
@@ -33,7 +32,9 @@ class TB(TbTemplate):
         self.output.read_nowait()
 
         code_len = int(np.ceil(1023 * divider))
-        expected = np.array(prn_gen.sample(sv, 1.023e6 * divider, code_len).real, dtype=int)
+        expected = np.array(
+            prn_gen.sample(sv, 1.023e6 * divider, code_len).real, dtype=int
+        )
 
         while self.output.queue_occupancy_bytes < code_len:
             await ClockCycles(self.dut.clk, 10)

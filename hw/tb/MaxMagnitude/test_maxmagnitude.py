@@ -1,20 +1,16 @@
+#!/usr/bin/env python
+
 import cocotb
 import cocotb.result
 from cocotb.triggers import ClockCycles, with_timeout
 from cocotbext import axi
-
 import numpy as np
-import sys
-from pathlib import Path
 
-utils_path = Path(__file__).resolve().parent.parent
-sys.path.insert(len(sys.path), str(utils_path.resolve()))
-
-from fft_sim import pack_complex
-from utils import TB_Template, axis_source, random_pause
+from fpga_utils import TbTemplate, axis_source, test_runner
+from fpga_utils.fft_sim import fft_pack_complex
 
 
-class TB(TB_Template):
+class TB(TbTemplate):
     def __init__(self, dut):
         super().__init__(dut)
 
@@ -51,7 +47,7 @@ class TB(TB_Template):
         for i in range(size):
             self.dut.io_freq.value = int(freqs[i])
 
-            await self.send_data(pack_complex(data[i]), exponent)
+            await self.send_data(fft_pack_complex(data[i]), exponent)
 
         # Finish transaction
         await self.input.wait()
@@ -69,10 +65,16 @@ class TB(TB_Template):
 
         expected_max = np.max(np.abs(data)) * 128 * (1 << exponent)
 
-        assert i_max == max_freq, f"Frequency expected: {i_max}, actual: {max_freq}" + debug_info
-        assert j_max == max_idx, f"Index expected: {j_max}, actual: {max_idx}" + debug_info
+        assert i_max == max_freq, (
+            f"Frequency expected: {i_max}, actual: {max_freq}" + debug_info
+        )
+        assert j_max == max_idx, (
+            f"Index expected: {j_max}, actual: {max_idx}" + debug_info
+        )
 
-        self.dut._log.info(f"Magnitude expected: {expected_max}, actual: {max_val}")
+        self.dut._log.info(
+            f"Magnitude expected: {expected_max}, actual: {max_val}, error: {(expected_max - max_val)/expected_max:0.3f}"
+        )
 
 
 @cocotb.test()
@@ -83,3 +85,13 @@ async def test_dut(dut):
 
     for i in range(16):
         await with_timeout(tb.test_grid(size=64, exponent=i), 100000, "ns")
+
+
+if __name__ == "__main__":
+    test_runner.run_wrapper(
+        top_level="MaxMagnitude",
+        package="gps",
+        proj_dir="../../..",
+        source_dir="hw/spinal/gps",
+        gen_dir="hw/gen",
+    )

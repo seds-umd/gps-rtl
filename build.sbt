@@ -2,15 +2,18 @@ ThisBuild / version := "1.0"
 ThisBuild / scalaVersion := "2.12.16"
 ThisBuild / organization := "org.example"
 
-val spinalVersion = "1.9.3"
+val spinalVersion = "1.10.2"
 val spinalCore = "com.github.spinalhdl" %% "spinalhdl-core" % spinalVersion
 val spinalLib = "com.github.spinalhdl" %% "spinalhdl-lib" % spinalVersion
 val spinalIdslPlugin = compilerPlugin("com.github.spinalhdl" %% "spinalhdl-idsl-plugin" % spinalVersion)
+
+lazy val ethernet = RootProject(uri("ssh://git@github.com/seds-umd/spinalhdl-ethernet.git"))
 
 lazy val satfab_gps = (project in file("."))
   .settings(
     Compile / scalaSource := baseDirectory.value / "hw" / "spinal",
     libraryDependencies ++= Seq(spinalCore, spinalLib, spinalIdslPlugin)
   )
+  .dependsOn(ethernet)
 
 fork := true

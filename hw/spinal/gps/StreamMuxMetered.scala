@@ -13,7 +13,8 @@ class StreamMuxMetered[T <: Data](inputs: Vec[Stream[T]], countBits: Int = 12) e
   private val running = counter > 0
 
   private val inputs_internal = Vec(inputs.map(_.haltWhen(!running || select.valid)))
-  val output = StreamMux(select, inputs_internal)
+  // val output = StreamMux(select, inputs_internal)
+  val output = inputs_internal(0) // XXX just to get it to compile, fix later
 
   // Perform n transactions to bus at index
   // Only run when not busy

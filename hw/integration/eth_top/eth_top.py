@@ -108,7 +108,7 @@ class EthernetTestbench(SoCCore):
             "o_io_gmii_gmii_tx_er": eth_pads.tx_er,
         }
 
-        self.specials += Instance("UdpTop", **ios)
+        self.specials += Instance("EthernetTestbench", **ios)
 
 
 def main():

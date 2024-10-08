@@ -1,25 +1,23 @@
-import cocotb
-import numpy as np
-import matplotlib.pyplot as plt
-plt.switch_backend("Agg")
+#!/usr/bin/env python
 
+import cocotb
 from cocotb.clock import Clock
-from cocotb.triggers import ClockCycles
 from cocotbext.axi import AxiStreamSink, AxiStreamSource, AxiStreamBus, AxiStreamFrame
 
-import sys
-from pathlib import Path
+import numpy as np
+import matplotlib.pyplot as plt
 
-# Hack to share fft_sim between multiple tests
-fft_path = Path(__file__).resolve().parent.parent
-sys.path.insert(len(sys.path), str(fft_path.resolve()))
+plt.switch_backend("Agg")
 
-from fft_sim import FFT_Sim, pack_complex, unpack_complex
+import fpga_utils
+from fpga_utils import test_runner
+from fpga_utils.fft_sim import FFT_Sim, fft_pack_complex, fft_unpack_complex
 
 
 @cocotb.test()
 async def test_fft(dut):
     cocotb.start_soon(Clock(dut.aclk, 10, "ns").start())
+    dut._log.info("test")
 
     sim = FFT_Sim(dut, 12, 1)
 
@@ -46,19 +44,19 @@ async def test_fft(dut):
         byte_size=16,
     )
 
-    await config_driver.send([1]) # Forward FFT
+    await config_driver.send([1])  # Forward FFT
     await config_driver.wait()
 
-    in_data = 0.75 * np.exp(np.arange(4096)*2j*np.pi/10)
+    in_data = 0.75 * np.exp(np.arange(4096) * 2j * np.pi / 10)
 
-    packed_data = pack_complex(in_data)
+    packed_data = fft_pack_complex(in_data)
 
     await data_driver.send(packed_data)
     await data_driver.wait()
 
     rx_frame = await data_receiver.recv()
-    out_data = unpack_complex(rx_frame.tdata)
-    out_data = out_data * 2**(int(rx_frame.tuser))
+    out_data = fft_unpack_complex(rx_frame.tdata)
+    out_data = out_data * 2 ** (int(rx_frame.tuser))
 
     ref_data = in_data
     ref_fft = np.fft.fft(ref_data)
@@ -76,3 +74,14 @@ async def test_fft(dut):
     plt.plot(np.abs(out_data - ref_fft))
     plt.tight_layout()
     plt.savefig("compare.png")
+
+if __name__ == "__main__":
+    test_runner.run_wrapper(
+        top_level="XilinxFFT",
+        package="gps",
+        proj_dir="../../..",
+        source_dir="hw/spinal/gps",
+        gen_dir="hw/gen",
+        verilog_sources=["hw/verilog/XilinxFFT.v"],
+        scala=False,
+    )

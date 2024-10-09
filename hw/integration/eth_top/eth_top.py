@@ -110,6 +110,8 @@ class EthernetTestbench(SoCCore):
 
         self.specials += Instance("EthernetTestbench", **ios)
 
+        self.platform.add_ip("fft.tcl")
+
 
 def main():
     from litex.build.parser import LiteXArgumentParser

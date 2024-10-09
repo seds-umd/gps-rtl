@@ -13,7 +13,8 @@ case class MaxMagnitude(iqWidth: Int, freqWidth: Int, fftWidth: Int, axisConfig:
     val max_mag = out UInt (iqWidth + 15 bits)
     val max_idx = out UInt (fftWidth bits)
     val max_freq = out SInt (freqWidth bits)
-    val done_last = out Bool()
+    val mean_mag = out UInt (iqWidth + fftWidth + 15 bits)
+    val done_last = out Bool ()
   }
 
   io.max_mag.setAsReg()
@@ -40,18 +41,28 @@ case class MaxMagnitude(iqWidth: Int, freqWidth: Int, fftWidth: Int, axisConfig:
   val freq_delayed = Delay(io.freq, LatencyAnalysis(io.input.valid, mag.io.mag.valid), io.input.fire)
   io.done_last := mag.io.mag.last
 
+  io.mean_mag.setAsReg()
+
   when(mag.io.mag.fire) {
     idx_counter.increment()
+
+    io.mean_mag := io.mean_mag + mag_abs
 
     when(mag_abs > io.max_mag) {
       io.max_mag := mag_abs
       io.max_idx := idx_counter
       io.max_freq := freq_delayed
     }
+
+    // Divide mean by number of samples
+    when(mag.io.mag.last) {
+      io.mean_mag := ((io.mean_mag + mag_abs) >> fftWidth).resized
+    }
   }
 
   when(io.restart) {
     io.max_mag := 0
+    io.mean_mag := 0
   }
 }
 

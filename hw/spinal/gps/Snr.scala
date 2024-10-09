@@ -4,6 +4,7 @@ import spinal.core._
 import spinal.lib.fsm._
 
 // Based on https://projectf.io/posts/division-in-verilog/
+// TODO: maybe make this fixed point so we get extra precision for snr
 case class Snr(width: Int = 32) extends Component {
   val io = new Bundle {
     val num = in UInt (width bits)

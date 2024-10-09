@@ -5,6 +5,32 @@ import spinal.lib._
 import spinal.lib.fsm._
 import spinal.lib.bus.amba4.axis.Axi4Stream.Axi4Stream
 
+
+/** TODO:
+  * sample phase isn't constant between runs - is this due to changes in sim data or bug in rtl?
+  * only detecting 5 SVs at best when python code is detecting 8
+  */
+
+/** Potential improvements:
+  * Skip SVs that are already in tracking channels
+  * Skip fine acquisition if coarse acquisition SNR isn't high enough - maybe a bad idea of it's right on the edge of the threshold, and fine acquisition would reveal a higher SNR
+  * 
+  */
+
+case class AcquisitionResults(fft_size_log: Int = 12) extends Bundle {
+  // SV is 1 indexed (0 is never used)
+  val sv = UInt(6 bits)
+
+  // Fine acquisition frequency (scaled by 1/dec_factor)
+  val freq_offset = SInt(fft_size_log bits)
+
+  // Phase offset in samples (out of 4092)
+  val phase_offset = UInt(fft_size_log bits)
+
+  // Integer portion of SNR based on fine acquisition results
+  val snr = UInt(8 bits)
+}
+
 case class AcquisitionModular(
     iq_size: Int = 2,
     fft_size: Int = 4096,
@@ -20,11 +46,14 @@ case class AcquisitionModular(
 
   val io = new Bundle {
     val iq = slave Stream (ComplexTimestamp(iq_size, period).asBits)
-
-    val debug_synth_phase_offset = out UInt(fft_size_log bits)
-    val debug_synth_coarse_freq = out SInt(freq_width bits)
-    val debug_synth_fine_freq = out SInt(fft_size_log bits)
+    val results = master Stream (AcquisitionResults(fft_size_log))
   }
+
+  io.results.sv := 0
+  io.results.freq_offset := 0
+  io.results.phase_offset := 0
+  io.results.snr := 0
+  io.results.valid := False
 
   def transfer(gateConfig: Stream[UInt], n: Int = 4096) = {
     gateConfig.payload := n
@@ -84,7 +113,7 @@ case class AcquisitionModular(
   val prn_mem = StreamMemory(Complex(8), fft_size_log)
 
   // PRN
-  val prn_gen = PRN()
+  val prn_gen = Prn()
   prn_gen.io.inc := U"17'h4000" // TODO: automatically calculate based on sample rate
   prn_gen.io.set := False
 
@@ -221,11 +250,17 @@ case class AcquisitionModular(
   val phase_offset = Reg(UInt(fft_size_log bits))
   val coarse_freq = Reg(SInt(freq_width bits))
   val fine_freq = Reg(SInt(fft_size_log bits))
+  val fine_mean = Reg(UInt(max_mag.io.mean_mag.getBitsWidth bits))
+  val fine_max = Reg(UInt(max_mag.io.max_mag.getBitsWidth bits))
   fine_acq.remove_prn.io.phase_offset := phase_offset
 
-  io.debug_synth_phase_offset := phase_offset
-  io.debug_synth_coarse_freq := coarse_freq
-  io.debug_synth_fine_freq := fine_freq
+  val snr = Snr(fine_mean.getBitsWidth)
+  val snr_start = Reg(Bool())
+  val snr_result = Reg(UInt(8 bits))
+  snr.io.num := fine_max.resized
+  snr.io.den := fine_mean
+  snr_start := False
+  snr.io.start := snr_start
 
   val fsm = new StateMachine {
     val init: State = new State with EntryPoint {
@@ -234,12 +269,13 @@ case class AcquisitionModular(
         fft.config.valid := True
 
         shift := -freq_shift
-        prn_gen.io.set := True
 
         max_mag.io.restart := True
       }
 
       whenIsActive {
+        prn_gen.io.set := True
+
         goto(samples_in)
       }
     }
@@ -352,11 +388,49 @@ case class AcquisitionModular(
     val fine_eval: State = new State {
       whenIsActive {
         fine_freq := max_mag.io.max_idx.asSInt
-        goto(done)
+        fine_mean := max_mag.io.mean_mag
+        fine_max := max_mag.io.max_mag
+        snr_start := True
+
+        goto(calc_snr)
       }
     }
 
-    val done: State = new State {}
+    // Delay to allow SNR divider to start
+    val calc_snr: State = new StateDelay(cyclesCount = 2) {
+      whenCompleted {
+        when(snr.io.valid) {
+          // Saturate to 255 max
+          snr_result := snr.io.res.sat(snr.io.res.getBitsWidth - 8 bits)
+
+          goto(send_result)
+        } elsewhen (snr.io.error) {
+          snr_result := 0
+
+          goto(send_result)
+        }
+      }
+    }
+
+    val send_result: State = new State {
+      whenIsActive {
+        io.results.sv := sv + 1
+        io.results.freq_offset := fine_freq
+        io.results.phase_offset := phase_offset
+        io.results.snr := snr_result
+        io.results.valid := True
+
+        when(io.results.fire) {
+          when(sv === 31) {
+            sv := 0
+          } otherwise {
+            sv := sv + 1
+          }
+
+          goto(init)
+        }
+      }
+    }
   }
 }
 

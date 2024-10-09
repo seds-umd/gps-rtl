@@ -1,48 +1,29 @@
 [*]
-[*] GTKWave Analyzer v3.3.103 (w)1999-2019 BSI
-[*] Mon May 20 04:48:39 2024
+[*] GTKWave Analyzer v3.3.104 (w)1999-2020 BSI
+[*] Tue Oct  8 22:39:29 2024
 [*]
 [dumpfile] "/home/nathan/seds/gps-rtl/hw/tb/AcquisitionModular/sim_build/AcquisitionModular.fst"
-[dumpfile_mtime] "Mon May 20 04:48:10 2024"
-[dumpfile_size] 3189369
+[dumpfile_mtime] "Tue Oct  8 22:37:54 2024"
+[dumpfile_size] 6679016
 [savefile] "/home/nathan/seds/gps-rtl/hw/tb/AcquisitionModular/AcquisitionModular.gtkw"
 [timestart] 0
-[size] 1908 1007
+[size] 2868 1695
 [pos] -1 -1
 *-29.000000 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
 [treeopen] AcquisitionModular.
 [sst_width] 278
-[signals_width] 294
+[signals_width] 326
 [sst_expanded] 1
-[sst_vpaned_height] 295
+[sst_vpaned_height] 537
 @28
 AcquisitionModular.clk
 AcquisitionModular.reset
 @820
-+{state} AcquisitionModular.fsm_stateReg_string[79:0]
+AcquisitionModular.fsm_stateReg_string[87:0]
 @22
 AcquisitionModular.sv[5:0]
 @28
 AcquisitionModular.fft_active
-@24
-AcquisitionModular.phase_offset[11:0]
-@c00420
-AcquisitionModular.fine_freq[11:0]
-@28
-(0)AcquisitionModular.fine_freq[11:0]
-(1)AcquisitionModular.fine_freq[11:0]
-(2)AcquisitionModular.fine_freq[11:0]
-(3)AcquisitionModular.fine_freq[11:0]
-(4)AcquisitionModular.fine_freq[11:0]
-(5)AcquisitionModular.fine_freq[11:0]
-(6)AcquisitionModular.fine_freq[11:0]
-(7)AcquisitionModular.fine_freq[11:0]
-(8)AcquisitionModular.fine_freq[11:0]
-(9)AcquisitionModular.fine_freq[11:0]
-(10)AcquisitionModular.fine_freq[11:0]
-(11)AcquisitionModular.fine_freq[11:0]
-@1401200
--group_end
 @c00200
 -IQ Input
 @c00022
@@ -136,7 +117,7 @@ AcquisitionModular.fft_inst.m_axis_data_tready
 AcquisitionModular.fft_inst.m_axis_data_tvalid
 @1401200
 -FFT Output
-@c00200
+@800200
 -PRN
 @28
 AcquisitionModular.prn_gen.io_code_payload
@@ -149,7 +130,7 @@ AcquisitionModular.prn_gen.io_sv[5:0]
 AcquisitionModular.prn_gen.io_set
 @22
 AcquisitionModular.prn_gen.io_inc[16:0]
-@1401200
+@1000200
 -PRN
 @c00200
 -Mixer
@@ -189,7 +170,7 @@ AcquisitionModular.prn_mem.io_output_offset[11:0]
 AcquisitionModular.prn_mem.io_output_fire
 @1401200
 -PRN Mem
-@c00200
+@800200
 -Magnitude
 @28
 AcquisitionModular.max_mag.io_input_fire
@@ -203,7 +184,7 @@ AcquisitionModular.max_mag.io_done_last
 AcquisitionModular.max_mag.mag_abs[22:0]
 @20000
 -
-@1401200
+@1000200
 -Magnitude
 @200
 -Fine Acquisition
@@ -229,5 +210,64 @@ AcquisitionModular.fine_acq_remove_prn.io_phase_offset[11:0]
 AcquisitionModular.fine_acq_remove_prn.offset[11:0]
 @1401200
 -Remove PRN
+@200
+-Results
+@c00420
+AcquisitionModular.fine_freq[11:0]
+@28
+(0)AcquisitionModular.fine_freq[11:0]
+(1)AcquisitionModular.fine_freq[11:0]
+(2)AcquisitionModular.fine_freq[11:0]
+(3)AcquisitionModular.fine_freq[11:0]
+(4)AcquisitionModular.fine_freq[11:0]
+(5)AcquisitionModular.fine_freq[11:0]
+(6)AcquisitionModular.fine_freq[11:0]
+(7)AcquisitionModular.fine_freq[11:0]
+(8)AcquisitionModular.fine_freq[11:0]
+(9)AcquisitionModular.fine_freq[11:0]
+(10)AcquisitionModular.fine_freq[11:0]
+(11)AcquisitionModular.fine_freq[11:0]
+@1401200
+-group_end
+@24
+AcquisitionModular.phase_offset[11:0]
+@22
+AcquisitionModular.snr_result[7:0]
+@c00200
+-Result Stream
+@28
+AcquisitionModular.io_results_fire
+@24
+AcquisitionModular.io_results_payload_freq_offset[11:0]
+AcquisitionModular.io_results_payload_phase_offset[11:0]
+AcquisitionModular.io_results_payload_snr[7:0]
+AcquisitionModular.io_results_payload_sv[5:0]
+@28
+AcquisitionModular.io_results_ready
+AcquisitionModular.io_results_valid
+@1401200
+-Result Stream
+@c00200
+-SNR
+@820
+AcquisitionModular.snr_1.fsm_stateReg_string[55:0]
+@24
+AcquisitionModular.snr_1.io_num[34:0]
+AcquisitionModular.snr_1.io_den[34:0]
+@28
+AcquisitionModular.snr_1.io_start
+AcquisitionModular.snr_1.io_busy
+AcquisitionModular.snr_1.io_error
+@24
+AcquisitionModular.snr_1.io_res[34:0]
+AcquisitionModular.snr_1.io_rem[34:0]
+@28
+AcquisitionModular.snr_1.io_valid
+@22
+AcquisitionModular.snr_1.i[5:0]
+AcquisitionModular.snr_1.quo[34:0]
+AcquisitionModular.snr_1.acc[35:0]
+@1401200
+-SNR
 [pattern_trace] 1
 [pattern_trace] 0

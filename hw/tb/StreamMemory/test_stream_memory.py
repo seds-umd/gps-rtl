@@ -1,19 +1,13 @@
 import cocotb
 import cocotb.result
-from cocotb.triggers import ClockCycles, with_timeout
 from cocotbext import axi
 
 import numpy as np
-import sys
-from pathlib import Path
 
-utils_path = Path(__file__).resolve().parent.parent
-sys.path.insert(len(sys.path), str(utils_path.resolve()))
-
-from utils import TB_Template, axis_sink, axis_source
+from fpga_utils import TbTemplate, axis_sink, axis_source
 
 
-class TB(TB_Template):
+class TB(TbTemplate):
     def __init__(self, dut, size):
         super().__init__(dut)
 

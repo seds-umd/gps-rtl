@@ -42,8 +42,29 @@ case class EthernetTestbench() extends Component {
   udp.io.gateway := B"8'd10" ## B"8'd0" ## B"8'd0" ## B"8'd1"
   udp.io.subnet := 0
 
-  val decimate = EthDecimate(out_size = 4096/8)
-  udp.addPort(1000, decimate.io.tx, decimate.io.rx)
+  val udp_reset = Bool()
+  val iq_stream = Stream(Fragment(Bits(8 bits)))
+
+  val rst_area = new ResetArea(udp_reset, true) {
+    val acq = AcquisitionModular(debug = true)
+    val iq_stream_unfragmented = iq_stream.translateInto(Stream(Bits(8 bits)))((to, from) => {
+      to := from.fragment
+    })
+    val adapter = StreamWidthAdapter(iq_stream_unfragmented, acq.io.iq)
+  }
+
+  val acq_results = rst_area.acq.io.results.fragmentTransaction(8)
+  udp.addPort(1010, acq_results, iq_stream)
+
+  val dummy_stream = Stream(Fragment(Bits(8 bits)))
+  dummy_stream.valid := False
+  dummy_stream.payload := 0
+  dummy_stream.last := False
+  val reset_stream = Stream(Fragment(Bits(8 bits)))
+  reset_stream.freeRun()
+  udp.addPort(1000, dummy_stream, reset_stream)
+
+  udp_reset := reset_stream.fire
 }
 
 object EthernetTestbenchVerilog extends App {

@@ -13,7 +13,8 @@ class StreamInterface:
         self.sock.settimeout(0.1)
 
         try:
-            self.sock.recv(4096)
+            while len(self.sock.recv(4096)) > 0:
+                pass
         except TimeoutError:
             pass
 

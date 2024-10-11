@@ -10,12 +10,19 @@ class TemplateTb:
 
         self.stream = stream.StreamInterface(dest, source, port)
 
+        self.reset_stream = stream.StreamInterface(dest, source, 1000)
+
         seed = np.random.randint(2**32)
         self.rng = np.random.default_rng(seed)
         logging.info(f"Initializing RNG with seed {seed}")
 
     def randn(self, size):
         return self.rng.normal(1, 1, size)
+
+    def reset(self):
+        # Sending any data will cause a reset
+        self.reset_stream.send([0xA2])
+        time.sleep(0.1)
 
     # Test function, returns score
     def test(self) -> float:

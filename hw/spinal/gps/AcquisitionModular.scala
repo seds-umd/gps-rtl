@@ -49,6 +49,8 @@ case class AcquisitionModular(
     val results = master Stream (AcquisitionResults(fft_size_log))
   }
 
+  printf("IQ total width: %d\n", io.iq.payload.getWidth)
+
   io.results.sv := 0
   io.results.freq_offset := 0
   io.results.phase_offset := 0

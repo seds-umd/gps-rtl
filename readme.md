@@ -24,6 +24,8 @@ sudo apt install scala openjdk-8-jdk
 
 sbt: https://www.scala-sbt.org/download/
 
+This repo depends on [seds-umd/spinalhdl-ethernet](https://github.com/seds-umd/spinalhdl-ethernet). To pull in changes from that repo, delete `~/.sbt/1.0/staging/` so it will redownload next time you run sbt.
+
 ## Python/Cocotb
 
 Set up a Python environment for using cocotb.

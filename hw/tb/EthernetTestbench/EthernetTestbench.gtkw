@@ -1,18 +1,19 @@
 [*]
 [*] GTKWave Analyzer v3.3.104 (w)1999-2020 BSI
-[*] Sun Oct 13 03:18:17 2024
+[*] Sun Oct 13 04:38:13 2024
 [*]
 [dumpfile] "/home/nathan/seds/gps-rtl/hw/tb/EthernetTestbench/sim_build/EthernetTestbench.fst"
-[dumpfile_mtime] "Sun Oct 13 03:17:55 2024"
-[dumpfile_size] 466535
+[dumpfile_mtime] "Sun Oct 13 04:37:43 2024"
+[dumpfile_size] 1461836
 [savefile] "/home/nathan/seds/gps-rtl/hw/tb/EthernetTestbench/EthernetTestbench.gtkw"
 [timestart] 0
 [size] 2868 1695
 [pos] -1 -1
-*-18.000000 1099000 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+*-25.000000 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
 [treeopen] EthernetTestbench.
+[treeopen] EthernetTestbench.stream_axil.
 [sst_width] 454
-[signals_width] 246
+[signals_width] 298
 [sst_expanded] 1
 [sst_vpaned_height] 536
 @28
@@ -20,6 +21,8 @@ EthernetTestbench.clk
 EthernetTestbench.reset
 @22
 EthernetTestbench.io_leds[7:0]
+@28
+EthernetTestbench.rst_area_newReset
 @800200
 -GMII
 @28
@@ -39,8 +42,8 @@ EthernetTestbench.io_gmii_mii_tx_clk
 @1000200
 -GMII
 @820
-EthernetTestbench.stream_axil.fsm_stateReg_string[103:0]
-@800200
++{AXIL Decoder State} EthernetTestbench.stream_axil.fsm_stateReg_string[103:0]
+@c00200
 -AXIL RX Stream
 @28
 EthernetTestbench.stream_axil.io_rx_fire
@@ -50,7 +53,7 @@ EthernetTestbench.stream_axil.io_rx_payload_fragment[7:0]
 EthernetTestbench.stream_axil.io_rx_payload_last
 EthernetTestbench.stream_axil.io_rx_ready
 EthernetTestbench.stream_axil.io_rx_valid
-@1000200
+@1401200
 -AXIL RX Stream
 @c00200
 -AXIL AR
@@ -64,7 +67,7 @@ EthernetTestbench.stream_axil.io_axil_arready
 EthernetTestbench.stream_axil.io_axil_arvalid
 @1401200
 -AXIL AR
-@800200
+@c00200
 -AXIL AW
 @28
 EthernetTestbench.stream_axil.io_axil_aw_fire
@@ -74,7 +77,7 @@ EthernetTestbench.stream_axil.io_axil_awaddr[31:0]
 EthernetTestbench.stream_axil.io_axil_awprot[2:0]
 EthernetTestbench.stream_axil.io_axil_awready
 EthernetTestbench.stream_axil.io_axil_awvalid
-@1000200
+@1401200
 -AXIL AW
 @c00200
 -AXIL B
@@ -84,7 +87,7 @@ EthernetTestbench.stream_axil.io_axil_bresp[1:0]
 EthernetTestbench.stream_axil.io_axil_bvalid
 @1401200
 -AXIL B
-@800200
+@c00200
 -AXIL R
 @28
 EthernetTestbench.stream_axil.io_axil_r_fire
@@ -94,9 +97,9 @@ EthernetTestbench.stream_axil.io_axil_rdata[31:0]
 EthernetTestbench.stream_axil.io_axil_rready
 EthernetTestbench.stream_axil.io_axil_rresp[1:0]
 EthernetTestbench.stream_axil.io_axil_rvalid
-@1000200
+@1401200
 -AXIL R
-@800200
+@c00200
 -AXIL W
 @28
 EthernetTestbench.stream_axil.io_axil_w_fire
@@ -108,7 +111,35 @@ EthernetTestbench.stream_axil.io_axil_wready
 EthernetTestbench.stream_axil.io_axil_wstrb[3:0]
 @28
 EthernetTestbench.stream_axil.io_axil_wvalid
-@1000200
+@1401200
 -AXIL W
+@800200
+-IQ In
+@22
+EthernetTestbench.rst_area_acq.io_iq_payload[15:0]
+@28
+EthernetTestbench.rst_area_acq.io_iq_ready
+EthernetTestbench.rst_area_acq.io_iq_valid
+@1000200
+-IQ In
+@c00200
+-UDP In
+@28
+EthernetTestbench.udp_udp.m_udp_hdr_valid
+@24
+EthernetTestbench.udp_udp.m_udp_dest_port[15:0]
+@22
+EthernetTestbench.udp_udp.m_udp_payload_axis_tdata[7:0]
+@28
+EthernetTestbench.udp_udp.m_udp_payload_axis_tlast
+EthernetTestbench.udp_udp.m_udp_payload_axis_tready
+EthernetTestbench.udp_udp.m_udp_payload_axis_tuser
+EthernetTestbench.udp_udp.m_udp_payload_axis_tvalid
+@1401200
+-UDP In
+@820
++{Acquisition State} EthernetTestbench.rst_area_acq.fsm_stateReg_string[87:0]
+@28
+EthernetTestbench.rst_area_acq.fft_active
 [pattern_trace] 1
 [pattern_trace] 0

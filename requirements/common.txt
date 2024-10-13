@@ -1,7 +1,9 @@
 cocotb >=1.8.0, <2
 cocotbext-axi >=0.1.24, <1
+cocotbext-eth >=0.1.22, <1
 cocotbext-uart >=0.1.2, <1
 numpy >=1.24.4, <2
 matplotlib >=3.7.3, <4
 pyserial
 pyadi-iio==0.0.14
+scapy

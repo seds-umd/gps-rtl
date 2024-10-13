@@ -106,6 +106,7 @@ class EthernetTestbench(SoCCore):
             "o_io_gmii_gmii_txd": eth_pads.tx_data,
             "o_io_gmii_gmii_tx_en": eth_pads.tx_en,
             "o_io_gmii_gmii_tx_er": eth_pads.tx_er,
+            "o_io_leds": platform.request_all("user_led_n"),
         }
 
         self.specials += Instance("EthernetTestbench", **ios)

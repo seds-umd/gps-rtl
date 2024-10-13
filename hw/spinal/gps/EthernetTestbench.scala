@@ -3,8 +3,9 @@ package gps
 import spinal.core._
 import spinal.lib._
 import spinal.lib.fsm._
+import spinal.lib.bus.amba4.axilite.AxiLite4SlaveFactory
 import ethernet._
-import ethernet.stream.UdpStream
+import ethernet.stream.{UdpStream, StreamAxiLite}
 
 case class EthDecimate(out_size: Int = 64) extends Component {
   val io = new Bundle {
@@ -24,21 +25,35 @@ case class EthDecimate(out_size: Int = 64) extends Component {
   val tx_adapter = StreamFragmentWidthAdapter(tx_16b, io.tx)
 }
 
+/* Address map:
+ * 0x00 - write anything to hold reset for 10ms
+ * 0x04 - 32 bit input sample counter, after width adapter (so it counts real samples)
+ * 0x08 - 32 bit result counters
+ */
+
 case class EthernetTestbench() extends Component {
+  val time_speedup = 4
+
   val io = new Bundle {
     val gtx_clk = in Bool ()
     val gtx_rst = in Bool ()
 
     val gmii = slave(GMII())
+    val leds = out Bits(8 bits)
   }
 
-  val udp_reset = Bool()
   val udp = UdpStream(false)
+  
+  val reset_timeout = Timeout(time_speedup*10 ms)
 
-  udp_reset := True
+  val stream_axil = StreamAxiLite()
+  udp.addPort(1000, stream_axil.io.tx, stream_axil.io.rx)
+  val bus_ctrl = AxiLite4SlaveFactory(stream_axil.io.axil)
+  bus_ctrl.onWrite(0x00)(reset_timeout.clear())
 
-  val rst_area = new ResetArea(udp_reset, true) {
+  bus_ctrl.drive(io.leds, 0x10, 0)
 
+  val rst_area = new ResetArea(!reset_timeout, true) {
     udp.io.gtx_clk := io.gtx_clk
     udp.io.gtx_rst := io.gtx_rst
     udp.io.gmii <> io.gmii
@@ -59,33 +74,11 @@ case class EthernetTestbench() extends Component {
     val acq_results = acq.io.results.fragmentTransaction(8)
     udp.addPort(1010, acq_results, iq_stream)
 
-    val dummy_stream = Stream(Fragment(Bits(8 bits)))
-    dummy_stream.valid := False
-    dummy_stream.payload := 0
-    dummy_stream.last := False
-    val reset_stream = Stream(Fragment(Bits(8 bits)))
-    reset_stream.freeRun()
-    udp.addPort(1000, dummy_stream, reset_stream)
-  }
+    val input_counter = Counter(32 bits, acq.io.iq.fire)
+    bus_ctrl.read(input_counter.value, 0x04)
 
-  // Hold reset for 10ms
-  val reset_fsm = new StateMachine {
-    val idle: State = new State with EntryPoint {
-      whenIsActive {
-        udp_reset := False
-
-        when(rst_area.reset_stream.fire && (rst_area.reset_stream.payload === 0xA2)) {
-          goto(reset)
-        }
-      }
-    }
-
-    // Actually 2.5ms because clock is 4x faster than normal
-    val reset = new StateDelay(10 ms) {
-      whenCompleted{
-        goto(idle)
-      }
-    }
+    val result_counter = Counter(32 bits, acq.io.results.fire)
+    bus_ctrl.read(result_counter.value, 0x08)
   }
 }
 

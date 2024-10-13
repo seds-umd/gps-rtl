@@ -1,3 +1,4 @@
+import random
 import socket
 import time
 
@@ -6,16 +7,15 @@ MAX_LEN = 508
 
 
 class StreamInterface:
-    def __init__(self, dest, source, port):
+    def __init__(self, dest, port):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.sock.bind((source, 0))
         self.sock.connect((dest, port))
         self.sock.settimeout(0.1)
 
         try:
             while len(self.sock.recv(4096)) > 0:
                 pass
-        except TimeoutError:
+        except (TimeoutError, socket.timeout):
             pass
 
         self.rx_bytes = bytearray()
@@ -53,3 +53,51 @@ class StreamInterface:
     def recv(self) -> bytearray:
         self._recv_process()
         return self.rx_frames.pop(0)
+
+
+class AxilInterface:
+    def __init__(self, dest, port):
+        self.stream = StreamInterface(dest, port)
+
+        self._command_id = random.randint(0, 2**16 - 1)
+        self._reads = {}
+
+    def write(self, addr: int, data: int):
+        pkt = bytearray()
+        pkt.append(0x80)
+        pkt.extend(self._command_id.to_bytes(2, "little"))
+        pkt.extend(addr.to_bytes(4, "little"))
+        pkt.extend(data.to_bytes(4, "little"))
+
+        self._command_id += 1
+        self._command_id &= 0xFFFF
+
+        self.stream.send(pkt)
+
+    def _do_recv(self):
+        try:
+            while True:
+                pkt = self.stream.recv()
+
+                id = int.from_bytes(pkt.payload[:2], "little")
+                value = int.from_bytes(pkt.payload[2:], "little")
+
+                self._reads[id] = value
+        except IndexError:
+            pass
+
+    def read(self, addr: int) -> int:
+        pkt = bytearray()
+        pkt.append(0x00)
+        pkt.extend(self._command_id.to_bytes(2, "little"))
+        pkt.extend(addr.to_bytes(4, "little"))
+
+        sent_id = self._command_id
+
+        self._command_id += 1
+        self._command_id &= 0xFFFF
+
+        self.stream.send(pkt)
+        self._do_recv()
+
+        return self._reads.pop(sent_id)

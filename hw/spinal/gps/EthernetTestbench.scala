@@ -29,6 +29,8 @@ case class EthDecimate(out_size: Int = 64) extends Component {
  * 0x00 - write anything to hold reset for 10ms
  * 0x04 - 32 bit input sample counter, after width adapter (so it counts real samples)
  * 0x08 - 32 bit result counters
+ * 0x0C - 8 bit LED control - 1 is off
+ * 0x10 - FIFO availability
  */
 
 case class EthernetTestbench() extends Component {
@@ -51,7 +53,7 @@ case class EthernetTestbench() extends Component {
   val bus_ctrl = AxiLite4SlaveFactory(stream_axil.io.axil)
   bus_ctrl.onWrite(0x00)(reset_timeout.clear())
 
-  bus_ctrl.drive(io.leds, 0x10, 0)
+  bus_ctrl.drive(io.leds, 0x0C, 0)
 
   val rst_area = new ResetArea(!reset_timeout, true) {
     udp.io.gtx_clk := io.gtx_clk
@@ -66,9 +68,9 @@ case class EthernetTestbench() extends Component {
     val iq_stream = Stream(Fragment(Bits(8 bits)))
 
     val acq = AcquisitionModular(freq_shift = 2, flush = false, debug = true)
-    val iq_stream_unfragmented = iq_stream.translateInto(Stream(Bits(8 bits)))((to, from) => {
+    val (iq_stream_unfragmented, iq_availability) = iq_stream.translateInto(Stream(Bits(8 bits)))((to, from) => {
       to := from.fragment
-    })
+    }).queueWithAvailability(100000)
     val adapter = StreamWidthAdapter(iq_stream_unfragmented, acq.io.iq)
 
     val acq_results = acq.io.results.fragmentTransaction(8)
@@ -79,6 +81,9 @@ case class EthernetTestbench() extends Component {
 
     val result_counter = Counter(32 bits, acq.io.results.fire)
     bus_ctrl.read(result_counter.value, 0x08)
+
+    printf("Availability width: %d\n", iq_availability.getWidth)
+    bus_ctrl.read(iq_availability, 0x10)
   }
 }
 

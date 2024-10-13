@@ -22,7 +22,7 @@ class StreamInterface:
         self.rx_bytes = bytearray()
         self.rx_frames = list()
 
-        self.thread = threading.Thread(target=self._recv_process, daemon=True)
+        self.thread = threading.Thread(target=self.thread_func, daemon=True)
         self.thread.start()
 
     def _send_frame(self, data: bytes, last: bool):
@@ -36,30 +36,33 @@ class StreamInterface:
         for i in range(0, len(data), MAX_LEN - 1):
             self._send_frame(data[i : i + MAX_LEN - 1], len(data) - i < MAX_LEN - 1)
 
-    def _recv_process(self):
+    def _stream_process(self):
+        try:
+            data, _, _, _ = self.sock.recvmsg(4096)
+
+            if len(data) > 0:
+                payload = data[:-1]
+                flags = data[-1]
+
+                self.rx_bytes.extend(payload)
+
+                if flags & 0b1:
+                    self.rx_frames.append(self.rx_bytes)
+                    self.rx_bytes = bytearray()
+        except socket.timeout:
+            pass
+
+    def thread_func(self):
         while True:
-            try:
-                data, _, _, _ = self.sock.recvmsg(4096)
-
-                if len(data) > 0:
-                    payload = data[:-1]
-                    flags = data[-1]
-
-                    self.rx_bytes.extend(payload)
-
-                    if flags & 0b1:
-                        self.rx_frames.append(self.rx_bytes)
-                        self.rx_bytes = bytearray()
-            except socket.timeout:
-                pass
+            self._stream_process()
 
     def recv(self) -> bytearray:
         return self.rx_frames.pop(0)
 
 
-class AxilInterface:
+class AxilInterface(StreamInterface):
     def __init__(self, dest, port):
-        self.stream = StreamInterface(dest, port)
+        super().__init__(dest, port)
 
         self._command_id = random.randint(0, 2**16 - 1)
         self._reads = {}
@@ -74,20 +77,23 @@ class AxilInterface:
         self._command_id += 1
         self._command_id &= 0xFFFF
 
-        self.stream.send(pkt)
+        self.send(pkt)
 
-    def _do_recv(self):
-        # TODO: maybe put this in the thread?
+    def _axil_process(self):
         try:
-            while True:
-                pkt = self.stream.recv()
+            pkt = self.recv()
 
-                id = int.from_bytes(pkt[:2], "little")
-                value = int.from_bytes(pkt[2:], "little")
+            id = int.from_bytes(pkt[:2], "little")
+            value = int.from_bytes(pkt[2:], "little")
 
-                self._reads[id] = value
+            self._reads[id] = value
         except IndexError:
             pass
+
+    def thread_func(self):
+        while True:
+            self._stream_process()
+            self._axil_process()
 
     def read(self, addr: int) -> int:
         pkt = bytearray()
@@ -100,9 +106,10 @@ class AxilInterface:
         self._command_id += 1
         self._command_id &= 0xFFFF
 
-        self.stream.send(pkt)
+        self.send(pkt)
 
-        while sent_id not in self._reads.keys():
-            self._do_recv()
+        while sent_id not in self._reads:
+            # Sleeping for 0s lets the GIL switch to the receive thread, which speeds up the receive time by about 100x
+            time.sleep(0)
 
         return self._reads.pop(sent_id)

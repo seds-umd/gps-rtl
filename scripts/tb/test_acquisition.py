@@ -19,8 +19,11 @@ class AcquisitionTestbench(template.TemplateTb):
     def reset(self):
         self.csr_stream.write(0x00, 0)
 
+    def get_availability(self) -> int:
+        return self.csr_stream.read(0x10)
+
     def send_file(self, file, dtype, count: int):
-        data = np.fromfile(file, dtype=dtype, count=int(count))
+        data = np.fromfile(file, dtype=dtype, count=int(count * 2))
 
         samples = data[::2].astype(np.complex64) + 1j * data[1::2].astype(np.complex64)
 
@@ -54,7 +57,12 @@ class AcquisitionTestbench(template.TemplateTb):
         bits_bytes[::2] = bits & 0xFF
         bits_bytes[1::2] = bits >> 8
 
-        self.stream.send(bits_bytes)
+        for i in range(0, len(bits_bytes), 100000):
+            self.stream.send(bits_bytes[i : i + 100000])
+
+            if self.get_availability() < 50000:
+                time.sleep(0.1)
+
         self.samples_quant = samples_quant
 
     def get_results(self):
@@ -90,29 +98,22 @@ class AcquisitionTestbench(template.TemplateTb):
 if __name__ == "__main__":
     tb = AcquisitionTestbench("10.0.0.2")
 
-    # N = 4096 * 9 * 8 * 32
-    N = 4.092e6 * 0.6
+    t = 5
+    fs = 4.092e6
+    N = fs * t
 
-    samples = np.ones(int(N), dtype=np.complex64)
+    print(f"Sending {int(N)} samples")
+    tb.send_file("../../../gps-model/data/1/gpssim.ci16", np.int8, N)
 
-    for _ in range(100):
-        tb.csr_stream.write(0x10, 0xF0)
-
-    print(f"Input count: {tb.csr_stream.read(0x04)}")
-    print(f"Result count: {tb.csr_stream.read(0x08)}")
-
-    print("Sending samples")
-    # tb.send_file("../../../gps-model/data/1/gpssim.ci16", np.int8, 4096*9*8*10)
-    tb.send_samples(samples)
-
-    # print("Expected results:")
-    # print(acquisition(tb.samples_quant, 4.092e6, 10e3, 1000, threshold=0))
+    print("Expected results:")
+    print(acquisition(tb.samples_quant, 4.092e6, 10e3, 1000, threshold=5.5))
 
     print("Getting results")
 
-    time.sleep(2)
+    time.sleep(1)
     print(f"Input count: {tb.csr_stream.read(0x04)}")
     print(f"Result count: {tb.csr_stream.read(0x08)}")
+    print(len(tb.stream.rx_frames))
 
     for _ in range(32):
         print(tb.get_results())

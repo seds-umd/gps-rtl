@@ -1,5 +1,6 @@
 import random
 import socket
+import threading
 import time
 
 # Hard coded in RTL
@@ -20,6 +21,9 @@ class StreamInterface:
 
         self.rx_bytes = bytearray()
         self.rx_frames = list()
+
+        self.thread = threading.Thread(target=self._recv_process, daemon=True)
+        self.thread.start()
 
     def _send_frame(self, data: bytes, last: bool):
         packet = bytearray()
@@ -46,12 +50,10 @@ class StreamInterface:
                     if flags & 0b1:
                         self.rx_frames.append(self.rx_bytes)
                         self.rx_bytes = bytearray()
-                        return
             except socket.timeout:
-                return
+                pass
 
     def recv(self) -> bytearray:
-        self._recv_process()
         return self.rx_frames.pop(0)
 
 
@@ -75,12 +77,13 @@ class AxilInterface:
         self.stream.send(pkt)
 
     def _do_recv(self):
+        # TODO: maybe put this in the thread?
         try:
             while True:
                 pkt = self.stream.recv()
 
-                id = int.from_bytes(pkt.payload[:2], "little")
-                value = int.from_bytes(pkt.payload[2:], "little")
+                id = int.from_bytes(pkt[:2], "little")
+                value = int.from_bytes(pkt[2:], "little")
 
                 self._reads[id] = value
         except IndexError:
@@ -98,6 +101,8 @@ class AxilInterface:
         self._command_id &= 0xFFFF
 
         self.stream.send(pkt)
-        self._do_recv()
+
+        while sent_id not in self._reads.keys():
+            self._do_recv()
 
         return self._reads.pop(sent_id)

@@ -1,7 +1,7 @@
 # From: https://grittyengineer.com/creating-vivado-ip-the-smart-tcl-way/
 
 # Check IP
-if { [file isdirectory "IP"] } {
+if { [file isdirectory "IP/XilinxFFT"] } {
     # if the IP files exist, we already generated the IP, so we can just
     # read the ip definition (.xci)
     read_ip IP/XilinxFFT/XilinxFFT.xci

@@ -7,7 +7,7 @@
 # 510 FF
 
 # Check IP
-if { [file isdirectory "IP"] } {
+if { [file isdirectory "IP/XilinxCORDIC"] } {
     # if the IP files exist, we already generated the IP, so we can just
     # read the ip definition (.xci)
     read_ip IP/XilinxCORDIC/XilinxCORDIC.xci
@@ -37,7 +37,7 @@ if { [file isdirectory "IP"] } {
         CONFIG.phase_has_tuser {true} \
         CONFIG.phase_tuser_width {3} \
         CONFIG.out_tready {true} \
-    ] [get_ips cordic_0]
+    ] [get_ips XilinxCORDIC]
 
     generate_target all [get_ips]
 

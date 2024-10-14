@@ -1,44 +1,21 @@
 import cocotb
-from cocotb.clock import Clock
 from cocotb.triggers import ClockCycles
 from cocotbext import axi
 
 import numpy as np
 import logging
 
-import sys
-from pathlib import Path
-
-# Hack to share fft_sim between multiple tests
-fft_path = Path(__file__).resolve().parent.parent
-sys.path.insert(len(sys.path), str(fft_path.resolve()))
-
-from fft_sim import pack_complex, unpack_complex
-from utils import corr, random_pause
+from fpga_utils import TbTemplate, test_runner, random_pause
+from fpga_utils import spinal_stream as stream
+from fpga_utils.dsp import corr
 
 
-class TB:
-    def __init__(self, dut, period=10) -> None:
-        self.dut = dut
+class TB(TbTemplate):
+    def __init__(self, dut):
+        super().__init__(dut)
 
-        # Clock
-        cocotb.start_soon(Clock(self.dut.clk, period, "ns").start())
-
-        # Input bus
-        in_bus = axi.AxiStreamBus(self.dut)
-        in_bus._add_signal("tdata", "io_iq_in_payload")
-        in_bus._add_signal("tready", "io_iq_in_ready")
-        in_bus._add_signal("tvalid", "io_iq_in_valid")
-        self.in_bus = axi.AxiStreamSource(in_bus, dut.clk, byte_size=16)
-        self.in_bus.log.setLevel(logging.WARNING)
-
-        # Output bus
-        out_bus = axi.AxiStreamBus(self.dut)
-        out_bus._add_signal("tdata", "io_iq_out_payload")
-        out_bus._add_signal("tready", "io_iq_out_ready")
-        out_bus._add_signal("tvalid", "io_iq_out_valid")
-        self.out_bus = axi.AxiStreamSink(out_bus, dut.clk, byte_size=16)
-        self.out_bus.log.setLevel(logging.WARNING)
+        self.in_bus = stream.SpinalStreamSource.from_prefix(self.dut, "io_iq_in")
+        self.out_bus = stream.SpinalStreamSink.from_prefix(self.dut, "io_iq_out")
 
         # Random timing
         self.in_bus.set_pause_generator(random_pause())
@@ -46,15 +23,22 @@ class TB:
 
     # Samples must be normalized to +-1
     async def run(self, samples: np.ndarray):
-        samples = pack_complex(samples)
+        samples_re = (samples.real * 127).astype(np.int8)
+        samples_im = (samples.imag * 127).astype(np.int8)
 
-        await self.in_bus.send(samples)
+        await self.in_bus.send({"re": samples_re, "im": samples_im})
         await self.in_bus.wait()
         await ClockCycles(self.dut.clk, 10)
 
         data = await self.out_bus.read(len(samples) // 8)
+        data = data.payload
 
-        return unpack_complex(data)
+        data_re = np.array(data["re"], dtype=np.uint8).astype(np.int8)
+        data_im = np.array(data["im"], dtype=np.uint8).astype(np.int8)
+        data = data_re + 1j * data_im
+        data /= 127
+
+        return data
 
     async def reset(self):
         self.dut.reset.value = 0
@@ -80,3 +64,13 @@ async def test_decimate(dut):
 
         dut._log.info(f"N={N}, correlation={dec_corr:0.5f}")
         assert dec_corr > 0.99
+
+
+if __name__ == "__main__":
+    test_runner.run_wrapper(
+        top_level="Decimate",
+        package="gps",
+        proj_dir="../../..",
+        source_dir="hw/spinal/gps",
+        gen_dir="hw/gen",
+    )

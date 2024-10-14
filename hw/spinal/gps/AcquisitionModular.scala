@@ -5,7 +5,6 @@ import spinal.lib._
 import spinal.lib.fsm._
 import spinal.lib.bus.amba4.axis.Axi4Stream.Axi4Stream
 
-
 /** TODO:
   * sample phase isn't constant between runs - is this due to changes in sim data or bug in rtl?
   * only detecting 5 SVs at best when python code is detecting 8
@@ -14,7 +13,6 @@ import spinal.lib.bus.amba4.axis.Axi4Stream.Axi4Stream
 /** Potential improvements:
   * Skip SVs that are already in tracking channels
   * Skip fine acquisition if coarse acquisition SNR isn't high enough - maybe a bad idea of it's right on the edge of the threshold, and fine acquisition would reveal a higher SNR
-  * 
   */
 
 case class AcquisitionResults(fft_size_log: Int = 12) extends Bundle {
@@ -133,13 +131,9 @@ case class AcquisitionModular(
     remove_prn.io.set := False
     remove_prn.io.input << iq_area.output_fine
 
-    val decimator = Decimate(fft_width, dec_factor)
-    decimator.io.iq_in << remove_prn.io.output.translateInto(Stream(Complex(fft_width).asBits))((to, from) => {
-      to := from.asBits
-    })
-    val dec_out = decimator.io.iq_out.translateInto(Stream(Complex(fft_width)))((to, from) => {
-      to.assignFromBits(from)
-    })
+    val decimator = Decimate(iq_in_size = fft_width, iq_out_size = fft_width, factor = dec_factor)
+    decimator.io.iq_in << remove_prn.io.output
+    val dec_out = decimator.io.iq_out
   }
 
   val fft = new Area {

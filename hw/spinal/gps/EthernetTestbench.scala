@@ -84,6 +84,17 @@ case class EthernetTestbench() extends Component {
 
     printf("Availability width: %d\n", iq_availability.getWidth)
     bus_ctrl.read(iq_availability, 0x10)
+
+    // CORDIC testing
+    val cordic = XilinxCORDIC()
+    val cordic_phase_8b = Stream(Fragment(Bits(8 bits)))
+    val cordic_phase = StreamWidthAdapter.make(cordic_phase_8b, Fragment(Bits(cordic.io.phase.payload.getBitsWidth bits)), padding = true)
+    cordic.io.phase << cordic_phase.translateInto(cordic.io.phase.clone())((to, from) => {
+      to.assignFromBits(from)
+    })
+
+    val cordic_dout = cordic.io.dout.fragmentTransaction(8)
+    udp.addPort(1020, cordic_dout, cordic_phase_8b)
   }
 }
 

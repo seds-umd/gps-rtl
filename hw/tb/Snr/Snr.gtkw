@@ -1,0 +1,41 @@
+[*]
+[*] GTKWave Analyzer v3.3.103 (w)1999-2019 BSI
+[*] Tue May 28 01:29:43 2024
+[*]
+[dumpfile] "/home/nathan/seds/gps-rtl/hw/tb/Snr/sim_build/Snr.fst"
+[dumpfile_mtime] "Tue May 28 01:29:33 2024"
+[dumpfile_size] 8974
+[savefile] "/home/nathan/seds/gps-rtl/hw/tb/Snr/Snr.gtkw"
+[timestart] 0
+[size] 1908 1007
+[pos] -1 -1
+*-22.000000 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+[sst_width] 214
+[signals_width] 230
+[sst_expanded] 1
+[sst_vpaned_height] 295
+@28
+Snr.clk
+Snr.reset
+@820
+Snr.fsm_stateReg_string[55:0]
+@200
+-
+@28
+Snr.io_num[7:0]
+Snr.io_den[7:0]
+Snr.io_start
+Snr.io_busy
+@24
+Snr.io_res[7:0]
+Snr.io_rem[7:0]
+@28
+Snr.io_valid
+Snr.io_error
+@200
+-
+@28
+Snr.acc[8:0]
+Snr.quo[7:0]
+[pattern_trace] 1
+[pattern_trace] 0

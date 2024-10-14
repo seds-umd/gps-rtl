@@ -1,0 +1,273 @@
+[*]
+[*] GTKWave Analyzer v3.3.104 (w)1999-2020 BSI
+[*] Tue Oct  8 22:39:29 2024
+[*]
+[dumpfile] "/home/nathan/seds/gps-rtl/hw/tb/AcquisitionModular/sim_build/AcquisitionModular.fst"
+[dumpfile_mtime] "Tue Oct  8 22:37:54 2024"
+[dumpfile_size] 6679016
+[savefile] "/home/nathan/seds/gps-rtl/hw/tb/AcquisitionModular/AcquisitionModular.gtkw"
+[timestart] 0
+[size] 2868 1695
+[pos] -1 -1
+*-29.000000 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+[treeopen] AcquisitionModular.
+[sst_width] 278
+[signals_width] 326
+[sst_expanded] 1
+[sst_vpaned_height] 537
+@28
+AcquisitionModular.clk
+AcquisitionModular.reset
+@820
+AcquisitionModular.fsm_stateReg_string[87:0]
+@22
+AcquisitionModular.sv[5:0]
+@28
+AcquisitionModular.fft_active
+@c00200
+-IQ Input
+@c00022
++{AcquisitionModular.io_iq_payload} AcquisitionModular.io_iq_payload[15:0]
+@28
+(0)AcquisitionModular.io_iq_payload[15:0]
+(1)AcquisitionModular.io_iq_payload[15:0]
+(2)AcquisitionModular.io_iq_payload[15:0]
+(3)AcquisitionModular.io_iq_payload[15:0]
+(4)AcquisitionModular.io_iq_payload[15:0]
+(5)AcquisitionModular.io_iq_payload[15:0]
+(6)AcquisitionModular.io_iq_payload[15:0]
+(7)AcquisitionModular.io_iq_payload[15:0]
+(8)AcquisitionModular.io_iq_payload[15:0]
+(9)AcquisitionModular.io_iq_payload[15:0]
+(10)AcquisitionModular.io_iq_payload[15:0]
+(11)AcquisitionModular.io_iq_payload[15:0]
+(12)AcquisitionModular.io_iq_payload[15:0]
+(13)AcquisitionModular.io_iq_payload[15:0]
+(14)AcquisitionModular.io_iq_payload[15:0]
+(15)AcquisitionModular.io_iq_payload[15:0]
+@1401200
+-group_end
+@28
+AcquisitionModular.io_iq_ready
+AcquisitionModular.io_iq_valid
+@1401200
+-IQ Input
+@c00200
+-FFT Config
+@22
+AcquisitionModular.fft_inst.s_axis_config_tdata[7:0]
+@28
+AcquisitionModular.fft_inst.s_axis_config_tready
+AcquisitionModular.fft_inst.s_axis_config_tvalid
+@1401200
+-FFT Config
+@c00200
+-FFT Input
+@22
++{gate_counter} AcquisitionModular.fft_in_gate.counter[12:0]
+@c00022
++{AcquisitionModular.fft_inst.s_axis_data_tdata} AcquisitionModular.fft_inst.s_axis_data_tdata[15:0]
+@28
+(0)AcquisitionModular.fft_inst.s_axis_data_tdata[15:0]
+(1)AcquisitionModular.fft_inst.s_axis_data_tdata[15:0]
+(2)AcquisitionModular.fft_inst.s_axis_data_tdata[15:0]
+(3)AcquisitionModular.fft_inst.s_axis_data_tdata[15:0]
+(4)AcquisitionModular.fft_inst.s_axis_data_tdata[15:0]
+(5)AcquisitionModular.fft_inst.s_axis_data_tdata[15:0]
+(6)AcquisitionModular.fft_inst.s_axis_data_tdata[15:0]
+(7)AcquisitionModular.fft_inst.s_axis_data_tdata[15:0]
+(8)AcquisitionModular.fft_inst.s_axis_data_tdata[15:0]
+(9)AcquisitionModular.fft_inst.s_axis_data_tdata[15:0]
+(10)AcquisitionModular.fft_inst.s_axis_data_tdata[15:0]
+(11)AcquisitionModular.fft_inst.s_axis_data_tdata[15:0]
+(12)AcquisitionModular.fft_inst.s_axis_data_tdata[15:0]
+(13)AcquisitionModular.fft_inst.s_axis_data_tdata[15:0]
+(14)AcquisitionModular.fft_inst.s_axis_data_tdata[15:0]
+(15)AcquisitionModular.fft_inst.s_axis_data_tdata[15:0]
+@1401200
+-group_end
+@28
+AcquisitionModular.fft_inst.s_axis_data_tlast
+AcquisitionModular.fft_inst.s_axis_data_tready
+AcquisitionModular.fft_inst.s_axis_data_tvalid
+AcquisitionModular.fft_in_gate.io_running
+@1401200
+-FFT Input
+@c00200
+-FFT In Gate
+@24
+AcquisitionModular.fft_input_sel[1:0]
+@22
+AcquisitionModular.fft_in_gate.io_config_payload[12:0]
+@24
+AcquisitionModular.fft_in_gate.counter[12:0]
+@28
+AcquisitionModular.fft_in_gate.io_config_ready
+AcquisitionModular.fft_in_gate.io_config_valid
+@1401200
+-FFT In Gate
+@c00200
+-FFT Output
+@22
+AcquisitionModular.fft_inst.m_axis_data_tdata[15:0]
+AcquisitionModular.fft_inst.m_axis_data_tuser[7:0]
+@28
+AcquisitionModular.fft_inst.m_axis_data_tlast
+AcquisitionModular.fft_inst.m_axis_data_tready
+AcquisitionModular.fft_inst.m_axis_data_tvalid
+@1401200
+-FFT Output
+@800200
+-PRN
+@28
+AcquisitionModular.prn_gen.io_code_payload
+AcquisitionModular.prn_gen.io_code_fire
+@22
+AcquisitionModular.prn_gen.io_code_count[9:0]
+AcquisitionModular.prn_gen.io_sample_count[11:0]
+AcquisitionModular.prn_gen.io_sv[5:0]
+@28
+AcquisitionModular.prn_gen.io_set
+@22
+AcquisitionModular.prn_gen.io_inc[16:0]
+@1000200
+-PRN
+@c00200
+-Mixer
+@800200
+-Pipeline
+@1000200
+-Pipeline
+@1401200
+-Mixer
+@c00200
+-Sample Mem
+@22
+AcquisitionModular.sample_mem.io_input_payload_fragment_im[7:0]
+AcquisitionModular.sample_mem.io_input_payload_fragment_re[7:0]
+@28
+AcquisitionModular.sample_mem.io_input_payload_last
+AcquisitionModular.sample_mem.io_input_ready
+AcquisitionModular.sample_mem.io_input_valid
+AcquisitionModular.sample_mem.io_input_fire
+@22
+AcquisitionModular.sample_mem.io_output_payload_fragment_im[7:0]
+AcquisitionModular.sample_mem.io_output_payload_fragment_re[7:0]
+@28
+AcquisitionModular.sample_mem.io_output_payload_last
+AcquisitionModular.sample_mem.io_output_ready
+AcquisitionModular.sample_mem.io_output_valid
+AcquisitionModular.sample_mem.io_output_fire
+@22
+AcquisitionModular.sample_mem.io_output_offset[11:0]
+@1401200
+-Sample Mem
+@c00200
+-PRN Mem
+@22
+AcquisitionModular.prn_mem.io_output_offset[11:0]
+@28
+AcquisitionModular.prn_mem.io_output_fire
+@1401200
+-PRN Mem
+@800200
+-Magnitude
+@28
+AcquisitionModular.max_mag.io_input_fire
+AcquisitionModular.max_mag.io_input_payload_last
+@24
+AcquisitionModular.max_mag.io_max_idx[11:0]
+AcquisitionModular.max_mag.io_max_mag[22:0]
+@28
+AcquisitionModular.max_mag.io_done_last
+@10022
+AcquisitionModular.max_mag.mag_abs[22:0]
+@20000
+-
+@1000200
+-Magnitude
+@200
+-Fine Acquisition
+@c00200
+-Remove PRN
+@820
+AcquisitionModular.fine_acq_remove_prn.fsm_stateReg_string[87:0]
+@28
+AcquisitionModular.fine_acq_remove_prn.io_input_payload_c_im[1:0]
+AcquisitionModular.fine_acq_remove_prn.io_input_payload_c_re[1:0]
+@22
+AcquisitionModular.fine_acq_remove_prn.io_input_payload_t[11:0]
+@28
+AcquisitionModular.fine_acq_remove_prn.io_input_ready
+AcquisitionModular.fine_acq_remove_prn.io_input_valid
+@200
+-
+@28
+AcquisitionModular.fine_acq_remove_prn.io_set
+@24
+AcquisitionModular.fine_acq_remove_prn.io_phase_offset[11:0]
+@22
+AcquisitionModular.fine_acq_remove_prn.offset[11:0]
+@1401200
+-Remove PRN
+@200
+-Results
+@c00420
+AcquisitionModular.fine_freq[11:0]
+@28
+(0)AcquisitionModular.fine_freq[11:0]
+(1)AcquisitionModular.fine_freq[11:0]
+(2)AcquisitionModular.fine_freq[11:0]
+(3)AcquisitionModular.fine_freq[11:0]
+(4)AcquisitionModular.fine_freq[11:0]
+(5)AcquisitionModular.fine_freq[11:0]
+(6)AcquisitionModular.fine_freq[11:0]
+(7)AcquisitionModular.fine_freq[11:0]
+(8)AcquisitionModular.fine_freq[11:0]
+(9)AcquisitionModular.fine_freq[11:0]
+(10)AcquisitionModular.fine_freq[11:0]
+(11)AcquisitionModular.fine_freq[11:0]
+@1401200
+-group_end
+@24
+AcquisitionModular.phase_offset[11:0]
+@22
+AcquisitionModular.snr_result[7:0]
+@c00200
+-Result Stream
+@28
+AcquisitionModular.io_results_fire
+@24
+AcquisitionModular.io_results_payload_freq_offset[11:0]
+AcquisitionModular.io_results_payload_phase_offset[11:0]
+AcquisitionModular.io_results_payload_snr[7:0]
+AcquisitionModular.io_results_payload_sv[5:0]
+@28
+AcquisitionModular.io_results_ready
+AcquisitionModular.io_results_valid
+@1401200
+-Result Stream
+@c00200
+-SNR
+@820
+AcquisitionModular.snr_1.fsm_stateReg_string[55:0]
+@24
+AcquisitionModular.snr_1.io_num[34:0]
+AcquisitionModular.snr_1.io_den[34:0]
+@28
+AcquisitionModular.snr_1.io_start
+AcquisitionModular.snr_1.io_busy
+AcquisitionModular.snr_1.io_error
+@24
+AcquisitionModular.snr_1.io_res[34:0]
+AcquisitionModular.snr_1.io_rem[34:0]
+@28
+AcquisitionModular.snr_1.io_valid
+@22
+AcquisitionModular.snr_1.i[5:0]
+AcquisitionModular.snr_1.quo[34:0]
+AcquisitionModular.snr_1.acc[35:0]
+@1401200
+-SNR
+[pattern_trace] 1
+[pattern_trace] 0

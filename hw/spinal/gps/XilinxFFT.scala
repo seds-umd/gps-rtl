@@ -21,10 +21,10 @@ case class XilinxFFT() extends BlackBox {
     val aresetn = in Bool ()
     val aclken = in Bool ()
 
-    val s_axis_config = slave(Axi4Stream(control_config))
-    val s_axis_data = slave(Axi4Stream(data_in_config))
+    val s_axis_config = slave Stream (Bits(8 bits))
+    val s_axis_data = slave Stream (Fragment(Bits(16 bits)))
     val m_axis_data = master(Axi4Stream(data_out_config))
-    val m_axis_status = master(Axi4Stream(control_config))
+    val m_axis_status = master Stream (Bits(8 bits))
   }
 
   noIoPrefix()
@@ -34,6 +34,8 @@ case class XilinxFFT() extends BlackBox {
     io.flatten.foreach(bt => {
       if (bt.getName().contains("valid")) bt.setName(bt.getName().replace("valid", "tvalid"))
       if (bt.getName().contains("ready")) bt.setName(bt.getName().replace("ready", "tready"))
+      if (bt.getName().endsWith("payload")) bt.setName(bt.getName().replace("payload", "tdata"))
+      if (bt.getName().endsWith("payload_fragment")) bt.setName(bt.getName().replace("payload_fragment", "tdata"))
       if (bt.getName().contains("payload_data")) bt.setName(bt.getName().replace("payload_data", "tdata"))
       if (bt.getName().contains("payload_last")) bt.setName(bt.getName().replace("payload_last", "tlast"))
       if (bt.getName().contains("payload_user")) bt.setName(bt.getName().replace("payload_user", "tuser"))

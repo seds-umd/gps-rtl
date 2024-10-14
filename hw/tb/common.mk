@@ -14,13 +14,18 @@ endif
 
 include $(shell cocotb-config --makefiles)/Makefile.sim
 
-FST_FILE ?= sim_build/$(DUT).fst
+FST_FILE ?= sim_build/$(TOPLEVEL).fst
+SCALA_FILE ?= $(DUT).scala
+SPINAL ?= "runMain gps.$(DUT)Verilog"
 
-waves: sim
+waves:
 	gtkwave $(FST_FILE) $(DUT).gtkw
 
 all:
 	@if grep -q "<failure />" "results.xml"; then exit 1; fi
 
-spinal: $(PWD)/../../spinal/gps/$(DUT).scala
+spinal: $(PWD)/../../spinal/gps/$(SCALA_FILE)
+	cd $(PWD)/../../..; sbt $(SPINAL)
+
+$(PWD)/../../gen/$(TOPLEVEL).v: $(PWD)/../../spinal/gps/$(SCALA_FILE)
 	cd $(PWD)/../../..; sbt $(SPINAL)

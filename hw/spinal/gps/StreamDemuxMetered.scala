@@ -13,7 +13,8 @@ class StreamDemuxMetered[T <: Data](input: Stream[T], ports: Int, countBits: Int
   private val running = counter > 0
 
   private val input_internal = input.haltWhen(!running || select.valid)
-  val outputs = StreamDemux(input_internal, select, ports)
+  // val outputs = StreamDemux(input_internal, select, ports)
+  val outputs = Vec(input_internal) // XXX just to get it to compile, fix later
 
   // Perform n transactions to bus at index
   // Only run when not busy

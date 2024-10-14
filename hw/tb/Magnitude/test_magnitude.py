@@ -4,6 +4,13 @@ from cocotb.triggers import RisingEdge, ClockCycles, with_timeout
 
 import logging
 import numpy as np
+import sys
+from pathlib import Path
+
+utils_path = Path(__file__).resolve().parent.parent
+sys.path.insert(len(sys.path), str(utils_path.resolve()))
+
+from utils import corr
 
 async def send_values(dut, real, imag):
     for i in range(len(real)):
@@ -42,6 +49,7 @@ async def test_magnitude(dut, runs=1, num=8192):
         mag_res = np.array(mag_res)
         err = np.abs(mag_ref - mag_res)
 
-        dut._log.info(f"Average error: {np.mean(err):0.2f}, max error: {np.max(err):0.2f}")
+        mag_corr = corr(mag_res, mag_ref)
+        dut._log.info(f"Average error: {np.mean(err):0.2f}, max error: {np.max(err):0.2f}, corr: {mag_corr:0.3f}")
 
         assert np.mean(err) < 4

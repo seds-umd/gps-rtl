@@ -1,0 +1,57 @@
+[*]
+[*] GTKWave Analyzer v3.3.103 (w)1999-2019 BSI
+[*] Tue May 28 01:42:45 2024
+[*]
+[dumpfile] "/home/nathan/seds/gps-rtl/hw/tb/MaxMagnitude/sim_build/MaxMagnitude.fst"
+[dumpfile_mtime] "Tue May 28 01:40:29 2024"
+[dumpfile_size] 2601588
+[savefile] "/home/nathan/seds/gps-rtl/hw/tb/MaxMagnitude/MaxMagnitude.gtkw"
+[timestart] 0
+[size] 1908 1007
+[pos] -1 -1
+*-27.000000 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+[sst_width] 304
+[signals_width] 366
+[sst_expanded] 1
+[sst_vpaned_height] 295
+@28
+MaxMagnitude.clk
+MaxMagnitude.reset
+MaxMagnitude.io_restart
+@420
+MaxMagnitude.io_freq[7:0]
+@200
+-
+@800200
+-AXIS Input
+@420
+MaxMagnitude.mag_io_input_payload_fragment_re[7:0]
+MaxMagnitude.mag_io_input_payload_fragment_im[7:0]
+@28
+MaxMagnitude.io_input_payload_last
+@22
+MaxMagnitude.io_input_payload_user[7:0]
+@28
+MaxMagnitude.io_input_ready
+MaxMagnitude.io_input_valid
+@1000200
+-AXIS Input
+@420
+MaxMagnitude.freq_delayed[7:0]
+@800200
+-Mag Output
+@24
+MaxMagnitude.mag_io_mag_payload_fragment[7:0]
+@28
+MaxMagnitude.mag_io_mag_payload_last
+MaxMagnitude.mag_io_mag_valid
+@1000200
+-Mag Output
+@24
+MaxMagnitude.io_max_mag[22:0]
+@420
+MaxMagnitude.io_max_freq[7:0]
+@24
+MaxMagnitude.io_mean_mag[28:0]
+[pattern_trace] 1
+[pattern_trace] 0

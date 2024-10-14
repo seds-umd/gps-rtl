@@ -1,0 +1,38 @@
+[*]
+[*] GTKWave Analyzer v3.3.103 (w)1999-2019 BSI
+[*] Mon Jun 10 03:12:13 2024
+[*]
+[dumpfile] "/home/nathan/seds/gps-rtl/hw/tb/MaxSpiConfig/sim_build/MaxSpiConfig.fst"
+[dumpfile_mtime] "Mon Jun 10 03:04:09 2024"
+[dumpfile_size] 3135
+[savefile] "/home/nathan/seds/gps-rtl/hw/tb/MaxSpiConfig/MaxSpiConfig.gtkw"
+[timestart] 6040000
+[size] 1908 1007
+[pos] -1 -1
+*-24.000000 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+[sst_width] 310
+[signals_width] 262
+[sst_expanded] 1
+[sst_vpaned_height] 295
+@28
+MaxSpiConfig.clk
+MaxSpiConfig.reset
+@200
+-
+@28
+MaxSpiConfig.io_spi_cs
+MaxSpiConfig.io_spi_sclk
+MaxSpiConfig.io_spi_sdata
+@200
+-
+@820
+MaxSpiConfig.reg_fsm_stateReg_string[95:0]
+@200
+-
+@22
+MaxSpiConfig.io_data_payload[31:0]
+@28
+MaxSpiConfig.io_data_ready
+MaxSpiConfig.io_data_valid
+[pattern_trace] 1
+[pattern_trace] 0

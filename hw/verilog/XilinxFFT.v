@@ -1,5 +1,7 @@
 // Blackbox module definition for Xilinx FFT core
 
+`timescale 1ns/1ps
+
 // verilator lint_off UNUSED
 // verilator lint_off UNDRIVEN
 module XilinxFFT (

@@ -1,0 +1,43 @@
+[*]
+[*] GTKWave Analyzer v3.3.103 (w)1999-2019 BSI
+[*] Sat May 11 21:29:00 2024
+[*]
+[dumpfile] "/home/nathan/seds/gps-rtl/hw/tb/Mixer/sim_build/MixerWrapper.fst"
+[dumpfile_mtime] "Sat May 11 21:26:47 2024"
+[dumpfile_size] 4989
+[savefile] "/home/nathan/seds/gps-rtl/hw/tb/Mixer/Mixer.gtkw"
+[timestart] 0
+[size] 2548 1367
+[pos] -1 -1
+*-17.000000 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+[treeopen] MixerWrapper.
+[sst_width] 315
+[signals_width] 310
+[sst_expanded] 1
+[sst_vpaned_height] 422
+@28
+MixerWrapper.clk
+MixerWrapper.reset
+@420
+MixerWrapper.mixer_1.io_input_a_payload_fragment_re[7:0]
+MixerWrapper.mixer_1.io_input_a_payload_fragment_im[7:0]
+@28
+MixerWrapper.mixer_1.io_input_a_payload_last
+MixerWrapper.mixer_1.io_input_a_ready
+MixerWrapper.mixer_1.io_input_a_valid
+@420
+MixerWrapper.mixer_1.io_input_b_payload_fragment_re[7:0]
+MixerWrapper.mixer_1.io_input_b_payload_fragment_im[7:0]
+@28
+MixerWrapper.mixer_1.io_input_b_payload_last
+MixerWrapper.mixer_1.io_input_b_ready
+MixerWrapper.mixer_1.io_input_b_valid
+@420
+MixerWrapper.mixer_1.io_output_payload_fragment_re[7:0]
+MixerWrapper.mixer_1.io_output_payload_fragment_im[7:0]
+@28
+MixerWrapper.mixer_1.io_output_payload_last
+MixerWrapper.mixer_1.io_output_ready
+MixerWrapper.mixer_1.io_output_valid
+[pattern_trace] 1
+[pattern_trace] 0

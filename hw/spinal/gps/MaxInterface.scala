@@ -12,16 +12,14 @@ case class MaxInterface(iq_size: Int = 2, period: Int = 4092) extends Component 
     val time_sync = in Bool ()
 
     // FPGA interface
-    // val clk = in Bool ()
-    // val rst = in Bool ()
-    val iq = master Stream (ComplexTimestamp(iq_size, period).asBits)
+    val iq = master Stream (ComplexTimestamp(iq_size, period))
   }
 
   val fpga_domain = ClockDomain.current
   val max_domain = ClockDomain(io.clk_ser, fpga_domain.reset)
 
   val sample_fifo = StreamFifoCC(
-    dataType = ComplexTimestamp(iq_size, period).asBits,
+    dataType = ComplexTimestamp(iq_size, period),
     depth = 8,
     pushClock = max_domain,
     popClock = fpga_domain
@@ -33,7 +31,7 @@ case class MaxInterface(iq_size: Int = 2, period: Int = 4092) extends Component 
     val phase_counter = Counter(period)
 
     val fifo_push_payload = ComplexTimestamp(iq_size, period)
-    sample_fifo.io.push.payload := fifo_push_payload.asBits
+    sample_fifo.io.push.payload := fifo_push_payload
 
     val bit_counter = Reg(UInt(4 bits)) init 0 // up to 16
     val bit_index = Reg(UInt(2 bits)) init 0 // up to 4
@@ -82,10 +80,10 @@ case class MaxInterface(iq_size: Int = 2, period: Int = 4092) extends Component 
         fifo_push_payload.c.re := sample_reg(~reg_index)(0)(dump_bit_index).asSInt
         fifo_push_payload.c.im := sample_reg(~reg_index)(1)(dump_bit_index).asSInt
       } else {
-        fifo_push_payload.c.re := (sample_reg(~reg_index)(0)(dump_bit_index) ## 
-                                sample_reg(~reg_index)(1)(dump_bit_index)).asSInt
-        fifo_push_payload.c.im := (sample_reg(~reg_index)(2)(dump_bit_index) ## 
-                                sample_reg(~reg_index)(3)(dump_bit_index)).asSInt
+        fifo_push_payload.c.re := (sample_reg(~reg_index)(0)(dump_bit_index) ##
+          sample_reg(~reg_index)(1)(dump_bit_index)).asSInt
+        fifo_push_payload.c.im := (sample_reg(~reg_index)(2)(dump_bit_index) ##
+          sample_reg(~reg_index)(3)(dump_bit_index)).asSInt
       }
 
       // Stop when out of bits unless new bits are ready

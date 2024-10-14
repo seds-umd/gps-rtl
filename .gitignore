@@ -47,8 +47,11 @@ simWorkspace/
 tmp/
 null
 
-# Generated
+# Generated files
 hw/gen
+
+# LiteX build directories
+hw/**/build
 
 # cocotb
 venv/**
@@ -56,3 +59,6 @@ venv/**
 __pycache__
 sim_build
 results.xml
+
+# remote builds
+.patch

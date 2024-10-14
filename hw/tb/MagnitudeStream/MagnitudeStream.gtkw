@@ -1,0 +1,35 @@
+[*]
+[*] GTKWave Analyzer v3.3.103 (w)1999-2019 BSI
+[*] Sat May 11 23:08:28 2024
+[*]
+[dumpfile] "/home/nathan/seds/gps-rtl/hw/tb/MagnitudeStream/sim_build/MagnitudeStreamWrapper.fst"
+[dumpfile_mtime] "Sat May 11 23:08:05 2024"
+[dumpfile_size] 10922
+[savefile] "/home/nathan/seds/gps-rtl/hw/tb/MagnitudeStream/MagnitudeStream.gtkw"
+[timestart] 0
+[size] 2548 1367
+[pos] -1 -1
+*-16.000000 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+[treeopen] MagnitudeStreamWrapper.
+[sst_width] 261
+[signals_width] 294
+[sst_expanded] 1
+[sst_vpaned_height] 421
+@28
+MagnitudeStreamWrapper.clk
+MagnitudeStreamWrapper.reset
+@420
+MagnitudeStreamWrapper.mag.io_input_payload_fragment_re[7:0]
+MagnitudeStreamWrapper.mag.io_input_payload_fragment_im[7:0]
+@28
+MagnitudeStreamWrapper.mag.io_input_payload_last
+MagnitudeStreamWrapper.mag.io_input_ready
+MagnitudeStreamWrapper.mag.io_input_valid
+@24
+MagnitudeStreamWrapper.mag.io_mag_payload_fragment[7:0]
+@28
+MagnitudeStreamWrapper.mag.io_mag_payload_last
+MagnitudeStreamWrapper.mag.io_mag_ready
+MagnitudeStreamWrapper.mag.io_mag_valid
+[pattern_trace] 1
+[pattern_trace] 0

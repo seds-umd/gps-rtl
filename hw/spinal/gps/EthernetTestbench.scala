@@ -13,12 +13,12 @@ case class EthDecimate(out_size: Int = 64) extends Component {
     val tx = master Stream (Fragment(Bits(8 bits)))
   }
 
-  val dut = Decimate(iq_size = 8, factor = 8)
+  val dut = Decimate(iq_in_size = 8, iq_out_size = 8, factor = 8)
 
   val rx_16b = Stream(Fragment(Bits(16 bits)))
   val rx_adapter = StreamFragmentWidthAdapter(io.rx, rx_16b)
-  dut.io.iq_in << rx_16b.translateInto(Stream(Bits(16 bits)))((to, from) => {
-    to := from.fragment
+  dut.io.iq_in << rx_16b.translateInto(Stream(Complex(8)))((to, from) => {
+    to.assignFromBits(from)
   })
 
   val tx_16b = dut.io.iq_out.addFragmentLast(Counter(out_size))

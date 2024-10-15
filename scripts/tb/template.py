@@ -9,10 +9,16 @@ class TemplateTb:
         logging.basicConfig(level=logging.INFO)
 
         self.stream = stream.StreamInterface(dest, port)
+        self.csr_stream = stream.AxilInterface(dest, 1000)
+        self.reset()
 
         seed = np.random.randint(2**32)
         self.rng = np.random.default_rng(seed)
         logging.info(f"Initializing RNG with seed {seed}")
+
+    def reset(self):
+        self.csr_stream.write(0x00, 0)
+        time.sleep(0.05)
 
     def randn(self, size):
         return self.rng.normal(1, 1, size)

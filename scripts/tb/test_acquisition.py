@@ -12,17 +12,10 @@ class AcquisitionTestbench(template.TemplateTb):
     def __init__(self, ip):
         super().__init__(ip, 1010)
 
-        self.csr_stream = stream.AxilInterface(ip, 1000)
-        self.reset()
-        time.sleep(0.05)
-
-    def reset(self):
-        self.csr_stream.write(0x00, 0)
-
     def get_availability(self) -> int:
         return self.csr_stream.read(0x10)
 
-    def send_file(self, file, dtype, count: int):
+    def send_file(self, file, dtype, count: int = -0.5):
         data = np.fromfile(file, dtype=dtype, count=int(count * 2))
 
         samples = data[::2].astype(np.complex64) + 1j * data[1::2].astype(np.complex64)
@@ -63,11 +56,10 @@ class AcquisitionTestbench(template.TemplateTb):
             self.stream.send(bits_bytes[i : i + 50000])
 
             while self.get_availability() < 50000:
-                # time.sleep(0.1)
                 pass
 
         end = time.time()
-        print(f"Speed: {8*(len(bits_bytes)/(end-start))/1e6:.1f} Mb/s")
+        # print(f"Speed: {8*(len(bits_bytes)/(end-start))/1e6:.1f} Mb/s")
 
         self.samples_quant = samples_quant
 
@@ -104,57 +96,39 @@ class AcquisitionTestbench(template.TemplateTb):
 if __name__ == "__main__":
     tb = AcquisitionTestbench("10.0.0.2")
 
-    t = 60
-    fs = 4.092e6
-    N = int(fs * t)
-
-    print(f"Sending samples")
-    tb.send_file("../../../gps-model/data/1/gpssim.ci16", np.int8, N)
-
-    N = len(tb.samples_quant)
-
-    print(f"Sent {N} samples")
-
-    # print("Expected results:")
-    # print(acquisition(tb.samples_quant, 4.092e6, 10e3, 1000, threshold=5.5))
-
-    print("Excepted SVs: 3, 4, 9, 16, 26, 27, 28, 29, 31, 32")
-    expected = [3, 4, 9, 16, 26, 27, 28, 29, 31, 32]
-
-    print("Getting results")
-
-    time.sleep(0.5)
-    input_count = tb.csr_stream.read(0x04)
-    print(f"Input count: {input_count}")
-    print(f"Result count: {tb.csr_stream.read(0x08)}")
-
     threshold = 10
-    detections = {i: 0 for i in range(1, 33)}
 
-    results = []
-    highest_false = 0
+    for i in range(10):
+        tb.reset()
 
-    while True:
-        try:
-            res = tb.get_results()
+        file = f"../../../gps-model/data/test{i}.ci16"
+        tb.send_file(file, np.int8)
 
-            results.append(res)
-        except IndexError:
-            break
+        time.sleep(0.5)
+        input_count = tb.csr_stream.read(0x04)
 
-    for res in results:
-        if res["sv"] not in expected:
-            if res["snr"] > highest_false:
-                highest_false = res["snr"]
+        assert input_count == len(
+            tb.samples_quant
+        ), f"Sent {len(tb.samples_quant)} samples, got {input_count}"
 
-    print(f"Highest false SNR: {highest_false}")
+        detections = {i: 0 for i in range(1, 33)}
 
-    print("Detections:")
+        results = []
+        highest_false = 0
 
-    for res in results:
-        if res["snr"] > highest_false:
-            detections[res["sv"]] += 1
+        while True:
+            try:
+                res = tb.get_results()
 
-    for key in detections.keys():
-        if detections[key] > 0:
-            print(f"{key}: {detections[key]}")
+                results.append(res)
+            except IndexError:
+                break
+
+        for res in results:
+            if res["snr"] > threshold:
+                detections[res["sv"]] += 1
+
+        detected = sum([1 for x in detections.values() if x > 0])
+
+        print(f"Data {i}: detected {detected}")
+        print("")

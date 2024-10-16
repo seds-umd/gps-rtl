@@ -7,16 +7,13 @@ import numpy as np
 import matplotlib.pyplot as plt
 import sys
 from pathlib import Path
-from gps import prn
+from gps import prn_gen
 
-utils_path = Path(__file__).resolve().parent.parent
-sys.path.insert(len(sys.path), str(utils_path.resolve()))
-
-from fft_sim import unpack_complex
-from utils import TB_Template, axis_sink, axis_source, corr, generate_gps_samples
+from fpga_utils import TbTemplate, axis_sink, axis_source, corr, generate_gps_samples
+from fpga_utils.fft_sim import fft_unpack_complex
 
 
-class TB(TB_Template):
+class TB(TbTemplate):
     def __init__(self, dut):
         super().__init__(dut)
 
@@ -70,10 +67,10 @@ class TB(TB_Template):
 
         # Receive data
         actual = await with_timeout(self.get_data(), 150000, "ns")
-        actual = unpack_complex(actual)
+        actual = fft_unpack_complex(actual)
 
         # Reference data
-        prn_data = prn.sample(
+        prn_data = prn_gen.sample(
             1, 4.092e6, cycles * 4096, offset_samples=offset + timestamp_offset
         )
         mixed = quant * prn_data

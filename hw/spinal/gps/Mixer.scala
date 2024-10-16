@@ -3,17 +3,18 @@ package gps
 import spinal.core._
 import spinal.lib._
 
-case class Mixer(width: Int = 8) extends Component {
+case class MixerTimestamp(width: Int = 8, period: Int = 4092) extends Component {
   val io = new Bundle {
-    val input_a = slave Stream Fragment(Complex(width))
+    val input_a = slave Stream Fragment(ComplexTimestamp(width, period))
     val input_b = slave Stream Fragment(Complex(width))
-    val output = master Stream Fragment(Complex(width))
+    val output = master Stream Fragment(ComplexTimestamp(width, period))
   }
 
-  io.output.re.setAsReg()
-  io.output.im.setAsReg()
-  io.output.valid.setAsReg() init(False)
+  io.output.c.re.setAsReg()
+  io.output.c.im.setAsReg()
+  io.output.valid.setAsReg() init (False)
   io.output.last.setAsReg()
+  io.output.t.setAsReg()
 
   // Pipeline advanced when previous stage is valid
   // Output ready skips pipeline to stall input bus
@@ -25,21 +26,21 @@ case class Mixer(width: Int = 8) extends Component {
   val s1_b = Reg(Complex(width))
   val s1_valid = Reg(Bool()) init False
 
-  val s2_re_mix1 = Reg(SInt(2*width bits))
-  val s2_re_mix2 = Reg(SInt(2*width bits))
-  val s2_im_mix1 = Reg(SInt(2*width bits))
-  val s2_im_mix2 = Reg(SInt(2*width bits))
+  val s2_re_mix1 = Reg(SInt(2 * width bits))
+  val s2_re_mix2 = Reg(SInt(2 * width bits))
+  val s2_im_mix1 = Reg(SInt(2 * width bits))
+  val s2_im_mix2 = Reg(SInt(2 * width bits))
   val s2_valid = Reg(Bool()) init False
 
-  val s3_re_mix = Reg(SInt(2*width bits))
-  val s3_im_mix = Reg(SInt(2*width bits))
+  val s3_re_mix = Reg(SInt(2 * width bits))
+  val s3_im_mix = Reg(SInt(2 * width bits))
   val s3_valid = Reg(Bool()) init False
 
   // Advance only when output is ready
   when(io.output.ready) {
     // Advance first stage
     when(joined.fire) {
-      s1_a := joined.payload._1
+      s1_a := joined.payload._1.c
       s1_b := joined.payload._2
       s1_valid := True
     } otherwise {
@@ -68,17 +69,41 @@ case class Mixer(width: Int = 8) extends Component {
 
     // Truncate to original size
     when(s3_valid) {
-      io.output.re := s3_re_mix.round(width)
-      io.output.im := s3_im_mix.round(width)
+      io.output.c.re := s3_re_mix.round(width)
+      io.output.c.im := s3_im_mix.round(width)
       io.output.valid := True
     } otherwise {
       io.output.valid := False
     }
-
-    // Last is OR of both inputs
-    val latency = LatencyAnalysis(io.input_a.valid, io.output.valid)
-    io.output.last := Delay(io.input_a.last || io.input_b.last, latency - 1, io.output.ready, init = False)
   }
+
+  // Last is OR of both inputs
+  val latency = LatencyAnalysis(io.input_a.valid, io.output.valid)
+
+  when(io.output.ready) {
+    io.output.last := Delay(io.input_a.last || io.input_b.last, latency - 1, io.output.ready, init = False)
+    io.output.t := Delay(io.input_a.t, latency - 1, io.output.ready)
+  }
+}
+
+case class Mixer(width: Int = 8) extends Component {
+  val io = new Bundle {
+    val input_a = slave Stream Fragment(Complex(width))
+    val input_b = slave Stream Fragment(Complex(width))
+    val output = master Stream Fragment(Complex(width))
+  }
+
+  val mixer = MixerTimestamp(width)
+  mixer.io.input_a << io.input_a.translateInto(mixer.io.input_a.clone())((to, from) => {
+    to.c := from
+    to.t := 0
+    to.last := from.last
+  })
+  mixer.io.input_b << io.input_b
+  io.output << mixer.io.output.translateInto(io.output.clone())((to, from) => {
+    to.fragment := from.c
+    to.last := from.last
+  })
 }
 
 case class MixerWrapper() extends Component {

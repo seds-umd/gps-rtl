@@ -7,14 +7,11 @@ import numpy as np
 import sys
 from pathlib import Path
 
-utils_path = Path(__file__).resolve().parent.parent
-sys.path.insert(len(sys.path), str(utils_path.resolve()))
-
-from fft_sim import pack_complex, unpack_complex
-from utils import TB_Template, axis_sink, axis_source, corr, random_pause
+from fpga_utils import TbTemplate, axis_sink, axis_source, random_pause, corr
+from fpga_utils.fft_sim import fft_pack_complex, fft_unpack_complex
 
 
-class TB(TB_Template):
+class TB(TbTemplate):
     def __init__(self, dut):
         super().__init__(dut)
 
@@ -68,10 +65,10 @@ async def test_dut(dut):
         a = np.random.uniform(-1, 1, N) + 1j * np.random.uniform(-1, 1, N)
         b = np.random.uniform(-1, 1, N) + 1j * np.random.uniform(-1, 1, N)
 
-        await tb.send_data(pack_complex(a), pack_complex(b))
+        await tb.send_data(fft_pack_complex(a), fft_pack_complex(b))
 
         expected = a * b
-        actual = unpack_complex(await tb.get_data())
+        actual = fft_unpack_complex(await tb.get_data())
         mix_corr = corr(expected, actual)
 
         tb.dut._log.info(f"Correlation: {mix_corr:0.3f}")

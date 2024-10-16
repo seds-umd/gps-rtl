@@ -21,9 +21,12 @@ case class GpsTop() extends Component {
   max.io.data_sync <> io.data_sync
   max.io.time_sync <> io.time_sync
 
-  // acq.io.iq << max.io.iq
+  acq.io.iq << max.io.iq.translateInto(acq.io.iq.clone())((to, from) => {
+    to := from.asBits
+  })
 
-  // io.debug_out <> acq.io.debug_synth_fft_index ## acq.io.debug_synth_fft_val ## acq.io.debug_synth_fft_freq
+  io.debug_out := acq.io.results.sv ## acq.io.results.snr.trim(1)
+  acq.io.results.ready := True
 }
 
 object GpsTopVerilog extends App {

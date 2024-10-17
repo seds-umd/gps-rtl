@@ -1,0 +1,45 @@
+[*]
+[*] GTKWave Analyzer v3.3.104 (w)1999-2020 BSI
+[*] Thu Oct 17 02:20:05 2024
+[*]
+[dumpfile] "/home/nathan/seds/gps-rtl/hw/tb/Pll/sim_build/Pll.fst"
+[dumpfile_mtime] "Thu Oct 17 02:19:34 2024"
+[dumpfile_size] 1964
+[savefile] "/home/nathan/seds/gps-rtl/hw/tb/Pll/pll.gtkw"
+[timestart] 0
+[size] 2868 1695
+[pos] -1 -1
+*-20.000000 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+[sst_width] 214
+[signals_width] 190
+[sst_expanded] 1
+[sst_vpaned_height] 536
+@28
+Pll.clk
+Pll.reset
+@200
+-
+@28
+Pll.io_err_fire
+@40000420
+[fpshift_count] 12
+Pll.io_err_payload[15:0]
+@200
+-
+@40000420
+[fpshift_count] 12
+Pll.io_nco_payload[15:0]
+@28
+Pll.io_nco_ready
+Pll.io_nco_valid
+@200
+-
+@40000420
+[fpshift_count] 26
+Pll.nco_full[38:0]
+[fpshift_count] 12
+Pll.nco_sat[15:0]
+@28
+Pll.lock
+[pattern_trace] 1
+[pattern_trace] 0

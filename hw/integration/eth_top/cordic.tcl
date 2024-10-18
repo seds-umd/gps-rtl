@@ -27,7 +27,7 @@ if { [file isdirectory "IP/XilinxCORDIC"] } {
         CONFIG.Pipelining_Mode {Optimal} \
         CONFIG.Phase_Format {Scaled_Radians} \
         CONFIG.Input_Width {12} \
-        CONFIG.Output_Width {10} \
+        CONFIG.Output_Width {9} \
         CONFIG.Round_Mode {Round_Pos_Neg_Inf} \
         CONFIG.flow_control {Blocking} \
         CONFIG.optimize_goal {Resources} \

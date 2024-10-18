@@ -35,6 +35,37 @@ case class XilinxCORDIC() extends BlackBox {
   addPrePopTask(() => renameIO())
 }
 
+case class CordicWrapper(phase_width: Int = 12, output_width: Int = 9, with_user: Boolean = false) extends Component {
+  val actual_phase_width = phase_width - 2
+  val actual_dout_width = output_width - 1
+
+  val io = new Bundle {
+    val phase = slave Stream(UInt(actual_phase_width bits))
+    val dout = master Stream(Complex(actual_dout_width))
+  }
+
+  // TODO: add user signals
+  // TODO: convert output into something that makes sense
+
+  val cordic = XilinxCORDIC()
+
+  // Input phase is 0-1023 for 12 bit input (10 bit actual)
+  cordic.io.phase << io.phase.translateInto(cordic.io.phase.clone())((to, from) => {
+    when(from > (1 << (actual_phase_width - 1))) {
+      to.data := from.asBits.resized
+    } otherwise {
+      to.data := ((0x7 << actual_phase_width) + from).asBits.resized
+    }
+    to.user := 0
+  })
+
+  // Output is +-128 for 9 bit output (8 bit actual)
+  io.dout << cordic.io.dout.translateInto(io.dout.clone())((to, from) => {
+    to.re := from.data.asSInt(0, actual_dout_width+1 bits).sat(1)
+    to.im := from.data.asSInt(16, actual_dout_width+1 bits).sat(1)
+  })
+}
+
 // case class CordicTest() extends Component {
 //   val io = new Bundle {
 //     val phase = slave Stream(new CordicBundle(16, 3))

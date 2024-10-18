@@ -36,6 +36,7 @@ case class Pll(bw: Float, gain: Float, zeta: Float = 0.707f, ts: Float = 1e-3f) 
   c2 := _c2
 
   val last_err = Reg(io.err.payload.clone()) init 0
+  val last_nco = Reg(io.nco.payload.clone()) init 0
 
   val t1 = c1 * (io.err.payload - last_err)
   val t2 = c2 * io.err.payload
@@ -56,6 +57,10 @@ case class Pll(bw: Float, gain: Float, zeta: Float = 0.707f, ts: Float = 1e-3f) 
 
   when(io.err.fire) {
     last_err := io.err.payload
+  }
+
+  when(io.nco.fire) {
+    last_nco := io.nco.payload
   }
 
   // Locked after 128 cycles (128 ms)

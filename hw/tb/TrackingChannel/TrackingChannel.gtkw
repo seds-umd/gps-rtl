@@ -1,0 +1,177 @@
+[*]
+[*] GTKWave Analyzer v3.3.104 (w)1999-2020 BSI
+[*] Fri Oct 18 01:36:28 2024
+[*]
+[dumpfile] "/home/nathan/seds/gps-rtl/hw/tb/TrackingChannel/sim_build/TrackingChannel.fst"
+[dumpfile_mtime] "Thu Oct 17 21:12:20 2024"
+[dumpfile_size] 17775081
+[savefile] "/home/nathan/seds/gps-rtl/hw/tb/TrackingChannel/TrackingChannel.gtkw"
+[timestart] 97300
+[size] 2868 1695
+[pos] -1 -1
+*-15.000000 26170 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+[treeopen] TrackingChannel.
+[treeopen] TrackingChannel.cordic.
+[sst_width] 214
+[signals_width] 230
+[sst_expanded] 1
+[sst_vpaned_height] 536
+@28
+TrackingChannel.clk
+TrackingChannel.reset
+@200
+-
+@c00200
+-Config
+@22
+TrackingChannel.io_config_payload_freq_offset[11:0]
+TrackingChannel.io_config_payload_phase_offset[11:0]
+TrackingChannel.io_config_payload_snr[7:0]
+TrackingChannel.io_config_payload_sv[5:0]
+@28
+TrackingChannel.io_config_valid
+@1401200
+-Config
+@800200
+-IQ
+@28
+TrackingChannel.io_iq_payload_c_im[1:0]
+TrackingChannel.io_iq_payload_c_re[1:0]
+@22
+TrackingChannel.io_iq_payload_t[11:0]
+@28
+TrackingChannel.io_iq_ready
+TrackingChannel.io_iq_valid
+@1000200
+-IQ
+@800200
+-CORDIC
+@10420
+TrackingChannel.cordic.io_dout_payload_re[7:0]
+TrackingChannel.cordic.io_dout_payload_im[7:0]
+@28
+TrackingChannel.cordic.io_dout_ready
+TrackingChannel.cordic.io_dout_valid
+@24
+TrackingChannel.cordic.io_phase_payload[9:0]
+@28
+TrackingChannel.cordic.io_phase_ready
+TrackingChannel.cordic.io_phase_valid
+@1000200
+-CORDIC
+@800200
+-Carrier Phase
+@420
+TrackingChannel.carrier_phase[9:0]
+TrackingChannel.carrier_phase_next[3:0]
+TrackingChannel.carrier_freq_est[15:0]
+@10420
+TrackingChannel.carrier_freq_est[15:0]
+@20000
+-
+@1000200
+-Carrier Phase
+@c00200
+-PRN
+@28
+TrackingChannel.prn_1.aligned
+@820
+TrackingChannel.prn_1.fsm_stateReg_string[87:0]
+@22
+TrackingChannel.prn_1.offset[11:0]
+TrackingChannel.prn_1.offset_next[11:0]
+TrackingChannel.prn_1.offset_wide[12:0]
+@28
+TrackingChannel.prn_1.throw_iq
+TrackingChannel.prn_1.throw_prn
+TrackingChannel.prn_1.io_set
+@22
+TrackingChannel.prn_1.io_sv[5:0]
+TrackingChannel.prn_1.io_phase_offset[11:0]
+TrackingChannel.prn_1.last_iq_phase[11:0]
+TrackingChannel.prn_1.last_prn_phase[11:0]
+TrackingChannel.prn_1.absolute_offset[11:0]
+@1401200
+-PRN
+@800200
+-Prompt Decimate
+@28
+TrackingChannel.dec_prompt.io_iq_in_fire
+@420
+TrackingChannel.dec_prompt.io_iq_in_payload_im[7:0]
+TrackingChannel.dec_prompt.io_iq_in_payload_re[7:0]
+@28
+TrackingChannel.dec_prompt.io_iq_out_fire
+@420
+TrackingChannel.dec_prompt.io_iq_out_payload_im[7:0]
+TrackingChannel.dec_prompt.io_iq_out_payload_re[7:0]
+@c00420
+TrackingChannel.dec_prompt.dec_sample_im[19:0]
+@28
+(0)TrackingChannel.dec_prompt.dec_sample_im[19:0]
+(1)TrackingChannel.dec_prompt.dec_sample_im[19:0]
+(2)TrackingChannel.dec_prompt.dec_sample_im[19:0]
+(3)TrackingChannel.dec_prompt.dec_sample_im[19:0]
+(4)TrackingChannel.dec_prompt.dec_sample_im[19:0]
+(5)TrackingChannel.dec_prompt.dec_sample_im[19:0]
+(6)TrackingChannel.dec_prompt.dec_sample_im[19:0]
+(7)TrackingChannel.dec_prompt.dec_sample_im[19:0]
+(8)TrackingChannel.dec_prompt.dec_sample_im[19:0]
+(9)TrackingChannel.dec_prompt.dec_sample_im[19:0]
+(10)TrackingChannel.dec_prompt.dec_sample_im[19:0]
+(11)TrackingChannel.dec_prompt.dec_sample_im[19:0]
+(12)TrackingChannel.dec_prompt.dec_sample_im[19:0]
+(13)TrackingChannel.dec_prompt.dec_sample_im[19:0]
+(14)TrackingChannel.dec_prompt.dec_sample_im[19:0]
+(15)TrackingChannel.dec_prompt.dec_sample_im[19:0]
+(16)TrackingChannel.dec_prompt.dec_sample_im[19:0]
+(17)TrackingChannel.dec_prompt.dec_sample_im[19:0]
+(18)TrackingChannel.dec_prompt.dec_sample_im[19:0]
+(19)TrackingChannel.dec_prompt.dec_sample_im[19:0]
+@1401200
+-group_end
+@c00420
+TrackingChannel.dec_prompt.dec_sample_re[19:0]
+@28
+(0)TrackingChannel.dec_prompt.dec_sample_re[19:0]
+(1)TrackingChannel.dec_prompt.dec_sample_re[19:0]
+(2)TrackingChannel.dec_prompt.dec_sample_re[19:0]
+(3)TrackingChannel.dec_prompt.dec_sample_re[19:0]
+(4)TrackingChannel.dec_prompt.dec_sample_re[19:0]
+(5)TrackingChannel.dec_prompt.dec_sample_re[19:0]
+(6)TrackingChannel.dec_prompt.dec_sample_re[19:0]
+(7)TrackingChannel.dec_prompt.dec_sample_re[19:0]
+(8)TrackingChannel.dec_prompt.dec_sample_re[19:0]
+(9)TrackingChannel.dec_prompt.dec_sample_re[19:0]
+(10)TrackingChannel.dec_prompt.dec_sample_re[19:0]
+(11)TrackingChannel.dec_prompt.dec_sample_re[19:0]
+(12)TrackingChannel.dec_prompt.dec_sample_re[19:0]
+(13)TrackingChannel.dec_prompt.dec_sample_re[19:0]
+(14)TrackingChannel.dec_prompt.dec_sample_re[19:0]
+(15)TrackingChannel.dec_prompt.dec_sample_re[19:0]
+(16)TrackingChannel.dec_prompt.dec_sample_re[19:0]
+(17)TrackingChannel.dec_prompt.dec_sample_re[19:0]
+(18)TrackingChannel.dec_prompt.dec_sample_re[19:0]
+(19)TrackingChannel.dec_prompt.dec_sample_re[19:0]
+@1401200
+-group_end
+@1000200
+-Prompt Decimate
+@800200
+-Carrier PLL
+@22
+TrackingChannel.carrier_pll.io_err_payload[7:0]
+@28
+TrackingChannel.carrier_pll.io_err_fire
+@420
+TrackingChannel.carrier_pll.last_err[7:0]
+@22
+TrackingChannel.carrier_pll.io_nco_payload[7:0]
+@28
+TrackingChannel.carrier_pll.io_nco_fire
+@420
+TrackingChannel.carrier_pll.last_nco[7:0]
+@1000200
+-Carrier PLL
+[pattern_trace] 1
+[pattern_trace] 0

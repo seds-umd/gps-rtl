@@ -1,11 +1,7 @@
 import template
-import stream
 
 import numpy as np
 import time
-import random
-
-from gps.gps import acquisition
 
 
 class AcquisitionTestbench(template.TemplateTb):
@@ -84,6 +80,9 @@ class AcquisitionTestbench(template.TemplateTb):
         res["freq"] = res_int & 0xFFF
         res_int >>= 12
 
+        if res["freq"] > 2**11:
+            res["freq"] = res["freq"] - 2**12
+
         res["phase"] = res_int & 0xFFF
         res_int >>= 12
 
@@ -114,7 +113,6 @@ if __name__ == "__main__":
         detections = {i: 0 for i in range(1, 33)}
 
         results = []
-        highest_false = 0
 
         while True:
             try:

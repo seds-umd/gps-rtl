@@ -16,7 +16,7 @@ case class Decimate(
   val iq_in = io.iq_in.payload
 
   val dec_counter = Counter(factor + 1) init 0
-  val dec_size = iq_in_size.max(iq_out_size) + log2Up(factor)
+  val dec_size = iq_in_size + log2Up(factor)
   val dec_sample = Reg(Complex(dec_size)) init Complex(dec_size).getZero
   val dec_out = Complex(iq_out_size)
 

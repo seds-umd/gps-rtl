@@ -74,14 +74,14 @@ async def test_trackingchannel(dut):
     await tb.reset()
 
     # 100ms worth of samples
-    N = 4092 * 100
+    N = 4092 * 1000
 
     sv = 1
-    freq_offset = 1000
+    freq_offset = 0
     code_phase = 0
 
     tb.set_config(sv, int(freq_offset/125), code_phase)
-    tb.send_generated_samples(N, doppler=freq_offset+10, sample_phase=code_phase)
+    tb.send_generated_samples(N, doppler=freq_offset, sample_phase=code_phase)
 
     await ClockCycles(dut.clk, 100000)
 

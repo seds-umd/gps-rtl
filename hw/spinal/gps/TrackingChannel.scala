@@ -8,8 +8,10 @@ import spinal.lib.fsm._
 // Make cordic phase and output width configurable
 // Time multiplex CORDIC
 
-case class TrackingChannel(iq_size: Int = 2, period: Int = 4092, fft_len_bits: Int = 12, fine_acq_factor_bits: Int = 3) extends Component {
+case class TrackingChannel(iq_size: Int = 2, period: Int = 4092, fft_len_bits: Int = 12, fine_acq_factor_bits: Int = 3)
+    extends Component {
   val phase_bits = 10
+  val dec_bits = 14
 
   val io = new Bundle {
     val iq = slave Stream (ComplexTimestamp(iq_size, period))
@@ -24,7 +26,10 @@ case class TrackingChannel(iq_size: Int = 2, period: Int = 4092, fft_len_bits: I
     val nav_data = master Stream (Bool())
 
     // Debugging, TODO: remove
-    val freqs = master Flow (SFix(8 exp, 16 bits))
+    val early = master Stream(Complex(dec_bits))
+    val prompt = master Stream(Complex(dec_bits))
+    val late = master Stream(Complex(dec_bits))
+    val freq_delta = slave Flow(UInt(phase_bits bits))
   }
 
   // Carrier generation
@@ -78,64 +83,86 @@ case class TrackingChannel(iq_size: Int = 2, period: Int = 4092, fft_len_bits: I
   }
 
   // Decimation
-  val dec_early = Decimate(factor = period)
-  val dec_prompt = Decimate(factor = period)
-  val dec_late = Decimate(factor = period)
+  val dec_early = Decimate(factor = period, iq_out_size = dec_bits)
+  val dec_prompt = Decimate(factor = period, iq_out_size = dec_bits)
+  val dec_late = Decimate(factor = period, iq_out_size = dec_bits)
 
   // Use prompt stream arbitration for all 3 streams
-  val dec_fork = StreamFork(prn.io.prompt, 3, true)
+  // val dec_fork = StreamFork(prn.io.prompt, 3, true)
+  val dec_fork = StreamFork(prn.io.prompt, 3, false)
   dec_early.io.iq_in << dec_fork(0).translateWith(prn.io.early)
   dec_prompt.io.iq_in << dec_fork(1)
   dec_late.io.iq_in << dec_fork(2).translateWith(prn.io.late)
 
-  val dec_prompt_vec = StreamFork(dec_prompt.io.iq_out, 2, true)
+  io.early << dec_early.io.iq_out
+  io.prompt << dec_prompt.io.iq_out
+  io.late << dec_late.io.iq_out
+
+  // val dec_prompt_vec = StreamFork(dec_prompt.io.iq_out, 2, true)
+  // val early_late = StreamJoin(dec_early.io.iq_out, dec_late.io.iq_out)
 
   // Digitize output
-  io.nav_data << dec_prompt_vec(0).translateInto(io.nav_data.clone())((to, from) => {
-    to := from.re.sign
-  })
+  // io.nav_data << dec_prompt_vec(0).translateInto(io.nav_data.clone())((to, from) => {
+  //   to := from.re.sign
+  // })
 
   // Carrier PLL
-  val carrier_pll = Pll(bw = 10f, gain = 0.25f)
-  carrier_pll.io.err << dec_prompt_vec(1).translateInto(carrier_pll.io.err.clone())((to, from) => {
-    when (from.re.sign) {
-      to.raw := -from.im
-    } otherwise {
-      to.raw := from.im
-    }
-  })
+  // val carrier_pll = Pll(bw = 10f, gain = 0.25f)
+  // carrier_pll.io.err << dec_prompt_vec(1).translateInto(carrier_pll.io.err.clone())((to, from) => {
+  //   when(from.re.sign) {
+  //     to.raw := -from.im.sat(8)
+  //   } otherwise {
+  //     to.raw := from.im.sat(8)
+  //   }
+  // })
 
-  carrier_pll.io.nco.ready := True
-  io.freqs.payload := carrier_freq_est
-  io.freqs.valid := False
-  when (carrier_pll.io.nco.fire) {
-    io.freqs.valid := True
-    // carrier_freq_est := (carrier_freq_est + (carrier_pll.io.nco.payload >> 5)).truncated
-  }
+  // carrier_pll.io.nco.ready := True
+  // io.freqs.payload := carrier_freq_est
+  // io.freqs.valid := False
+  // when(carrier_pll.io.nco.fire) {
+  //   io.freqs.valid := True
+  //   carrier_freq_est := (carrier_freq_est + (carrier_pll.io.nco.payload >> 5)).truncated
+  // }
 
+  // Noncoherent discriminator - sim only version
+  // val early_power = dec_early.io.iq_out.re.clone()
+  // val late_power = dec_late.io.iq_out.re.clone()
+
+  // early_power := dec_early.io.iq_out.re*dec_early.io.iq_out.re - dec_early.io.iq_out.im*dec_early.io.iq_out.im + 2 * dec_early.io.iq_out.re * dec_early.io.iq_out.im
+  // late_power := dec_late.io.iq_out.re*dec_late.io.iq_out.re - dec_late.io.iq_out.im*dec_late.io.iq_out.im + 2 * dec_late.io.iq_out.re * dec_late.io.iq_out.im
+
+  // val code_err = (early_power - late_power)/(early_power + late_power)
   // Code DLL
   // val code_dll = Pll(bw = 1f, gain = 1f)
+  // code_dll.io.err << early_late.translateWith((code_err.toSFix >> 7).truncated)
+
 
   // io.lost_lock := !(carrier_pll.io.locked && code_dll.io.locked)
 
+  ////////////// Temp stuff to just make it compile
 
-
-  // Temp stuff to just make it compile
-
-  dec_early.io.iq_out.freeRun()
+  // dec_early.io.iq_out.freeRun()
   // dec_prompt.io.iq_out.freeRun()
-  dec_late.io.iq_out.freeRun()
+  // dec_late.io.iq_out.freeRun()
 
   io.lost_lock := False
 
   // To fix simulation issue
   val running = Reg(Bool()) init False
 
-  when (io.iq.valid) {
+  when(io.iq.valid) {
     running := True
   }
 
   cordic.io.phase.valid := running
+
+
+  val debug_fsm = new StateMachine {
+    // Wait for samples to come in
+    val init_config = new State with EntryPoint {
+
+    }
+  }
 }
 
 object TrackingChannelVerilog extends App {

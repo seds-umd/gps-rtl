@@ -50,7 +50,7 @@ class UartTop(SoCCore):
         )
         self.specials += Instance("GpsTop", **ios)
 
-        self.platform.add_ip("../eth_top/fft.tcl")
+        self.platform.add_ip("fft.tcl")
         self.platform.add_ip("../eth_top/cordic.tcl")
 
 

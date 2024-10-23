@@ -1,5 +1,6 @@
 import cocotb
 import cocotb.result
+from cocotb.triggers import ClockCycles, with_timeout
 from cocotbext import axi
 
 import numpy as np
@@ -47,7 +48,10 @@ class TB(TbTemplate):
         self.dut.io_output_offset.value = offset
 
         self.set_pause(False)
-        frame: axi.AxiStreamFrame = await self.output.recv()
+        frame: axi.AxiStreamFrame = await with_timeout(
+            self.output.recv(), self.period * 1e5, "ns"
+        )
+
         self.set_pause(True)
 
         return frame.tdata

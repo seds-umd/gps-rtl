@@ -29,7 +29,7 @@ case class TrackingChannel(iq_size: Int = 2, period: Int = 4092, fft_len_bits: I
     val early = master Stream(Complex(dec_bits))
     val prompt = master Stream(Complex(dec_bits))
     val late = master Stream(Complex(dec_bits))
-    val freq_delta = slave Flow(UInt(phase_bits bits))
+    val freq_delta = slave Flow(SFix(8 exp, 16 bits))
   }
 
   // Carrier generation
@@ -88,7 +88,6 @@ case class TrackingChannel(iq_size: Int = 2, period: Int = 4092, fft_len_bits: I
   val dec_late = Decimate(factor = period, iq_out_size = dec_bits)
 
   // Use prompt stream arbitration for all 3 streams
-  // val dec_fork = StreamFork(prn.io.prompt, 3, true)
   val dec_fork = StreamFork(prn.io.prompt, 3, false)
   dec_early.io.iq_in << dec_fork(0).translateWith(prn.io.early)
   dec_prompt.io.iq_in << dec_fork(1)
@@ -156,12 +155,8 @@ case class TrackingChannel(iq_size: Int = 2, period: Int = 4092, fft_len_bits: I
 
   cordic.io.phase.valid := running
 
-
-  val debug_fsm = new StateMachine {
-    // Wait for samples to come in
-    val init_config = new State with EntryPoint {
-
-    }
+  when (io.freq_delta.fire) {
+    carrier_freq_est := carrier_freq_est + io.freq_delta.payload
   }
 }
 

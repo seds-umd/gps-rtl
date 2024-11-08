@@ -4,7 +4,8 @@ import threading
 import time
 
 # Hard coded in RTL
-MAX_LEN = 508
+# MAX_LEN = 508
+MAX_LEN = 1472
 
 
 class StreamInterface:
@@ -95,7 +96,7 @@ class AxilInterface(StreamInterface):
             self._stream_process()
             self._axil_process()
 
-    def read(self, addr: int) -> int:
+    def read_start(self, addr: int) -> int:
         pkt = bytearray()
         pkt.append(0x00)
         pkt.extend(self._command_id.to_bytes(2, "little"))
@@ -108,8 +109,14 @@ class AxilInterface(StreamInterface):
 
         self.send(pkt)
 
+        return sent_id
+
+    def read_get(self, sent_id: int) -> int:
         while sent_id not in self._reads:
             # Sleeping for 0s lets the GIL switch to the receive thread, which speeds up the receive time by about 100x
             time.sleep(0)
 
         return self._reads.pop(sent_id)
+
+    def read(self, addr: int) -> int:
+        return self.read_get(self.read_start(addr))

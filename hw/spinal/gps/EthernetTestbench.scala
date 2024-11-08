@@ -38,6 +38,7 @@ case class EthDecimate(out_size: Int = 64) extends Component {
  *  [5:0] - sv
  *  [17:6] - freq_offset
  *  [29:18] - phase_offset
+ * 0x214 - write 1 to enable tracking channel, 0 to disable (discards samples)
  */
 
 case class EthernetTestbench() extends Component {
@@ -50,6 +51,14 @@ case class EthernetTestbench() extends Component {
   }
 
   val udp = UdpStream(false)
+  udp.io.gtx_clk := io.gtx_clk
+  udp.io.gtx_rst := io.gtx_rst
+  udp.io.gmii <> io.gmii
+
+  udp.io.mac := B"h00_00_01_00_00_02"
+  udp.io.ip := B"8'd10" ## B"8'd0" ## B"8'd0" ## B"8'd2"
+  udp.io.gateway := B"8'd10" ## B"8'd0" ## B"8'd0" ## B"8'd1"
+  udp.io.subnet := 0
 
   val reset_timeout = Timeout(10 ms)
 
@@ -61,22 +70,14 @@ case class EthernetTestbench() extends Component {
   bus_ctrl.drive(io.leds, 0x0c, 0)
 
   val rst_area = new ResetArea(!reset_timeout, true) {
-    udp.io.gtx_clk := io.gtx_clk
-    udp.io.gtx_rst := io.gtx_rst
-    udp.io.gmii <> io.gmii
-
-    udp.io.mac := B"h00_00_01_00_00_02"
-    udp.io.ip := B"8'd10" ## B"8'd0" ## B"8'd0" ## B"8'd2"
-    udp.io.gateway := B"8'd10" ## B"8'd0" ## B"8'd0" ## B"8'd1"
-    udp.io.subnet := 0
-
     val iq_stream = Stream(Fragment(Bits(8 bits)))
 
     val acq = AcquisitionModular(freq_shift = 2, flush = false, debug = true)
-    val (iq_stream_unfragmented, iq_availability) = iq_stream.toStreamOfFragment.queueWithAvailability(100000)
-    val iq_full_bits = StreamWidthAdapter.make(iq_stream_unfragmented, acq.io.iq.payloadType)
+    val (iq_stream_unfragmented, iq_availability) =
+      iq_stream.toStreamOfFragment.queueWithAvailability(200000, forFMax = true)
+    val iq_full_bits = ComplexTimestamper(StreamWidthAdapter.make(iq_stream_unfragmented, Complex(2)))
     val iq_forked = StreamFork(iq_full_bits, 2)
-    acq.io.iq << iq_forked(0)
+    acq.io.iq << iq_forked(0).map(_.asBits)
 
     udp.addPort(1010, acq.io.results.fragmentTransaction(8), iq_stream)
 
@@ -121,7 +122,9 @@ case class EthernetTestbench() extends Component {
 
     // Tracking channel
     val tracking = TrackingChannel()
-    tracking.io.iq << iq_forked(1).map(_.as(ComplexTimestamp()))
+    val tracking_enabled = Bool()
+    bus_ctrl.drive(tracking_enabled, 0x214, 0) init False
+    tracking.io.iq << iq_forked(1).throwWhen(!tracking_enabled)
     bus_ctrl.readStreamNonBlocking(tracking.io.early, 0x200, 31, 0)
     bus_ctrl.readStreamNonBlocking(tracking.io.prompt, 0x204, 31, 0)
     bus_ctrl.readStreamNonBlocking(tracking.io.late, 0x208, 31, 0)

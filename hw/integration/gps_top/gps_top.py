@@ -57,7 +57,7 @@ class UartTop(SoCCore):
 def main():
     from litex.build.parser import LiteXArgumentParser
 
-    platform = gps_board.Platform()
+    platform = gps_board.Platform("s50")
 
     parser = LiteXArgumentParser(platform=platform, description="SATFAB GPS Board")
 
@@ -74,6 +74,7 @@ def main():
     if args.build:
         builder.build(**parser.toolchain_argdict)
 
+    # WARNING: IO settings not final, double check before loading
     # if args.load:
     #     prog = OpenFPGALoader(board="basys3", freq=3e6)
     #     prog.load_bitstream(builder.get_bitstream_filename(mode="sram"))

@@ -1,15 +1,12 @@
 #!/usr/bin/env python3
 
-from migen import *
-
+from litex.build.generic_platform import IOStandard, Pins, Subsignal
 from litex.build.openfpgaloader import OpenFPGALoader
-from litex.build.generic_platform import Subsignal, Pins, IOStandard
-
+from litex.soc.integration.builder import Builder
+from litex.soc.integration.soc_core import SoCCore
 from litex_boards.platforms import digilent_basys3
 from litex_boards.targets.digilent_basys3 import _CRG
-
-from litex.soc.integration.soc_core import SoCCore
-from litex.soc.integration.builder import Builder
+from migen import *
 
 
 class UartTop(SoCCore):
@@ -36,18 +33,22 @@ class UartTop(SoCCore):
 
         self.crg = _CRG(platform, sys_clk_freq)
 
-        platform.add_extension([(
-            "max_interface",
-            0,
-            Subsignal("sclk", Pins("pmodc:6")),
-            Subsignal("cs", Pins("pmodc:7")),
-            Subsignal("sdata", Pins("pmodc:5")),
-            Subsignal("clk_ser", Pins("pmodc:2")),
-            Subsignal("data_in", Pins("pmodc:3")),
-            Subsignal("data_sync", Pins("pmodc:0")),
-            Subsignal("time_sync", Pins("pmodc:1")),
-            IOStandard("LVCMOS33"),
-        )])
+        platform.add_extension(
+            [
+                (
+                    "max_interface",
+                    0,
+                    Subsignal("sclk", Pins("pmodc:6")),
+                    Subsignal("cs", Pins("pmodc:7")),
+                    Subsignal("sdata", Pins("pmodc:5")),
+                    Subsignal("clk_ser", Pins("pmodc:2")),
+                    Subsignal("data_in", Pins("pmodc:3")),
+                    Subsignal("data_sync", Pins("pmodc:0")),
+                    Subsignal("time_sync", Pins("pmodc:1")),
+                    IOStandard("LVCMOS33"),
+                )
+            ]
+        )
 
         max_interface = platform.request("max_interface")
         uart = platform.request("serial")
@@ -67,11 +68,16 @@ class UartTop(SoCCore):
         )
         self.specials += Instance("UartTop", **ios)
 
+        self.platform.add_ip("../cordic.tcl")
+
 
 def main():
     from litex.build.parser import LiteXArgumentParser
 
     platform = digilent_basys3.Platform()
+    platform.toolchain.additional_commands = [
+        "write_bitstream -force -bin_file {build_name}"
+    ]
 
     parser = LiteXArgumentParser(
         platform=platform, description="LiteX SoC on AliExpress STLV7325 V1"
@@ -92,7 +98,9 @@ def main():
 
     if args.load:
         prog = OpenFPGALoader(board="basys3", freq=3e6)
-        prog.load_bitstream(builder.get_bitstream_filename(mode="sram"))
+        # prog = module.platform.create_programmer()
+        # prog.load_bitstream(builder.get_bitstream_filename(mode="sram"))
+        prog.flash(0, builder.get_bitstream_filename(mode="flash"), verify=True)
 
 
 if __name__ == "__main__":

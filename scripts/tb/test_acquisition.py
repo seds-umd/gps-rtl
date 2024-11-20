@@ -161,6 +161,50 @@ def file_data_test():
         print("")
 
 
+def max2769_data_test():
+    tb = AcquisitionTestbench("10.0.0.2")
+
+    threshold = 0
+
+    tb.reset()
+
+    file = "../uart/max2769_sv5.npy"
+    samples = np.load(file)
+
+    tb.send_samples(samples, False)
+
+    print(f"Sending data - {len(tb.samples_quant)} samples")
+    time.sleep(0.5)
+    input_count = tb.csr_stream.read(0x04)
+
+    assert input_count == len(
+        tb.samples_quant
+    ), f"Sent {len(tb.samples_quant)} samples, got {input_count}"
+
+    detections = {i: 0 for i in range(1, 33)}
+
+    results = []
+
+    while True:
+        try:
+            res = tb.get_results()
+
+            results.append(res)
+        except IndexError:
+            break
+
+    print(results)
+
+    # for res in results:
+    #     if res["snr"] > threshold:
+    #         detections[res["sv"]] += 1
+
+    # total = sum(detections.values())
+    # unique = sum([1 for x in detections.values() if x > 0])
+
+    # print(f"Got {total} detections, {unique} unqiue SVs")
+    # print("")
+
 def infinite_test():
     tb = AcquisitionTestbench("10.0.0.2")
     tb.run()
@@ -168,4 +212,5 @@ def infinite_test():
 
 if __name__ == "__main__":
     # file_data_test()
-    infinite_test()
+    # infinite_test()
+    max2769_data_test()

@@ -1,21 +1,13 @@
 #!/usr/bin/env python3
 
-from migen import *
-
 from litex.build.openfpgaloader import OpenFPGALoader
-from litex.build.generic_platform import Subsignal, Pins, IOStandard
-
+from litex.gen import LiteXModule
+from litex.soc.cores.clock import S7PLL
+from litex.soc.integration.builder import Builder
+from litex.soc.integration.soc_core import SoCCore
 from litex_boards.platforms import sitlinv_stlv7325_v1
 from litex_boards.targets.sitlinv_stlv7325_v1 import _CRG
-
-from litex.soc.integration.soc_core import SoCCore
-from litex.soc.integration.builder import Builder
-
-from liteeth.phy.gmii import LiteEthPHYGMIICRG
-
-from litex.soc.cores.clock import S7PLL
-from litex.gen import LiteXModule
-
+from migen import *
 
 """
 Clocks:
@@ -44,7 +36,6 @@ class _CRG(LiteXModule):
 
         # Clk/Rst.
         clk200 = platform.request("clk200")
-        # clk100 = platform.request("clk100")
         rst_n = platform.request("cpu_reset_n")
 
         # PLL.
@@ -111,8 +102,8 @@ class EthernetTestbench(SoCCore):
 
         self.specials += Instance("EthernetTestbench", **ios)
 
-        self.platform.add_ip("fft_fast.tcl")
-        self.platform.add_ip("cordic.tcl")
+        self.platform.add_ip("../fft_fast.tcl")
+        self.platform.add_ip("../cordic.tcl")
 
 
 def main():

@@ -1,13 +1,10 @@
 #!/usr/bin/env python3
 
-from migen import *
-
-from litex.build.openfpgaloader import OpenFPGALoader
-
-from litex.soc.integration.soc_core import SoCCore
-from litex.soc.integration.builder import Builder
-
 import gps_board
+from litex.build.openfpgaloader import OpenFPGALoader
+from litex.soc.integration.builder import Builder
+from litex.soc.integration.soc_core import SoCCore
+from migen import *
 
 
 class UartTop(SoCCore):
@@ -50,8 +47,8 @@ class UartTop(SoCCore):
         )
         self.specials += Instance("GpsTop", **ios)
 
-        self.platform.add_ip("fft.tcl")
-        self.platform.add_ip("../eth_top/cordic.tcl")
+        self.platform.add_ip("../fft.tcl")
+        self.platform.add_ip("../cordic.tcl")
 
 
 def main():

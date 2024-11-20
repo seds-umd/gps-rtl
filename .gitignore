@@ -51,7 +51,8 @@ null
 hw/gen
 
 # LiteX build directories
-hw/**/build
+hw/integration/**/build
+hw/integration/**/prog
 
 # cocotb
 venv/**

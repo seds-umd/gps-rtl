@@ -20,14 +20,14 @@ case class UartTop() extends Component {
   }
 
   val max = MaxInterface(iq_size = 2)
-  max.io.clk_ser <> io.clk_ser
-  max.io.data_in <> io.data_in
-  max.io.data_sync <> io.data_sync
-  max.io.time_sync <> io.time_sync
+  max.io.max.clk_ser <> io.clk_ser
+  max.io.max.data_in <> io.data_in
+  max.io.max.data_sync <> io.data_sync
+  max.io.max.time_sync <> io.time_sync
 
   val uart = UartControl(
     iqSize = 2,
-    baud = 3125*1000,
+    baud = 3125 * 1000,
     memoryBits = 1500 * 1024
   )
   uart.io.uart <> io.uart

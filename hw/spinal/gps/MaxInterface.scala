@@ -3,20 +3,24 @@ package gps
 import spinal.core._
 import spinal.lib._
 
+case class MaxDspBus() extends Bundle {
+  val clk_ser = in Bool ()
+  val data_in = in UInt (1 bit)
+  val data_sync = in Bool ()
+  val time_sync = in Bool ()
+}
+
 case class MaxInterface(iq_size: Int = 2, period: Int = 4092) extends Component {
   val io = new Bundle {
     // MAX2769 interface
-    val clk_ser = in Bool ()
-    val data_in = in UInt (1 bit)
-    val data_sync = in Bool ()
-    val time_sync = in Bool ()
+    val max = MaxDspBus()
 
     // FPGA interface
     val iq = master Stream (ComplexTimestamp(iq_size, period))
   }
 
   val fpga_domain = ClockDomain.current
-  val max_domain = ClockDomain(io.clk_ser, fpga_domain.reset)
+  val max_domain = ClockDomain(io.max.clk_ser, fpga_domain.reset)
 
   val sample_fifo = StreamFifoCC(
     dataType = ComplexTimestamp(iq_size, period),
@@ -41,7 +45,7 @@ case class MaxInterface(iq_size: Int = 2, period: Int = 4092) extends Component 
     val reg_index = Reg(UInt(1 bit)) init 0
     val dump_reg = Reg(Bool()) init False
 
-    val input_valid = ((bit_counter === 0) & (io.data_sync)) | ((bit_counter =/= 0))
+    val input_valid = ((bit_counter === 0) & (io.max.data_sync)) | ((bit_counter =/= 0))
 
     // Wait for data sync before starting frame
     when(input_valid) {
@@ -58,7 +62,7 @@ case class MaxInterface(iq_size: Int = 2, period: Int = 4092) extends Component 
       }
 
       // Shift in new data bit
-      sample_reg(reg_index)(bit_index) := io.data_in @@ sample_reg(reg_index)(bit_index)(1, 15 bits)
+      sample_reg(reg_index)(bit_index) := io.max.data_in @@ sample_reg(reg_index)(bit_index)(1, 15 bits)
     }
 
     sample_fifo.io.push.valid := False

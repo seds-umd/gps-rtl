@@ -21,7 +21,7 @@ class Tb(TbTemplate):
         super().__init__(dut)
 
         # 4 cycles per 4.092 MHz clock cycle
-        self._ser_clk = self.dut.io_clk_ser
+        self._ser_clk = self.dut.io_max_clk_ser
         cocotb.start_soon(
             Clock(self._ser_clk, period=int(1e6 / (4.092 * 4)), units="ps").start()
         )
@@ -29,7 +29,7 @@ class Tb(TbTemplate):
         self.out_bus = stream.SpinalStreamSink.from_prefix(dut, "io_iq")
 
     async def send_samples(self, samples: list):
-        await RisingEdge(self.dut.io_clk_ser)
+        await RisingEdge(self.dut.io_max_clk_ser)
 
         for i in range(0, len(samples), 16):
             block = samples[i : i + 16]
@@ -37,18 +37,18 @@ class Tb(TbTemplate):
             # I1, I0, Q1, Q0
             for idx in [(0, 1), [0, 0], [1, 1], [1, 0]]:
                 for j in range(16):
-                    self.dut.io_data_in.value = int(block[j, idx[0], idx[1]])
+                    self.dut.io_max_data_in.value = int(block[j, idx[0], idx[1]])
 
                     if j == 0:
-                        self.dut.io_data_sync.value = 1
+                        self.dut.io_max_data_sync.value = 1
                     else:
-                        self.dut.io_data_sync.value = 0
+                        self.dut.io_max_data_sync.value = 0
 
-                    await RisingEdge(self.dut.io_clk_ser)
+                    await RisingEdge(self.dut.io_max_clk_ser)
 
                 # Add variable delay
                 if (i // 16) % 4 == idx[0] + 2 * idx[1]:
-                    await ClockCycles(self.dut.io_clk_ser, (i // 16) % 16)
+                    await ClockCycles(self.dut.io_max_clk_ser, (i // 16) % 16)
 
     def random_samples(self, count: int):
         # Generate random IQ samples

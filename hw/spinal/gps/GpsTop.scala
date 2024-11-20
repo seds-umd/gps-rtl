@@ -16,10 +16,10 @@ case class GpsTop() extends Component {
   val acq = AcquisitionModular(2, 4096)
   val max = MaxInterface(2)
 
-  max.io.clk_ser <> io.clk_ser
-  max.io.data_in <> io.data_in
-  max.io.data_sync <> io.data_sync
-  max.io.time_sync <> io.time_sync
+  max.io.max.clk_ser <> io.clk_ser
+  max.io.max.data_in <> io.data_in
+  max.io.max.data_sync <> io.data_sync
+  max.io.max.time_sync <> io.time_sync
 
   acq.io.iq << max.io.iq.translateInto(acq.io.iq.clone())((to, from) => {
     to := from.asBits

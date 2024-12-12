@@ -55,8 +55,8 @@ class TemplateTb:
         self.reset()
 
         build_time = datetime.fromtimestamp(self.get_build_time())
-        self.log.info(f"Build: {build_time.strftime('%Y-%m-%d %I:%M:%S %p')}")
-        print(f"Build: {build_time.strftime('%Y-%m-%d %I:%M:%S %p')}")
+        self.log.info(f"Build Time: {build_time.strftime('%Y-%m-%d %I:%M:%S %p')}")
+        print(f"Build Time: {build_time.strftime('%Y-%m-%d %I:%M:%S %p')}")
 
         # seed = np.random.randint(2**32)
         # self.rng = np.random.default_rng(seed)

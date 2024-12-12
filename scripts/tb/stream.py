@@ -4,12 +4,14 @@ import threading
 import time
 
 # Hard coded in RTL
-# MAX_LEN = 508
-MAX_LEN = 1472
+MAX_LEN = 508
+# MAX_LEN = 1472
 
 
 class StreamInterface:
     def __init__(self, dest, port):
+        self.use_last = True
+
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.sock.connect((dest, port))
         self.sock.settimeout(0.1)
@@ -47,7 +49,7 @@ class StreamInterface:
 
                 self.rx_bytes.extend(payload)
 
-                if flags & 0b1:
+                if (self.use_last and (flags & 0b1)) or not self.use_last:
                     self.rx_frames.append(self.rx_bytes)
                     self.rx_bytes = bytearray()
         except socket.timeout:

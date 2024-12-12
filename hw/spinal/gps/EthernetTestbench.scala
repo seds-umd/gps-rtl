@@ -166,7 +166,7 @@ case class EthernetTestbench() extends Component {
 
     // MAX2769
     val max_area = new Area {
-      val config = MaxSpiConfig(prog_defaults = false)
+      val config = MaxSpiConfig(div = 10, prog_defaults = false)
       config.io.spi <> io.spi
 
       val dsp = MaxInterface()

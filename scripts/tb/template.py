@@ -54,13 +54,24 @@ class TemplateTb:
         self.csr_stream = stream.AxilInterface(dest, 1000)
         self.reset()
 
+        build_time = datetime.fromtimestamp(self.get_build_time())
+        self.log.info(f"Build: {build_time.strftime('%Y-%m-%d %I:%M:%S %p')}")
+        print(f"Build: {build_time.strftime('%Y-%m-%d %I:%M:%S %p')}")
+
         # seed = np.random.randint(2**32)
         # self.rng = np.random.default_rng(seed)
         # logging.info(f"Initializing RNG with seed {seed}")
 
+    # def __del__(self):
+    #     self.reset()
+
     def reset(self):
         self.csr_stream.write(0x00, 0)
         time.sleep(0.05)
+
+    # Get unix timestamp
+    def get_build_time(self) -> int:
+        return self.csr_stream.read(0xFFC)
 
     # def randn(self, size):
     #     return self.rng.normal(1, 1, size)

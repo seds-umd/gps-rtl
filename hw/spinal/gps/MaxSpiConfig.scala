@@ -24,7 +24,7 @@ case class RegConfig(
     )
 )
 
-case class MaxSpiConfig(div: Int = 100, config: RegConfig = RegConfig()) extends Component {
+case class MaxSpiConfig(div: Int = 100, config: RegConfig = RegConfig(), prog_defaults: Boolean = true) extends Component {
   val io = new Bundle {
     val spi = master(SpiBundle())
     val data = slave Stream(Bits(32 bits))
@@ -45,7 +45,11 @@ case class MaxSpiConfig(div: Int = 100, config: RegConfig = RegConfig()) extends
 
     val init: State = new State with EntryPoint {
       whenIsActive {
-        goto(reg_states(0))
+        if (prog_defaults) {
+          goto(reg_states(0))
+        } else {
+          goto(done)
+        }
       }
     }
 

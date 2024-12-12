@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 
+from litex.build.generic_platform import IOStandard, Pins, Subsignal
 from litex.build.openfpgaloader import OpenFPGALoader
 from litex.gen import LiteXModule
-from litex.soc.cores.clock import S7PLL
+from litex.soc.cores.clock import S7MMCM, S7PLL
 from litex.soc.integration.builder import Builder
 from litex.soc.integration.soc_core import SoCCore
 from litex_boards.platforms import sitlinv_stlv7325_v1
-from litex_boards.targets.sitlinv_stlv7325_v1 import _CRG
+
+# from litex_boards.targets.sitlinv_stlv7325_v1 import _CRG
 from migen import *
 
 """
@@ -37,15 +39,25 @@ class _CRG(LiteXModule):
         # Clk/Rst.
         clk200 = platform.request("clk200")
         rst_n = platform.request("cpu_reset_n")
+        # max_clk = platform.request("max_clk_out").clk_out
 
-        # PLL.
-        self.pll = pll = S7PLL(speedgrade=-2)
-        self.comb += pll.reset.eq(~rst_n | self.rst)
-        pll.register_clkin(clk200, 200e6)
-        pll.create_clkout(self.cd_sys, sys_clk_freq)
-        pll.create_clkout(self.cd_gtx, 125e6)
+        # System PLL
+        # self.pll = pll = S7MMCM(speedgrade=-2)
+        # self.comb += pll.reset.eq(~rst_n | self.rst)
+        # pll.register_clkin(max_clk, 16.368e6)
+        # pll.create_clkout(self.cd_sys, sys_clk_freq)
+
+        # Ethernet PLL
+        self.pll_eth = pll_eth = S7PLL(speedgrade=-2)
+        self.comb += pll_eth.reset.eq(~rst_n | self.rst)
+        pll_eth.register_clkin(clk200, 200e6)
+        pll_eth.create_clkout(self.cd_gtx, 125e6, margin=5e-5)  # 50ppm tolerance
+        pll_eth.create_clkout(self.cd_sys, sys_clk_freq)
+
         # Ignore sys_clk to pll.clkin path created by SoC's rst.
-        platform.add_false_path_constraints(self.cd_sys.clk, pll.clkin)
+        # platform.add_false_path_constraints(self.cd_sys.clk, pll.clkin)
+        platform.add_false_path_constraints(self.cd_gtx.clk, pll_eth.clkin)
+        platform.add_false_path_constraints(self.cd_sys.clk, pll_eth.clkin)
 
 
 class EthernetTestbench(SoCCore):
@@ -75,6 +87,17 @@ class EthernetTestbench(SoCCore):
         eth_clocks = platform.request("eth_clocks", eth_num)
         eth_pads = platform.request("eth", eth_num)
 
+        platform.add_extension(
+            [
+                [
+                    "max_clk_out",
+                    0,
+                    Subsignal("clk_out", Pins("G24")),
+                    IOStandard("LVCMOS33"),
+                ]
+            ]
+        )
+
         self.crg = _CRG(platform, sys_clk_freq)
 
         self.platform.add_period_constraint(self.crg.cd_gtx.clk, 1e9 / 125e6)
@@ -83,9 +106,29 @@ class EthernetTestbench(SoCCore):
         )
         self.platform.add_false_path_constraints(self.crg.cd_sys.clk, eth_clocks.rx)
 
+        # Pinouts
+        pins = {
+            "sclk": "L20",
+            "cs": "J20",
+            "sdata": "F18",
+            "clk_ser": "H17",
+            "data_in": "G20",
+            "data_sync": "G16",
+            "time_sync": "H18",
+        }
+        pin_setup = (
+            ["max", 0]
+            + [Subsignal(k, Pins(v)) for k, v in pins.items()]
+            + [IOStandard("LVCMOS33")]
+        )
+        platform.add_extension([pin_setup])
+
+        max = platform.request("max")
+
         ios = {
             "i_clk": ClockSignal("sys"),
             "i_reset": ResetSignal("sys"),
+            # Ethernet
             "i_io_gtx_clk": self.crg.cd_gtx.clk,
             "i_io_gtx_rst": ResetSignal("sys"),
             "i_io_gmii_gmii_rx_clk": eth_clocks.rx,
@@ -97,6 +140,15 @@ class EthernetTestbench(SoCCore):
             "o_io_gmii_gmii_txd": eth_pads.tx_data,
             "o_io_gmii_gmii_tx_en": eth_pads.tx_en,
             "o_io_gmii_gmii_tx_er": eth_pads.tx_er,
+            # MAX2769
+            "o_io_spi_cs": max.cs,
+            "o_io_spi_sclk": max.sclk,
+            "o_io_spi_sdata": max.sdata,
+            "i_io_max_clk_ser": max.clk_ser,
+            "i_io_max_data_in": max.data_in,
+            "i_io_max_data_sync": max.data_sync,
+            "i_io_max_time_sync": max.time_sync,
+            # Misc
             "o_io_leds": platform.request_all("user_led_n"),
         }
 

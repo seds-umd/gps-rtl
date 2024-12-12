@@ -7,21 +7,6 @@ import spinal.lib.bus.amba4.axilite.AxiLite4SlaveFactory
 import ethernet._
 import ethernet.stream.{UdpStream, StreamAxiLite}
 
-case class EthDecimate(out_size: Int = 64) extends Component {
-  val io = new Bundle {
-    val rx = slave Stream (Fragment(Bits(8 bits)))
-    val tx = master Stream (Fragment(Bits(8 bits)))
-  }
-
-  val dut = Decimate(iq_in_size = 8, iq_out_size = 8, factor = 8)
-
-  val rx_16b = Stream(Fragment(Bits(16 bits)))
-  val rx_adapter = StreamWidthAdapter(io.rx, dut.io.iq_in)
-
-  val tx_16b = dut.io.iq_out.addFragmentLast(Counter(out_size))
-  val tx_adapter = StreamFragmentWidthAdapter(tx_16b, io.tx)
-}
-
 /* Address map:
  * 0x00 - write anything to hold reset for 10ms
  * 0x04 - 32 bit input sample counter, after width adapter (so it counts real samples)
@@ -39,7 +24,31 @@ case class EthDecimate(out_size: Int = 64) extends Component {
  *  [17:6] - freq_offset
  *  [29:18] - phase_offset
  * 0x214 - write 1 to enable tracking channel, 0 to disable (discards samples)
+ * 0x300 - write MAX2769 SPI config data
+ * 
+ * 0xFFC - unix timestamp of spinalhdl build
+ *
+ * Ports:
+ * 1000 - AXI-L reads and writes
+ * 1010 - Acquisition data and results
+ * 1020 - CORDIC testing
+ * 1030 - MAX2769 IQ data
  */
+
+case class EthDecimate(out_size: Int = 64) extends Component {
+  val io = new Bundle {
+    val rx = slave Stream (Fragment(Bits(8 bits)))
+    val tx = master Stream (Fragment(Bits(8 bits)))
+  }
+
+  val dut = Decimate(iq_in_size = 8, iq_out_size = 8, factor = 8)
+
+  val rx_16b = Stream(Fragment(Bits(16 bits)))
+  val rx_adapter = StreamWidthAdapter(io.rx, dut.io.iq_in)
+
+  val tx_16b = dut.io.iq_out.addFragmentLast(Counter(out_size))
+  val tx_adapter = StreamFragmentWidthAdapter(tx_16b, io.tx)
+}
 
 case class EthernetTestbench() extends Component {
   val io = new Bundle {
@@ -48,14 +57,17 @@ case class EthernetTestbench() extends Component {
 
     val gmii = slave(GMII())
     val leds = out Bits (8 bits)
+
+    val spi = master(SpiBundle())
+    val max = MaxDspBus()
   }
 
-  val udp = UdpStream(false)
+  val udp = UdpStream()
   udp.io.gtx_clk := io.gtx_clk
   udp.io.gtx_rst := io.gtx_rst
   udp.io.gmii <> io.gmii
 
-  udp.io.mac := B"h00_00_01_00_00_02"
+  udp.io.mac := B"h02_00_01_00_00_02"
   udp.io.ip := B"8'd10" ## B"8'd0" ## B"8'd0" ## B"8'd2"
   udp.io.gateway := B"8'd10" ## B"8'd0" ## B"8'd0" ## B"8'd1"
   udp.io.subnet := 0
@@ -67,7 +79,15 @@ case class EthernetTestbench() extends Component {
   val bus_ctrl = AxiLite4SlaveFactory(stream_axil.io.axil)
   bus_ctrl.onWrite(0x00)(reset_timeout.clear())
 
-  bus_ctrl.drive(io.leds, 0x0c, 0)
+  // bus_ctrl.drive(io.leds, 0x0c, 0)
+  io.leds := 0xFF
+  io.leds(1) := ~stream_axil.io.axil.r.isStall
+  io.leds(2) := ~udp.udp.io.s_udp.axis.fire
+  io.leds(3) := ~udp.axis_tx.io.m_axis.fire
+
+  val timestamp = System.currentTimeMillis / 1000
+  printf("Current timestamp: %d\n", timestamp)
+  bus_ctrl.read(U(timestamp, 32 bits), 0xFFC)
 
   val rst_area = new ResetArea(!reset_timeout, true) {
     val iq_stream = Stream(Fragment(Bits(8 bits)))
@@ -120,26 +140,54 @@ case class EthernetTestbench() extends Component {
     val cordic_adapter = StreamWidthAdapter(cordic_phase_8b, cordic.io.phase, padding = true)
     udp.addPort(1020, cordic.io.dout.fragmentTransaction(8), cordic_phase_8b)
 
-    // Tracking channel
-    val tracking = TrackingChannel()
-    val tracking_enabled = Bool()
-    bus_ctrl.drive(tracking_enabled, 0x214, 0) init False
-    tracking.io.iq << iq_forked(1).throwWhen(!tracking_enabled)
-    bus_ctrl.readStreamNonBlocking(tracking.io.early, 0x200, 31, 0)
-    bus_ctrl.readStreamNonBlocking(tracking.io.prompt, 0x204, 31, 0)
-    bus_ctrl.readStreamNonBlocking(tracking.io.late, 0x208, 31, 0)
-    bus_ctrl.driveFlow(tracking.io.freq_delta, 0x20c)
+    // val tracking_area = new Area {
+    //   // Tracking channel
+    //   val tracking = TrackingChannel()
+    //   val tracking_enabled = Bool()
+    //   bus_ctrl.drive(tracking_enabled, 0x214, 0) init False
+    //   tracking.io.iq << iq_forked(1).throwWhen(!tracking_enabled)
+    //   bus_ctrl.readStreamNonBlocking(tracking.io.early, 0x200, 31, 0)
+    //   bus_ctrl.readStreamNonBlocking(tracking.io.prompt, 0x204, 31, 0)
+    //   bus_ctrl.readStreamNonBlocking(tracking.io.late, 0x208, 31, 0)
+    //   bus_ctrl.driveFlow(tracking.io.freq_delta, 0x20c)
+  
+    //   // Config
+    //   val tracking_config = Flow(AcquisitionResults())
+    //   tracking_config.valid.setAsReg()
+    //   tracking.io.config << tracking_config
+    //   bus_ctrl.drive(tracking_config.sv, 0x210, 0)
+    //   bus_ctrl.drive(tracking_config.freq_offset, 0x210, 6)
+    //   bus_ctrl.drive(tracking_config.phase_offset, 0x210, 18)
+    //   tracking_config.snr := 0
+    //   bus_ctrl.onWrite(0x210)(tracking_config.valid := True)
+    //   when(tracking_config.valid)(tracking_config.valid := False)
+    // }
+    iq_forked(1).freeRun()
 
-    // Config
-    val tracking_config = Flow(AcquisitionResults())
-    tracking_config.valid.setAsReg()
-    tracking.io.config << tracking_config
-    bus_ctrl.drive(tracking_config.sv, 0x210, 0)
-    bus_ctrl.drive(tracking_config.freq_offset, 0x210, 6)
-    bus_ctrl.drive(tracking_config.phase_offset, 0x210, 18)
-    tracking_config.snr := 0
-    bus_ctrl.onWrite(0x210)(tracking_config.valid := True)
-    when(tracking_config.valid)(tracking_config.valid := False)
+    // MAX2769
+    val max_area = new Area {
+      val config = MaxSpiConfig(prog_defaults = false)
+      config.io.spi <> io.spi
+
+      val dsp = MaxInterface()
+      io.max <> dsp.io.max
+      val dsp_iq = Stream(Fragment(Bits(8 bits)))
+      val iq_adapter = StreamFragmentWidthAdapter(dsp.io.iq.addFragmentLast(False), dsp_iq)
+
+      val config_flow = Flow(Bits(32 bits))
+      bus_ctrl.driveFlow(config_flow, 0x300)
+      config.io.data << config_flow.toStream
+
+      val dummy_stream = Stream(Fragment(Bits(8 bits)))
+      dummy_stream.ready := True
+      val stopped = Reg(Bool()) init True
+      io.leds(0) := ~stopped
+      when (dummy_stream.fire) {
+        // Send 0 to start, 1 to stop
+        stopped := dummy_stream.payload(0)
+      }
+      udp.addPort(1030, dsp_iq.throwWhen(stopped), dummy_stream)
+    }
   }
 }
 

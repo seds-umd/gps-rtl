@@ -35,7 +35,7 @@ class UartTop(SoCCore):
 
         platform.add_extension(
             [
-                (
+                [
                     "max_interface",
                     0,
                     Subsignal("sclk", Pins("pmodc:6")),
@@ -46,7 +46,7 @@ class UartTop(SoCCore):
                     Subsignal("data_sync", Pins("pmodc:0")),
                     Subsignal("time_sync", Pins("pmodc:1")),
                     IOStandard("LVCMOS33"),
-                )
+                ]
             ]
         )
 

@@ -1,15 +1,15 @@
 [*]
 [*] GTKWave Analyzer v3.3.104 (w)1999-2020 BSI
-[*] Mon Nov 18 03:41:11 2024
+[*] Mon Dec 16 03:10:46 2024
 [*]
 [dumpfile] "/home/nathan/seds/gps-rtl/hw/tb/MaxInterface/sim_build/MaxInterface.fst"
-[dumpfile_mtime] "Mon Nov 18 03:38:45 2024"
-[dumpfile_size] 20637
+[dumpfile_mtime] "Mon Dec 16 03:10:22 2024"
+[dumpfile_size] 147945
 [savefile] "/home/nathan/seds/gps-rtl/hw/tb/MaxInterface/MaxInterface.gtkw"
-[timestart] 0
+[timestart] 60092000
 [size] 2868 1767
-[pos] -73 15
-*-23.030909 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+[pos] -1 -1
+*-20.030909 20283208 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
 [treeopen] MaxInterface.
 [sst_width] 325
 [signals_width] 302
@@ -21,10 +21,10 @@ MaxInterface.reset
 @200
 -MAX2769 Signals
 @28
-MaxInterface.io_clk_ser
-MaxInterface.io_data_in
-MaxInterface.io_data_sync
-MaxInterface.io_time_sync
+MaxInterface.io_max_clk_ser
+MaxInterface.io_max_data_in
+MaxInterface.io_max_data_sync
+MaxInterface.io_max_time_sync
 @200
 -
 -AXIS Output
@@ -36,5 +36,14 @@ MaxInterface.io_iq_payload_t[11:0]
 @28
 MaxInterface.io_iq_valid
 MaxInterface.io_iq_ready
+@200
+-
+-Internals
+@28
+MaxInterface.max_area_input_valid
+@22
+MaxInterface.max_area_bit_counter[3:0]
+@28
+MaxInterface.max_area_bit_index[1:0]
 [pattern_trace] 1
 [pattern_trace] 0

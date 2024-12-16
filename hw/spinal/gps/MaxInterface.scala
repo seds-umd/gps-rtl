@@ -45,7 +45,8 @@ case class MaxInterface(iq_size: Int = 2, period: Int = 4092) extends Component 
     val reg_index = Reg(UInt(1 bit)) init 0
     val dump_reg = Reg(Bool()) init False
 
-    val input_valid = ((bit_counter === 0) & (io.max.data_sync)) | ((bit_counter =/= 0))
+    val input_valid = ((bit_counter === 0) & (bit_index === 0) & (io.max.data_sync)) |
+                      !((bit_counter === 0) & (bit_index === 0))
 
     // Wait for data sync before starting frame
     when(input_valid) {

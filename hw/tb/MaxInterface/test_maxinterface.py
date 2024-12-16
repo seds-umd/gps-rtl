@@ -35,20 +35,20 @@ class Tb(TbTemplate):
             block = samples[i : i + 16]
 
             # I1, I0, Q1, Q0
-            for idx in [(0, 1), [0, 0], [1, 1], [1, 0]]:
+            for idx in [(0, 1), (0, 0), (1, 1), (1, 0)]:
                 for j in range(16):
                     self.dut.io_max_data_in.value = int(block[j, idx[0], idx[1]])
 
-                    if j == 0:
+                    if j == 0 and idx == (0, 1):
                         self.dut.io_max_data_sync.value = 1
                     else:
                         self.dut.io_max_data_sync.value = 0
 
                     await RisingEdge(self.dut.io_max_clk_ser)
 
-                # Add variable delay
-                if (i // 16) % 4 == idx[0] + 2 * idx[1]:
-                    await ClockCycles(self.dut.io_max_clk_ser, (i // 16) % 16)
+            # Add variable delay
+            if (i // 16) % 4 == idx[0] + 2 * idx[1]:
+                await ClockCycles(self.dut.io_max_clk_ser, (i // 16) % 16)
 
     def random_samples(self, count: int):
         # Generate random IQ samples

@@ -3,7 +3,7 @@
 import cocotb
 from cocotb.clock import Clock
 from cocotb.queue import Queue
-from cocotb.triggers import ClockCycles, with_timeout
+from cocotb.triggers import ClockCycles, Timer, with_timeout
 from cocotbext.eth import GmiiFrame, GmiiPhy
 import fpga_utils
 from fpga_utils import test_runner
@@ -15,10 +15,19 @@ from pathlib import Path
 from scapy.layers.l2 import Ether, ARP
 from scapy.layers.inet import IP, UDP
 
+
 class TB:
     def __init__(self, dut, host_mac, device_mac, host_ip, device_ip):
         self.dut = dut
 
+        # MAX2769 interface, just sending zeros for now, running faster to speed up sim
+        # cocotb.start_soon(Clock(self.dut.io_max_clk_ser, 10, "ns").start())
+        cocotb.start_soon(Clock(self.dut.io_max_clk_ser, 1000 / 16, "ns").start())
+        self.dut.io_max_data_in.value = 0
+        self.dut.io_max_data_sync.value = 1
+        self.dut.io_max_time_sync.value = 0
+
+        # FFT module
         self.fft_sim = FFT_Sim(dut.rst_area_acq.fft_inst, 12, 1, store=True)
         self.fft_sim.log.setLevel(logging.WARNING)
 
@@ -53,7 +62,7 @@ class TB:
         self.tx_queue = Queue()
 
         self._run_cr = cocotb.start_soon(self._run())
-    
+
     async def reset(self, delay=5):
         self.dut.reset.value = 0
         self.dut.io_gtx_rst.value = 0
@@ -85,11 +94,22 @@ class TB:
 
         cmd.append(0x80)
         cmd.extend([0, 0])
-        cmd.extend(int.to_bytes(addr, 4, 'little')) # addr
-        cmd.extend(int.to_bytes(data, 4, 'little')) # data
+        cmd.extend(int.to_bytes(addr, 4, "little"))  # addr
+        cmd.extend(int.to_bytes(data, 4, "little"))  # data
         cmd.insert(0, 1)  # Last byte
 
         await self.send_udp_frame(cmd, 12345, 1000)
+
+    async def axil_read(self, addr):
+        cmd = bytearray()
+
+        cmd.append(0x00)
+        cmd.extend([0, 0])
+        cmd.extend(int.to_bytes(addr, 4, "little"))  # addr
+        cmd.insert(0, 1)  # Last byte
+
+        await self.send_udp_frame(cmd, 12345, 1000)
+        # TODO: get reply
 
     async def send_samples(self, samples):
         # Normalize - scaling optimized for SNR
@@ -121,8 +141,8 @@ class TB:
 
         for i in range(0, len(bits_bytes), 500):
             data = bytearray()
-            data.extend(bits_bytes[i:i+500])
-            data.insert(0, 0) # last = 0
+            data.extend(bits_bytes[i : i + 500])
+            data.insert(0, 0)  # last = 0
             await self.send_udp_frame(data, 12345, 1010)
 
     async def _run(self):
@@ -153,6 +173,7 @@ class TB:
             if not self.tx_queue.empty():
                 await self._send_packet(self.tx_queue.get_nowait())
 
+
 @cocotb.test
 async def test_ethtb(dut):
     SRC_MAC = "01:23:45:67:89:ab"
@@ -166,12 +187,28 @@ async def test_ethtb(dut):
     await tb.reset()
     await ClockCycles(dut.clk, 50)
 
-    # await tb.axil_write(0x10, 0xF0)
+    # Soft reset
+    await tb.axil_write(0x00, 0x00)
+    await Timer(8, "us")
 
-    samples = np.ones(int(N), dtype=np.complex64)
-    await tb.send_samples(samples)
+    # Test AXIL read
+    await tb.axil_read(0xFFC)
 
-    await ClockCycles(dut.clk, 50000)
+    # Activate MAX2769 IQ interface
+    await tb.send_udp_frame(bytes([0, 0]), 12345, 1030)
+
+    # Wait until steady state
+    await Timer(100, "us")
+
+    # Attempt to send AXIL read request
+    await tb.axil_read(0xFFC)
+
+    await Timer(100, "us")
+
+    # Print all received packets
+    while not tb.rx_queue.empty():
+        print(tb.rx_queue.get_nowait())
+
 
 if __name__ == "__main__":
     verilog_eth_path = Path("../../../verilog-ethernet/rtl")

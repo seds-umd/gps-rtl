@@ -41,6 +41,9 @@ bin/
 *.json
 *.vcd
 !tester/src/test/resources/*.vhd
+scripts/**/*.png
+hw/tb/**/*.png
+*.npy
 
 # Simulation
 simWorkspace/

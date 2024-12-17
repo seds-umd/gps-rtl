@@ -26,6 +26,12 @@ import ethernet.stream.{UdpStream, StreamAxiLite}
  * 0x214 - write 1 to enable tracking channel, 0 to disable (discards samples)
  * 0x300 - write MAX2769 SPI config data
  * 
+ * Debug counters - write to any one of them to start count, they store count
+ * of rising edges in 1 ms period (based on 200 MHz clk)
+ * 0x310 - MAX2769 CLK_SER counter
+ * 0x314 - MAX2769 DATA_OUT counter
+ * 0x318 - MAX2769 DATA_SYNC counter
+ * 
  * 0xFFC - unix timestamp of spinalhdl build
  *
  * Ports:
@@ -79,11 +85,7 @@ case class EthernetTestbench() extends Component {
   val bus_ctrl = AxiLite4SlaveFactory(stream_axil.io.axil)
   bus_ctrl.onWrite(0x00)(reset_timeout.clear())
 
-  // bus_ctrl.drive(io.leds, 0x0c, 0)
-  io.leds := 0xFF
-  io.leds(1) := ~stream_axil.io.axil.r.isStall
-  io.leds(2) := ~udp.udp.io.s_udp.axis.fire
-  io.leds(3) := ~udp.axis_tx.io.m_axis.fire
+  bus_ctrl.drive(io.leds, 0x0c) init 0xFF
 
   val timestamp = System.currentTimeMillis / 1000
   printf("Current timestamp: %d\n", timestamp)
@@ -92,7 +94,7 @@ case class EthernetTestbench() extends Component {
   val rst_area = new ResetArea(!reset_timeout, true) {
     val iq_stream = Stream(Fragment(Bits(8 bits)))
 
-    val acq = AcquisitionModular(freq_shift = 2, flush = false, debug = true)
+    val acq = AcquisitionModular(freq_shift = 20, flush = false, debug = true)
     val (iq_stream_unfragmented, iq_availability) =
       iq_stream.toStreamOfFragment.queueWithAvailability(200000, forFMax = true)
     val iq_full_bits = ComplexTimestamper(StreamWidthAdapter.make(iq_stream_unfragmented, Complex(2)))
@@ -140,39 +142,38 @@ case class EthernetTestbench() extends Component {
     val cordic_adapter = StreamWidthAdapter(cordic_phase_8b, cordic.io.phase, padding = true)
     udp.addPort(1020, cordic.io.dout.fragmentTransaction(8), cordic_phase_8b)
 
-    // val tracking_area = new Area {
-    //   // Tracking channel
-    //   val tracking = TrackingChannel()
-    //   val tracking_enabled = Bool()
-    //   bus_ctrl.drive(tracking_enabled, 0x214, 0) init False
-    //   tracking.io.iq << iq_forked(1).throwWhen(!tracking_enabled)
-    //   bus_ctrl.readStreamNonBlocking(tracking.io.early, 0x200, 31, 0)
-    //   bus_ctrl.readStreamNonBlocking(tracking.io.prompt, 0x204, 31, 0)
-    //   bus_ctrl.readStreamNonBlocking(tracking.io.late, 0x208, 31, 0)
-    //   bus_ctrl.driveFlow(tracking.io.freq_delta, 0x20c)
-  
-    //   // Config
-    //   val tracking_config = Flow(AcquisitionResults())
-    //   tracking_config.valid.setAsReg()
-    //   tracking.io.config << tracking_config
-    //   bus_ctrl.drive(tracking_config.sv, 0x210, 0)
-    //   bus_ctrl.drive(tracking_config.freq_offset, 0x210, 6)
-    //   bus_ctrl.drive(tracking_config.phase_offset, 0x210, 18)
-    //   tracking_config.snr := 0
-    //   bus_ctrl.onWrite(0x210)(tracking_config.valid := True)
-    //   when(tracking_config.valid)(tracking_config.valid := False)
-    // }
-    iq_forked(1).freeRun()
+    val tracking_area = new Area {
+      // Tracking channel
+      val tracking = TrackingChannel()
+      val tracking_enabled = Bool()
+      bus_ctrl.drive(tracking_enabled, 0x214, 0) init False
+      tracking.io.iq << iq_forked(1).throwWhen(!tracking_enabled)
+      bus_ctrl.readStreamNonBlocking(tracking.io.early, 0x200, 31, 0)
+      bus_ctrl.readStreamNonBlocking(tracking.io.prompt, 0x204, 31, 0)
+      bus_ctrl.readStreamNonBlocking(tracking.io.late, 0x208, 31, 0)
+      bus_ctrl.driveFlow(tracking.io.freq_delta, 0x20c)
+
+      // Config
+      val tracking_config = Flow(AcquisitionResults())
+      tracking_config.valid.setAsReg()
+      tracking.io.config << tracking_config
+      bus_ctrl.drive(tracking_config.sv, 0x210, 0)
+      bus_ctrl.drive(tracking_config.freq_offset, 0x210, 6)
+      bus_ctrl.drive(tracking_config.phase_offset, 0x210, 18)
+      tracking_config.snr := 0
+      bus_ctrl.onWrite(0x210)(tracking_config.valid := True)
+      when(tracking_config.valid)(tracking_config.valid := False)
+    }
 
     // MAX2769
     val max_area = new Area {
-      val config = MaxSpiConfig(div = 10, prog_defaults = false)
+      val config = MaxSpiConfig(div = 20, prog_defaults = false)
       config.io.spi <> io.spi
 
       val dsp = MaxInterface()
       io.max <> dsp.io.max
-      val dsp_iq = Stream(Fragment(Bits(8 bits)))
-      val iq_adapter = StreamFragmentWidthAdapter(dsp.io.iq.addFragmentLast(False), dsp_iq)
+      val dsp_iq = Stream(Bits(8 bits))
+      val iq_adapter = StreamWidthAdapter(dsp.io.iq.map(_.c), dsp_iq)
 
       val config_flow = Flow(Bits(32 bits))
       bus_ctrl.driveFlow(config_flow, 0x300)
@@ -181,12 +182,49 @@ case class EthernetTestbench() extends Component {
       val dummy_stream = Stream(Fragment(Bits(8 bits)))
       dummy_stream.ready := True
       val stopped = Reg(Bool()) init True
-      io.leds(0) := ~stopped
       when (dummy_stream.fire) {
         // Send 0 to start, 1 to stop
         stopped := dummy_stream.payload(0)
       }
-      udp.addPort(1030, dsp_iq.throwWhen(stopped), dummy_stream)
+      udp.addPort(1030, dsp_iq.throwWhen(stopped).addFragmentLast(Counter(500)), dummy_stream)
+    }
+
+    // Frequency counter for interface status
+    val max_counters = new Area {
+      val period = 10 ms
+      val counter_width = log2Up((period * (16.368 MHz)).toInt)
+
+      val max_clk_area = new ClockingArea(max_area.dsp.max_domain) {
+        val clk = Counter(counter_width bits, True)
+        val data = Counter(counter_width bits, io.max.data_in.asBool)
+        val sync = Counter(counter_width bits, io.max.data_sync.rise)
+      }
+
+      val timer = Timeout(period)
+
+      val clk_val = Reg(UInt(counter_width bits))
+      val data_val = Reg(UInt(counter_width bits))
+      val sync_val = Reg(UInt(counter_width bits))
+
+      def start_counters() = {
+        clk_val := BufferCC(max_clk_area.clk.value)
+        data_val := BufferCC(max_clk_area.data.value)
+        sync_val := BufferCC(max_clk_area.sync.value)
+        timer.clear()
+      }
+
+      when(timer.stateRise) {
+        clk_val := BufferCC(max_clk_area.clk.value) - clk_val
+        data_val := BufferCC(max_clk_area.data.value) - data_val
+        sync_val := BufferCC(max_clk_area.sync.value) - sync_val
+      }
+
+      bus_ctrl.onWrite(0x310)(start_counters())
+      bus_ctrl.onWrite(0x314)(start_counters())
+      bus_ctrl.onWrite(0x318)(start_counters())
+      bus_ctrl.read(clk_val, 0x310)
+      bus_ctrl.read(data_val, 0x314)
+      bus_ctrl.read(sync_val, 0x318)
     }
   }
 }

@@ -168,7 +168,7 @@ def max2769_data_test():
 
     tb.reset()
 
-    file = "../uart/max2769_sv5.npy"
+    file = "max2769_sv10.npy"
     samples = np.load(file)
 
     tb.send_samples(samples, False)
@@ -181,7 +181,7 @@ def max2769_data_test():
         tb.samples_quant
     ), f"Sent {len(tb.samples_quant)} samples, got {input_count}"
 
-    detections = {i: 0 for i in range(1, 33)}
+    detections = {i: [0, 0] for i in range(1, 33)}
 
     results = []
 
@@ -193,24 +193,45 @@ def max2769_data_test():
         except IndexError:
             break
 
-    print(results)
+    for res in results:
+        if res["snr"] > threshold:
+            detections[res["sv"]][0] += 1
+            detections[res["sv"]][1] += res["snr"]
 
-    # for res in results:
-    #     if res["snr"] > threshold:
-    #         detections[res["sv"]] += 1
+    total = sum([x[0] for x in detections.values()])
+    unique = sum([1 for x in detections.values() if x[0] > 0])
+    unique_svs = [key for key, val in detections.items() if val[0] > 0]
 
-    # total = sum(detections.values())
-    # unique = sum([1 for x in detections.values() if x > 0])
+    for sv in unique_svs:
+        print(f"{sv}: {detections[sv][1]/detections[sv][0]}")
 
-    # print(f"Got {total} detections, {unique} unqiue SVs")
-    # print("")
+    print(f"Got {total} detections, {unique} unqiue SVs")
+    print(f"SVs: {unique_svs}")
+    print("")
+
 
 def infinite_test():
     tb = AcquisitionTestbench("10.0.0.2")
     tb.run()
 
 
+def max2769_live_test():
+    tb = AcquisitionTestbench("10.0.0.2")
+    tb.iq_stream.send([0x00])
+    tb.csr_stream.write(0x304, 0x1)
+
+    while True:
+        try:
+            res = tb.get_results()
+
+            if res["snr"] > 4:
+                print(res)
+        except IndexError:
+            time.sleep(0.01)
+
+
 if __name__ == "__main__":
     # file_data_test()
     # infinite_test()
     max2769_data_test()
+    # max2769_live_test()

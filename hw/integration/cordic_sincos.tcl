@@ -7,10 +7,10 @@
 # 510 FF
 
 # Check IP
-if { [file isdirectory "IP/XilinxCORDIC"] } {
+if { [file isdirectory "IP/CordicSinCos"] } {
     # if the IP files exist, we already generated the IP, so we can just
     # read the ip definition (.xci)
-    read_ip IP/XilinxCORDIC/XilinxCORDIC.xci
+    read_ip IP/CordicSinCos/CordicSinCos.xci
 } else {
     # IP folder does not exist. Create IP folder
     file mkdir IP
@@ -20,7 +20,7 @@ if { [file isdirectory "IP/XilinxCORDIC"] } {
     # create_project -in_memory
 
     # paste commands from Journal file to recreate IP
-    create_ip -name cordic -vendor xilinx.com -library ip -version 6.0 -module_name XilinxCORDIC -dir IP
+    create_ip -name cordic -vendor xilinx.com -library ip -version 6.0 -module_name CordicSinCos -dir IP
 
     set_property -dict [list \
         CONFIG.Functional_Selection {Sin_and_Cos} \
@@ -37,7 +37,7 @@ if { [file isdirectory "IP/XilinxCORDIC"] } {
         CONFIG.phase_has_tuser {true} \
         CONFIG.phase_tuser_width {3} \
         CONFIG.out_tready {true} \
-    ] [get_ips XilinxCORDIC]
+    ] [get_ips CordicSinCos]
 
     generate_target all [get_ips]
 

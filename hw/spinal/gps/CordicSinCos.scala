@@ -10,7 +10,7 @@ case class CordicBundle(data_width: Int, user_width: Int) extends Bundle {
   val user = Bits(user_width bits)
 }
 
-case class XilinxCORDIC() extends BlackBox {
+case class CordicSinCos() extends BlackBox {
   val io = new Bundle {
     val aclk = in Bool ()
     val aresetn = in Bool ()
@@ -35,7 +35,7 @@ case class XilinxCORDIC() extends BlackBox {
   addPrePopTask(() => renameIO())
 }
 
-case class CordicWrapper(phase_width: Int = 12, output_width: Int = 9, with_user: Boolean = false) extends Component {
+case class CordicSinCosWrapper(phase_width: Int = 12, output_width: Int = 9, with_user: Boolean = false) extends Component {
   val actual_phase_width = phase_width - 2
   val actual_dout_width = output_width - 1
 
@@ -47,7 +47,7 @@ case class CordicWrapper(phase_width: Int = 12, output_width: Int = 9, with_user
   // TODO: add user signals
   // TODO: convert output into something that makes sense
 
-  val cordic = XilinxCORDIC()
+  val cordic = CordicSinCos()
 
   // Input phase is 0-1023 for 12 bit input (10 bit actual)
   cordic.io.phase << io.phase.translateInto(cordic.io.phase.clone())((to, from) => {
@@ -72,7 +72,7 @@ case class CordicWrapper(phase_width: Int = 12, output_width: Int = 9, with_user
 //     val dout = master Stream(new CordicBundle(32, 3))
 //   }
 
-//   val cordic = XilinxCORDIC()
+//   val cordic = CordicSinCos()
 
 //   cordic.io.s_axis_phase << io.phase
 //   cordic.io.m_axis_dout >> io.dout

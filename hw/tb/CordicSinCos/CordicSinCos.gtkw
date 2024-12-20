@@ -1,0 +1,37 @@
+[*]
+[*] GTKWave Analyzer v3.3.104 (w)1999-2020 BSI
+[*] Tue Oct 15 15:10:49 2024
+[*]
+[dumpfile] "/home/nathan/seds/gps-rtl/hw/tb/CordicSinCos/sim_build/CordicSinCos.fst"
+[dumpfile_mtime] "Tue Oct 15 15:10:28 2024"
+[dumpfile_size] 733
+[savefile] "/home/nathan/seds/gps-rtl/hw/tb/CordicSinCos/CordicSinCos.gtkw"
+[timestart] 0
+[size] 2868 1695
+[pos] -1 -1
+*-14.000000 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+[sst_width] 214
+[signals_width] 222
+[sst_expanded] 1
+[sst_vpaned_height] 536
+@28
+CordicSinCos.aclk
+CordicSinCos.aresetn
+@200
+-
+@22
+CordicSinCos.m_axis_dout_tdata[31:0]
+@28
+CordicSinCos.m_axis_dout_tuser[2:0]
+CordicSinCos.m_axis_dout_tready
+CordicSinCos.m_axis_dout_tvalid
+@200
+-
+@22
+CordicSinCos.s_axis_phase_tdata[15:0]
+@28
+CordicSinCos.s_axis_phase_tuser[2:0]
+CordicSinCos.s_axis_phase_tready
+CordicSinCos.s_axis_phase_tvalid
+[pattern_trace] 1
+[pattern_trace] 0

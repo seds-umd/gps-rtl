@@ -136,12 +136,19 @@ case class EthernetTestbench() extends Component {
     printf("Availability width: %d\n", iq_availability.getWidth)
     bus_ctrl.read(iq_availability, 0x10)
 
-    // CORDIC testing
-    val cordic = XilinxCORDIC()
+    // Sin/Cos CORDIC
+    val cordic = CordicSinCos()
     val cordic_phase_8b = Stream(Fragment(Bits(8 bits)))
-    val cordic_adapter = StreamWidthAdapter(cordic_phase_8b, cordic.io.phase, padding = true)
+    val cordic_adapter = StreamWidthAdapter(cordic_phase_8b.toStreamOfFragment, cordic.io.phase, padding = true)
     udp.addPort(1020, cordic.io.dout.fragmentTransaction(8), cordic_phase_8b)
 
+    // Atan CORDIC
+    val cordic_atan = CordicAtan()
+    val cordic_xy_8b = Stream(Fragment(Bits(8 bits)))
+    val cordic_xy_adapter = StreamWidthAdapter(cordic_xy_8b.toStreamOfFragment, cordic_atan.io.xy, padding = true)
+    udp.addPort(1021, cordic_atan.io.dout.fragmentTransaction(8), cordic_xy_8b)
+
+    // Tracking
     val tracking_area = new Area {
       // Tracking channel
       val tracking = TrackingChannel()

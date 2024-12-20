@@ -5,7 +5,7 @@ import time
 import matplotlib.pyplot as plt
 
 
-class CordicTb(template.TemplateTb):
+class SinCosTb(template.TemplateTb):
     def __init__(self, ip):
         super().__init__(ip, 1020)
 
@@ -31,12 +31,12 @@ class CordicTb(template.TemplateTb):
         data.append((phase >> 8) & 0xFF)
         data.append(user)
 
-        self.stream.send(data)
+        self.iq_stream.send(data)
 
     def get_complex(self):
         # 10 bit output width, x2 for re+im
         # 2 bits for integer, 8 bits for fraction
-        data = self.stream.recv()
+        data = self.iq_stream.recv()
 
         re = int.from_bytes(data[0:2], "little")
         im = int.from_bytes(data[2:4], "little")
@@ -56,13 +56,13 @@ class CordicTb(template.TemplateTb):
         return self.get_complex()
 
 
-if __name__ == "__main__":
-    tb = CordicTb("10.0.0.2")
+def test_sincos():
+    tb = SinCosTb("10.0.0.2")
 
     t = np.linspace(0, 2**10 - 1, 200)
     y = [tb.do_calc_int(i) for i in t]
-    # output range is -256 to 256
-    y = np.array(y) / 256
+    # output range is -128 to 128
+    y = np.array(y) / 128
     y = y[:, 0] + 1j * y[:, 1]
 
     ref = np.exp(2j * np.pi * t / 2**10)
@@ -71,7 +71,79 @@ if __name__ == "__main__":
     plt.plot(t, y.real - ref.real)
     plt.plot(t, y.imag - ref.imag)
     plt.tight_layout()
-    plt.savefig("cordic.png")
+    plt.savefig("sincos.png")
 
     err = np.abs(y - ref)
     print(f"Error std: {np.std(err)}")
+
+
+class AtanTb(template.TemplateTb):
+    def __init__(self, ip, input_width: int = 12, output_width: int = 9):
+        super().__init__(ip, 1021)
+        self.input_width = input_width
+        self.output_width = output_width
+
+    def send_xy(self, x: int, y: int, user: int = 0):
+        # 31        0
+        # pad y pad x
+
+        x, y = int(x), int(y)
+
+        assert abs(x) <= 2 ** (self.input_width - 2)
+        assert abs(y) <= 2 ** (self.input_width - 2)
+
+        if x < 0:
+            x += 2**self.input_width
+        if y < 0:
+            y += 2**self.input_width
+
+        data = bytearray()
+        data.append(x & 0xFF)
+        data.append((x >> 8) & 0xFF)
+        data.append(y & 0xFF)
+        data.append((y >> 8) & 0xFF)
+        data.append(user)
+
+        self.iq_stream.send(data)
+
+    def get_angle(self):
+        # 9 bit configured width, 1 sign bit, 2 integer bits - 6 data bits
+        data = self.iq_stream.recv()
+
+        angle = int.from_bytes(data[0:2], "little")
+        user = data[2]
+
+        if angle >= 2 ** (self.output_width - 1):
+            angle -= 2 ** (16)  # Because of sign extension to 16 bits
+
+        angle /= 2 ** (self.output_width - 3)
+
+        return angle
+
+
+def test_atan():
+    tb = AtanTb("10.0.0.2")
+
+    x = 0.01
+    y = 1
+
+    numbers = [0.01, 0.5, 1, -0.01, -0.5, 1]
+    in_scale = 2 ** (tb.input_width - 4)
+
+    for x in numbers:
+        for y in numbers:
+            ref = np.arctan2(y, x)
+            tb.send_xy(int(x * in_scale), int(y * in_scale))
+            time.sleep(0.001)
+            actual = tb.get_angle()
+            scaled = actual * np.pi
+            err = np.abs(ref - scaled) / ref
+
+            print(
+                f"({x}, {y}) actual: {actual:0.3f}, scaled: {scaled:0.3f}, ref: {ref:0.3f}, err: {err:0.4f}"
+            )
+
+
+if __name__ == "__main__":
+    # test_sincos()
+    test_atan()

@@ -92,5 +92,5 @@ if __name__ == "__main__":
         proj_dir="../../..",
         source_dir="hw/spinal/gps",
         gen_dir="hw/gen",
-        verilog_sources=["hw/verilog/XilinxCORDIC.v"],
+        verilog_sources=["hw/verilog/CordicSinCos.v"],
     )

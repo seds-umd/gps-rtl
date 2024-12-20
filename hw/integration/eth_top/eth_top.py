@@ -155,7 +155,8 @@ class EthernetTestbench(SoCCore):
         self.specials += Instance("EthernetTestbench", **ios)
 
         self.platform.add_ip("../fft_fast.tcl")
-        self.platform.add_ip("../cordic.tcl")
+        self.platform.add_ip("../cordic_sincos.tcl")
+        self.platform.add_ip("../cordic_atan.tcl")
 
 
 def main():

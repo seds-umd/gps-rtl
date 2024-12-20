@@ -33,7 +33,7 @@ case class TrackingChannel(iq_size: Int = 2, period: Int = 4092, fft_len_bits: I
   }
 
   // Carrier generation
-  val cordic = CordicWrapper()
+  val cordic = CordicSinCosWrapper()
   val carrier_phase = Reg(UInt(phase_bits bits)) init 0
   val carrier_freq_est = Reg(SFix(8 exp, 16 bits)) // in units of ~125 Hz
   cordic.io.phase.payload := carrier_phase

@@ -50,11 +50,11 @@ async def test_cordic(dut):
 
 if __name__ == "__main__":
     test_runner.run_wrapper(
-        top_level="XilinxCORDIC",
+        top_level="CordicSinCos",
         package="gps",
         proj_dir="../../..",
         source_dir="hw/spinal/gps",
         gen_dir="hw/gen",
-        verilog_sources=["hw/verilog/XilinxCORDIC.v"],
+        verilog_sources=["hw/verilog/CordicSinCos.v"],
         scala=False,
     )

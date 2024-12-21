@@ -1,6 +1,6 @@
 `timescale 1ns/1ps
 
-module XilinxCORDIC (
+module CordicSinCos (
     input aclk,
     input aresetn,
 

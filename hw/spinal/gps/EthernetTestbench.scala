@@ -25,13 +25,13 @@ import ethernet.stream.{UdpStream, StreamAxiLite}
  *  [29:18] - phase_offset
  * 0x214 - write 1 to enable tracking channel, 0 to disable (discards samples)
  * 0x300 - write MAX2769 SPI config data
- * 
+ *
  * Debug counters - write to any one of them to start count, they store count
  * of rising edges in 1 ms period (based on 200 MHz clk)
  * 0x310 - MAX2769 CLK_SER counter
  * 0x314 - MAX2769 DATA_OUT counter
  * 0x318 - MAX2769 DATA_SYNC counter
- * 
+ *
  * 0xFFC - unix timestamp of spinalhdl build
  *
  * Ports:
@@ -85,11 +85,11 @@ case class EthernetTestbench() extends Component {
   val bus_ctrl = AxiLite4SlaveFactory(stream_axil.io.axil)
   bus_ctrl.onWrite(0x00)(reset_timeout.clear())
 
-  bus_ctrl.drive(io.leds, 0x0c) init 0xFF
+  bus_ctrl.drive(io.leds, 0x0c) init 0xff
 
   val timestamp = System.currentTimeMillis / 1000
   printf("Current timestamp: %d\n", timestamp)
-  bus_ctrl.read(U(timestamp, 32 bits), 0xFFC)
+  bus_ctrl.read(U(timestamp, 32 bits), 0xffc)
 
   val rst_area = new ResetArea(!reset_timeout, true) {
     val iq_stream = Stream(Fragment(Bits(8 bits)))
@@ -136,12 +136,19 @@ case class EthernetTestbench() extends Component {
     printf("Availability width: %d\n", iq_availability.getWidth)
     bus_ctrl.read(iq_availability, 0x10)
 
-    // CORDIC testing
-    val cordic = XilinxCORDIC()
+    // Sin/Cos CORDIC
+    val cordic = CordicSinCos()
     val cordic_phase_8b = Stream(Fragment(Bits(8 bits)))
-    val cordic_adapter = StreamWidthAdapter(cordic_phase_8b, cordic.io.phase, padding = true)
+    val cordic_adapter = StreamWidthAdapter(cordic_phase_8b.toStreamOfFragment, cordic.io.phase, padding = true)
     udp.addPort(1020, cordic.io.dout.fragmentTransaction(8), cordic_phase_8b)
 
+    // Atan CORDIC
+    val cordic_atan = CordicAtan()
+    val cordic_xy_8b = Stream(Fragment(Bits(8 bits)))
+    val cordic_xy_adapter = StreamWidthAdapter(cordic_xy_8b.toStreamOfFragment, cordic_atan.io.xy, padding = true)
+    udp.addPort(1021, cordic_atan.io.dout.fragmentTransaction(8), cordic_xy_8b)
+
+    // Tracking
     // val tracking_area = new Area {
     //   // Tracking channel
     //   val tracking = TrackingChannel()
@@ -182,7 +189,7 @@ case class EthernetTestbench() extends Component {
       val dummy_stream = Stream(Fragment(Bits(8 bits)))
       dummy_stream.ready := True
       val stopped = Reg(Bool()) init True
-      when (dummy_stream.fire) {
+      when(dummy_stream.fire) {
         // Send 0 to start, 1 to stop
         stopped := dummy_stream.payload(0)
       }

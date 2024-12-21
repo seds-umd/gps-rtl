@@ -2,15 +2,15 @@
 
 # User guide: https://docs.amd.com/v/u/en-US/pg105-cordic
 
-# Resources from OOC run on XC7S15:
-# 484 LUT
-# 510 FF
+# Resource usage on K325
+# 12b input, 9b output: 340 LUTs, 395 FFs
+# 12b input, 11b output: 486 LUTs, 556 FFs
 
 # Check IP
-if { [file isdirectory "IP/XilinxCORDIC"] } {
+if { [file isdirectory "IP/CordicAtan"] } {
     # if the IP files exist, we already generated the IP, so we can just
     # read the ip definition (.xci)
-    read_ip IP/XilinxCORDIC/XilinxCORDIC.xci
+    read_ip IP/CordicAtan/CordicAtan.xci
 } else {
     # IP folder does not exist. Create IP folder
     file mkdir IP
@@ -20,24 +20,25 @@ if { [file isdirectory "IP/XilinxCORDIC"] } {
     # create_project -in_memory
 
     # paste commands from Journal file to recreate IP
-    create_ip -name cordic -vendor xilinx.com -library ip -version 6.0 -module_name XilinxCORDIC -dir IP
+    create_ip -name cordic -vendor xilinx.com -library ip -version 6.0 -module_name CordicAtan -dir IP
 
     set_property -dict [list \
-        CONFIG.Functional_Selection {Sin_and_Cos} \
+        CONFIG.Functional_Selection {Arc_Tan} \
         CONFIG.Pipelining_Mode {Optimal} \
         CONFIG.Phase_Format {Scaled_Radians} \
         CONFIG.Input_Width {12} \
-        CONFIG.Output_Width {9} \
+        CONFIG.Output_Width {11} \
         CONFIG.Round_Mode {Round_Pos_Neg_Inf} \
         CONFIG.flow_control {Blocking} \
         CONFIG.optimize_goal {Resources} \
         CONFIG.ACLKEN {false} \
         CONFIG.ARESETN {true} \
         CONFIG.Data_Format {SignedFraction} \
-        CONFIG.phase_has_tuser {true} \
-        CONFIG.phase_tuser_width {3} \
+        CONFIG.cartesian_has_tuser {true} \
+        CONFIG.cartesian_tuser_width {3} \
         CONFIG.out_tready {true} \
-    ] [get_ips XilinxCORDIC]
+        CONFIG.coarse_rotation {true} \
+    ] [get_ips CordicAtan]
 
     generate_target all [get_ips]
 

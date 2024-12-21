@@ -78,7 +78,7 @@ def test_sincos():
 
 
 class AtanTb(template.TemplateTb):
-    def __init__(self, ip, input_width: int = 12, output_width: int = 9):
+    def __init__(self, ip, input_width: int = 12, output_width: int = 11):
         super().__init__(ip, 1021)
         self.input_width = input_width
         self.output_width = output_width
@@ -89,19 +89,9 @@ class AtanTb(template.TemplateTb):
 
         x, y = int(x), int(y)
 
-        assert abs(x) <= 2 ** (self.input_width - 2)
-        assert abs(y) <= 2 ** (self.input_width - 2)
-
-        if x < 0:
-            x += 2**self.input_width
-        if y < 0:
-            y += 2**self.input_width
-
         data = bytearray()
-        data.append(x & 0xFF)
-        data.append((x >> 8) & 0xFF)
-        data.append(y & 0xFF)
-        data.append((y >> 8) & 0xFF)
+        data.extend(x.to_bytes(2, "little", signed=True))
+        data.extend(y.to_bytes(2, "little", signed=True))
         data.append(user)
 
         self.iq_stream.send(data)
@@ -110,38 +100,60 @@ class AtanTb(template.TemplateTb):
         # 9 bit configured width, 1 sign bit, 2 integer bits - 6 data bits
         data = self.iq_stream.recv()
 
-        angle = int.from_bytes(data[0:2], "little")
+        angle = int.from_bytes(data[0:2], "little", signed=True)
+        # angle /= 2 ** (self.output_width - 3)
         user = data[2]
 
-        if angle >= 2 ** (self.output_width - 1):
-            angle -= 2 ** (16)  # Because of sign extension to 16 bits
-
-        angle /= 2 ** (self.output_width - 3)
-
         return angle
+
+    def compute_angle(self, x: float, y: float):
+        assert -1 <= x <= 1
+        assert -1 <= y <= 1
+
+        x = int(x * 2 ** (self.input_width - 2))
+        y = int(y * 2 ** (self.input_width - 2))
+
+        self.send_xy(x, y)
+        time.sleep(0.001)
+        return self.get_angle()
+
+
+def atan2_sim(x: int, y: int, output_width: int = 9) -> int:
+    res = np.arctan2(y, x) / np.pi
+    res *= 2 ** (output_width - 3)
+
+    return int(res)
+
+
+def sim_wrapper(x: float, y: float, input_width: int = 12, output_width: int = 11):
+    x = int(x * 2 ** (input_width - 2))
+    y = int(y * 2 ** (input_width - 2))
+
+    res = atan2_sim(x, y, output_width)
+    # res /= 2 ** (output_width - 3)
+
+    return res
 
 
 def test_atan():
     tb = AtanTb("10.0.0.2")
 
-    x = 0.01
-    y = 1
-
     numbers = [0.01, 0.5, 1, -0.01, -0.5, 1]
-    in_scale = 2 ** (tb.input_width - 4)
 
-    for x in numbers:
-        for y in numbers:
-            ref = np.arctan2(y, x)
-            tb.send_xy(int(x * in_scale), int(y * in_scale))
-            time.sleep(0.001)
-            actual = tb.get_angle()
-            scaled = actual * np.pi
-            err = np.abs(ref - scaled) / ref
+    fig, axs = plt.subplots(len(numbers), 2, sharex=True, figsize=(6, 8), dpi=300)
 
-            print(
-                f"({x}, {y}) actual: {actual:0.3f}, scaled: {scaled:0.3f}, ref: {ref:0.3f}, err: {err:0.4f}"
-            )
+    for i, x in enumerate(numbers):
+        ys = np.linspace(-1, 1, 100)
+        actual = np.array([tb.compute_angle(x, y) for y in ys])
+        simmed = np.array([sim_wrapper(x, y) for y in ys])
+        ref = np.array([np.arctan2(y, x) for y in ys]) / np.pi
+
+        axs[i, 0].plot(ys, actual)
+        axs[i, 0].plot(ys, simmed)
+        axs[i, 1].plot(ys, actual - simmed)
+
+    plt.tight_layout()
+    plt.savefig("atan2.png")
 
 
 if __name__ == "__main__":

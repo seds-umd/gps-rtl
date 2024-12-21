@@ -2,8 +2,9 @@
 
 # User guide: https://docs.amd.com/v/u/en-US/pg105-cordic
 
-# Resources from OOC run on XC7S15:
-# TBD
+# Resource usage on K325
+# 12b input, 9b output: 340 LUTs, 395 FFs
+# 12b input, 11b output: 486 LUTs, 556 FFs
 
 # Check IP
 if { [file isdirectory "IP/CordicAtan"] } {
@@ -26,7 +27,7 @@ if { [file isdirectory "IP/CordicAtan"] } {
         CONFIG.Pipelining_Mode {Optimal} \
         CONFIG.Phase_Format {Scaled_Radians} \
         CONFIG.Input_Width {12} \
-        CONFIG.Output_Width {9} \
+        CONFIG.Output_Width {11} \
         CONFIG.Round_Mode {Round_Pos_Neg_Inf} \
         CONFIG.flow_control {Blocking} \
         CONFIG.optimize_goal {Resources} \

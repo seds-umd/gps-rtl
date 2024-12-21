@@ -44,6 +44,7 @@ case class RemovePrn(
     val set = in Bool ()
     val sv = in UInt (6 bits)
     val phase_offset = in UInt (phaseWidth bits)
+    val dropped = out UInt (16 bits)
   }
 
   // Wrap phase at period instead of integer overflow
@@ -137,6 +138,9 @@ case class RemovePrn(
       to.fragment.im := from.c.im @@ (U"1'b1" << (mixerWidth - iqInWidth - 1))
       to.last := False // Don't care
     })
+
+  val dropped = Counter(16 bits, io.input.fire && throw_iq)
+  io.dropped := dropped
 
   def process_output(stream: Stream[Fragment[Complex]]): Stream[Complex] = {
     stream
@@ -239,7 +243,11 @@ case class RemovePrn(
       whenIsActive {
         // In sims, IQ samples aren't limited by sample rate
         if (debug) {
-          goto(advance_iq)
+          when (offset > period / 2) {
+            goto(advance_prn)
+          } otherwise {
+            goto(advance_iq)
+          }
         } else {
           when(offset > threshold) {
             goto(advance_prn)
@@ -252,8 +260,10 @@ case class RemovePrn(
 
     val advance_prn: State = new State {
       whenIsActive {
+        if (!debug) {
+          throw_iq := True
+        }
         throw_prn := True
-        throw_iq := True
 
         when(offset_next === 0) {
           throw_prn := False

@@ -1,38 +1,35 @@
 [*]
-[*] GTKWave Analyzer v3.3.103 (w)1999-2019 BSI
-[*] Fri Oct 18 02:06:58 2024
+[*] GTKWave Analyzer v3.3.104 (w)1999-2020 BSI
+[*] Thu Dec 19 20:38:00 2024
 [*]
 [dumpfile] "/home/nathan/seds/gps-rtl/hw/tb/TrackingChannel/sim_build/TrackingChannel.fst"
-[dumpfile_mtime] "Fri Oct 18 02:06:47 2024"
-[dumpfile_size] 17782877
+[dumpfile_mtime] "Thu Dec 19 18:55:03 2024"
+[dumpfile_size] 14280429
 [savefile] "/home/nathan/seds/gps-rtl/hw/tb/TrackingChannel/TrackingChannel.gtkw"
-[timestart] 40417200
-[size] 2548 1367
+[timestart] 0
+[size] 1428 867
 [pos] -1 -1
-*-17.000000 26170 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+*-29.000000 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
 [treeopen] TrackingChannel.
-[treeopen] TrackingChannel.cordic.
 [sst_width] 214
-[signals_width] 230
+[signals_width] 285
 [sst_expanded] 1
-[sst_vpaned_height] 421
+[sst_vpaned_height] 245
 @28
 TrackingChannel.clk
 TrackingChannel.reset
-@200
--
 @c00200
 -Config
 @22
-TrackingChannel.io_config_payload_freq_offset[11:0]
-TrackingChannel.io_config_payload_phase_offset[11:0]
-TrackingChannel.io_config_payload_snr[7:0]
-TrackingChannel.io_config_payload_sv[5:0]
++{freq_offset} TrackingChannel.io_config_payload_freq_offset[11:0]
++{phase_offset} TrackingChannel.io_config_payload_phase_offset[11:0]
++{snr} TrackingChannel.io_config_payload_snr[7:0]
++{sv} TrackingChannel.io_config_payload_sv[5:0]
 @28
-TrackingChannel.io_config_valid
++{valid} TrackingChannel.io_config_valid
 @1401200
 -Config
-@800200
+@c00200
 -IQ
 @28
 TrackingChannel.io_iq_payload_c_im[1:0]
@@ -42,9 +39,9 @@ TrackingChannel.io_iq_payload_t[11:0]
 @28
 TrackingChannel.io_iq_ready
 TrackingChannel.io_iq_valid
-@1000200
+@1401200
 -IQ
-@800200
+@c00200
 -CORDIC
 @10420
 TrackingChannel.cordic.io_dout_payload_re[7:0]
@@ -57,9 +54,9 @@ TrackingChannel.cordic.io_phase_payload[9:0]
 @28
 TrackingChannel.cordic.io_phase_ready
 TrackingChannel.cordic.io_phase_valid
-@1000200
+@1401200
 -CORDIC
-@800200
+@c00200
 -Carrier Phase
 @420
 TrackingChannel.carrier_phase[9:0]
@@ -69,11 +66,14 @@ TrackingChannel.carrier_freq_est[15:0]
 TrackingChannel.carrier_freq_est[15:0]
 @20000
 -
-@1000200
+@1401200
 -Carrier Phase
 @c00200
 -PRN
+@24
+TrackingChannel.prn_1.dropped_value[15:0]
 @28
+TrackingChannel.prn_1.io_input_fire
 TrackingChannel.prn_1.aligned
 @820
 TrackingChannel.prn_1.fsm_stateReg_string[87:0]
@@ -93,5 +93,37 @@ TrackingChannel.prn_1.last_prn_phase[11:0]
 TrackingChannel.prn_1.absolute_offset[11:0]
 @1401200
 -PRN
+@c00200
+-Debug Output
+@1401200
+-Debug Output
+@c00200
+-Prompt Decimated
+@420
+TrackingChannel.dec_prompt.io_iq_out_payload_im[13:0]
+TrackingChannel.dec_prompt.io_iq_out_payload_re[13:0]
+@28
+TrackingChannel.dec_prompt.io_iq_out_ready
+TrackingChannel.dec_prompt.io_iq_out_valid
+@1401200
+-Prompt Decimated
+@800200
+-Carrier PLL
+@28
+TrackingChannel.carrier_pll.io_locked
+@420
+TrackingChannel.carrier_pll.io_err_payload[7:0]
+@28
+TrackingChannel.carrier_pll.io_err_ready
+TrackingChannel.carrier_pll.io_err_valid
+@420
+TrackingChannel.carrier_pll.io_nco_payload[7:0]
+@28
+TrackingChannel.carrier_pll.io_nco_ready
+TrackingChannel.carrier_pll.io_nco_valid
+@1000200
+-Carrier PLL
+@28
+TrackingChannel.frequency_stream_valid
 [pattern_trace] 1
 [pattern_trace] 0

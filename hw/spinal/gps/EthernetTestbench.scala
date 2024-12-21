@@ -142,28 +142,28 @@ case class EthernetTestbench() extends Component {
     val cordic_adapter = StreamWidthAdapter(cordic_phase_8b, cordic.io.phase, padding = true)
     udp.addPort(1020, cordic.io.dout.fragmentTransaction(8), cordic_phase_8b)
 
-    val tracking_area = new Area {
-      // Tracking channel
-      val tracking = TrackingChannel()
-      val tracking_enabled = Bool()
-      bus_ctrl.drive(tracking_enabled, 0x214, 0) init False
-      tracking.io.iq << iq_forked(1).throwWhen(!tracking_enabled)
-      bus_ctrl.readStreamNonBlocking(tracking.io.early, 0x200, 31, 0)
-      bus_ctrl.readStreamNonBlocking(tracking.io.prompt, 0x204, 31, 0)
-      bus_ctrl.readStreamNonBlocking(tracking.io.late, 0x208, 31, 0)
-      bus_ctrl.driveFlow(tracking.io.freq_delta, 0x20c)
+    // val tracking_area = new Area {
+    //   // Tracking channel
+    //   val tracking = TrackingChannel()
+    //   val tracking_enabled = Bool()
+    //   bus_ctrl.drive(tracking_enabled, 0x214, 0) init False
+    //   tracking.io.iq << iq_forked(1).throwWhen(!tracking_enabled)
+    //   bus_ctrl.readStreamNonBlocking(tracking.io.early, 0x200, 31, 0)
+    //   bus_ctrl.readStreamNonBlocking(tracking.io.prompt, 0x204, 31, 0)
+    //   bus_ctrl.readStreamNonBlocking(tracking.io.late, 0x208, 31, 0)
+    //   bus_ctrl.driveFlow(tracking.io.freq_delta, 0x20c)
 
-      // Config
-      val tracking_config = Flow(AcquisitionResults())
-      tracking_config.valid.setAsReg()
-      tracking.io.config << tracking_config
-      bus_ctrl.drive(tracking_config.sv, 0x210, 0)
-      bus_ctrl.drive(tracking_config.freq_offset, 0x210, 6)
-      bus_ctrl.drive(tracking_config.phase_offset, 0x210, 18)
-      tracking_config.snr := 0
-      bus_ctrl.onWrite(0x210)(tracking_config.valid := True)
-      when(tracking_config.valid)(tracking_config.valid := False)
-    }
+    //   // Config
+    //   val tracking_config = Flow(AcquisitionResults())
+    //   tracking_config.valid.setAsReg()
+    //   tracking.io.config << tracking_config
+    //   bus_ctrl.drive(tracking_config.sv, 0x210, 0)
+    //   bus_ctrl.drive(tracking_config.freq_offset, 0x210, 6)
+    //   bus_ctrl.drive(tracking_config.phase_offset, 0x210, 18)
+    //   tracking_config.snr := 0
+    //   bus_ctrl.onWrite(0x210)(tracking_config.valid := True)
+    //   when(tracking_config.valid)(tracking_config.valid := False)
+    // }
 
     // MAX2769
     val max_area = new Area {

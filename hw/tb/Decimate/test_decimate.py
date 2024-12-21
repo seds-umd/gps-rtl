@@ -1,6 +1,7 @@
+#!/usr/bin/env python
+
 import cocotb
 from cocotb.triggers import ClockCycles
-from cocotbext import axi
 
 import numpy as np
 import logging

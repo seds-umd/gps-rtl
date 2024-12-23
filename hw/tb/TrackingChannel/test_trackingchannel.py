@@ -92,8 +92,7 @@ class Tb(TbTemplate):
         self, count=1e5, sv=1, doppler=0, doppler2=0, sample_phase=0, noise=True
     ):
         # -128.5 is worst case real world received power
-        # power = -128.5 if noise else None
-        power = -120
+        power = -128.5 if noise else None
 
         # 3/4 is about optimal for 33% magnitude bit density (per MAX2769 datasheet)
         samples = (3 / 4 * 127) * gps_sim.generate_gps(
@@ -154,8 +153,7 @@ async def test_tracking_debug(dut, graph=True):
     code_phase = 10
     period = 4092
 
-    N = period * 200  # ms of data
-    # N = period * 5  # ms of data
+    N = period * 500  # ms of data
 
     tb.set_config(sv, int(freq_offset / 125), code_phase)
     samples, samples_biased = tb.send_generated_samples(

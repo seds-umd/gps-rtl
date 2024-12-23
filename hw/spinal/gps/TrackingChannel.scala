@@ -8,27 +8,15 @@ import spinal.lib.fsm._
 // Make cordic phase and output width configurable
 // Time multiplex CORDIC
 
-case class TrackingChannel(
-    iq_size: Int = 2,
-    period: Int = 4092,
-    fft_len_bits: Int = 12,
-    fine_acq_factor_bits: Int = 3,
-    debug: Boolean = false
-) extends Component {
-  val phase_bits = 10
-  val dec_bits = 14
-
+case class TrackingChannel(config: GpsConfig) extends Component {
   val io = new Bundle {
-    val iq = slave Stream (ComplexTimestamp(iq_size, period))
+    val iq = slave Stream (ComplexTimestamp(config.max_iq_size, config.prn_period))
+    val config_flow = slave Flow (AcquisitionResults())
 
-    // Config
-    val config = slave Flow (AcquisitionResults())
-
-    // Status
     val lost_lock = out Bool ()
-
-    // Output
     val nav_data = master Stream (Bool())
+
+    val debug = master Flow (TrackingDebugReg(config))
   }
 
   // Same conversion as in acquisition, unbiases input and converts to 8 bits
@@ -39,60 +27,61 @@ case class TrackingChannel(
   })
 
   // Carrier generation
-  val cordic = CordicSinCosWrapper()
-  val carrier_phase = Reg(UInt(phase_bits bits)) init 0
+  val cordic_sincos = CordicSinCosWrapper()
+  val carrier_phase = Reg(UInt(config.sincos_phase_actual_bits bits)) init 0
   val carrier_freq_est = Reg(SFix(8 exp, 16 bits)) // in units of ~125 Hz
-  cordic.io.phase.payload := carrier_phase
+  cordic_sincos.io.phase.payload := carrier_phase
 
   // Phase increments by freq / ts
   // ts is period of individual sample, 1/4.092MHz
-  val carrier_phase_inc = carrier_freq_est >> (fft_len_bits + fine_acq_factor_bits - phase_bits)
+  val carrier_phase_inc =
+    carrier_freq_est >> (config.fft_bits + config.fine_acq_factor_log - config.sincos_phase_actual_bits)
   val carrier_phase_rem = Reg(carrier_phase_inc.clone())
   val carrier_phase_next = (carrier_phase_inc + carrier_phase_rem).toSInt
 
-  when(cordic.io.phase.fire) {
-    carrier_phase := (carrier_phase.asSInt + carrier_phase_next.resized).asUInt
+  when(cordic_sincos.io.phase.fire) {
+    carrier_phase := (carrier_phase.asSInt - carrier_phase_next.resized).asUInt
     carrier_phase_rem.raw := (carrier_phase_inc + carrier_phase_rem).raw - (carrier_phase_next << -carrier_phase_rem.minExp)
   }
 
   // Carrier mixing
   val carrier_mixer = MixerTimestamp(8)
   carrier_mixer.io.input_a << iq_biased.addFragmentLast(False)
-  carrier_mixer.io.input_b << cordic.io.dout.addFragmentLast(False)
+  carrier_mixer.io.input_b << cordic_sincos.io.dout.addFragmentLast(False)
 
   // Code mixing
-  val code_phase = Reg(UInt(log2Up(period) bits))
+  val code_phase = Reg(UInt(config.fft_bits bits))
   val prn =
     RemovePrn(
       iqInWidth = 8,
       iqOutWidth = 8,
-      period = period,
+      period = config.prn_period,
       phaseWidth = 12,
       sampleRate = 4.092 MHz,
       earlyLate = true,
-      debug = debug
+      debug = config.debug
     )
   val sv = Reg(UInt(6 bits)) init 0
   prn.io.sv := sv
-  prn.io.set := Delay(io.config.fire, 1)
+  prn.io.set := Delay(io.config_flow.fire, 1)
   prn.io.phase_offset := code_phase
   prn.io.input << carrier_mixer.io.output.toStreamOfFragment
 
   // Configure acquisition settings
-  when(io.config.fire) {
-    sv := io.config.sv
-    code_phase := io.config.phase_offset
+  when(io.config_flow.fire) {
+    sv := io.config_flow.sv
+    code_phase := io.config_flow.phase_offset
 
     // Truncate because frequency offset is always a small value
-    carrier_freq_est := io.config.freq_offset.toSFix.truncated
+    carrier_freq_est := io.config_flow.freq_offset.toSFix.truncated
     carrier_phase := 0
     carrier_phase_rem := 0
   }
 
   // Decimation
-  val dec_early = Decimate(factor = period, iq_out_size = dec_bits)
-  val dec_prompt = Decimate(factor = period, iq_out_size = dec_bits)
-  val dec_late = Decimate(factor = period, iq_out_size = dec_bits)
+  val dec_early = Decimate(factor = config.prn_period, iq_out_size = config.dec_width)
+  val dec_prompt = Decimate(factor = config.prn_period, iq_out_size = config.dec_width)
+  val dec_late = Decimate(factor = config.prn_period, iq_out_size = config.dec_width)
 
   // Use prompt stream arbitration for all 3 streams
   val dec_fork = StreamFork(prn.io.prompt, 3, false)
@@ -107,15 +96,27 @@ case class TrackingChannel(
   io.nav_data << dec_prompt_vec(0).map(_.re.sign)
 
   // Carrier PLL
-  val carrier_pll = Pll(bw = 10f, gain = 0.25f)
+  val carrier_pll = Pll(config.carrier_pll_config)
 
   // Carrier discriminator - sign(I) * Q
-  carrier_pll.io.err << dec_prompt_vec(1).translateInto(carrier_pll.io.err.clone())((to, from) => {
-    when(~from.re.sign) {
-      to.raw := -from.im.sat(widthOf(from.im) - widthOf(to.raw)) / 2
-    } otherwise {
-      to.raw := from.im.sat(widthOf(from.im) - widthOf(to.raw)) / 2
-    }
+  // carrier_pll.io.err << dec_prompt_vec(1).translateInto(carrier_pll.io.err.clone())((to, from) => {
+  //   when(~from.re.sign) {
+  //     to.raw := -from.im.sat(widthOf(from.im) - widthOf(to.raw)) / 2
+  //   } otherwise {
+  //     to.raw := from.im.sat(widthOf(from.im) - widthOf(to.raw)) / 2
+  //   }
+  // })
+
+  // atan discriminator
+  val cordic_atan = CordicAtanWrapper()
+  cordic_atan.io.cartesian << dec_prompt_vec(1).translateInto(cordic_atan.io.cartesian.clone())((to, from) => {
+    to.re := from.re.sat(from.re.getWidth - to.re.getWidth)
+    to.im := from.im.sat(from.im.getWidth - to.im.getWidth)
+  })
+  carrier_pll.io.err << cordic_atan.io.dout.map((angle) => {
+    val x = carrier_pll.io.err.payload.clone()
+    x.raw := angle.roundToInf(1) / 2
+    x
   })
 
   carrier_pll.io.nco.ready := True
@@ -154,7 +155,7 @@ case class TrackingChannel(
     running := True
   }
 
-  cordic.io.phase.valid := running
+  cordic_sincos.io.phase.valid := running
 
   // Debugging signals, will get optimized out
   val frequency_stream = Flow(SFix(8 exp, 16 bits))
@@ -163,8 +164,60 @@ case class TrackingChannel(
   when(carrier_pll.io.nco.fire) {
     frequency_stream.valid := True
   }
+
+  val debug_area = new Area {
+    val debug_reg = Reg(TrackingDebugReg(config))
+    // val debug_reg_valid = Reg(Bits(7 bits)) init 0
+    val debug_reg_valid = Reg(Bits(5 bits)) init 0
+
+    io.debug.payload := debug_reg
+    io.debug.valid := debug_reg_valid.andR
+
+    when(io.debug.fire) {
+      debug_reg_valid := 0
+    }
+
+    when(dec_early.io.iq_out.fire) {
+      debug_reg.dec_early := dec_early.io.iq_out.payload
+      debug_reg_valid(0) := True
+    }
+
+    when(dec_prompt.io.iq_out.fire) {
+      debug_reg.dec_prompt := dec_prompt.io.iq_out.payload
+      debug_reg_valid(1) := True
+    }
+
+    when(dec_late.io.iq_out.fire) {
+      debug_reg.dec_late := dec_late.io.iq_out.payload
+      debug_reg_valid(2) := True
+    }
+
+    when(carrier_pll.io.err.fire) {
+      debug_reg.carr_err := carrier_pll.io.err.payload
+      debug_reg_valid(3) := True
+    }
+
+    when(carrier_pll.io.nco.fire) {
+      debug_reg.carr_nco := carrier_pll.io.nco.payload
+      debug_reg_valid(4) := True
+    }
+
+    debug_reg.code_err := 0
+    debug_reg.code_nco := 0
+  }
+}
+
+case class TrackingDebugReg(config: GpsConfig) extends Bundle {
+  val dec_early = Complex(config.dec_width)
+  val dec_prompt = Complex(config.dec_width)
+  val dec_late = Complex(config.dec_width)
+  val carr_err = SFix(config.pll_err_peak exp, config.pll_width bits)
+  val carr_nco = SFix(config.pll_nco_peak exp, config.pll_width bits)
+  val code_err = SFix(config.pll_err_peak exp, config.pll_width bits)
+  val code_nco = SFix(config.pll_nco_peak exp, config.pll_width bits)
 }
 
 object TrackingChannelVerilog extends App {
-  Config.spinal.generateVerilog(TrackingChannel(debug = true))
+  val gps_config = GpsConfig(debug = true)
+  Config.spinal.generateVerilog(TrackingChannel(gps_config))
 }

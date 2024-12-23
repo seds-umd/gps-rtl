@@ -10,8 +10,8 @@ case class CordicAtan() extends BlackBox {
     val aclk = in Bool ()
     val aresetn = in Bool ()
 
-    val xy = slave Stream(new CordicBundle(32, 3))
-    val dout = master Stream(new CordicBundle(16, 3))
+    val xy = slave Stream (new CordicBundle(32, 3))
+    val dout = master Stream (new CordicBundle(16, 3))
   }
 
   noIoPrefix()
@@ -28,4 +28,30 @@ case class CordicAtan() extends BlackBox {
   }
 
   addPrePopTask(() => renameIO())
+}
+
+case class CordicAtanWrapper(cartesian_width: Int = 12, output_width: Int = 11, with_user: Boolean = false)
+    extends Component {
+  val actual_cartesian_width = cartesian_width - 1
+  val actual_output_width = output_width - 2
+
+  val io = new Bundle {
+    val cartesian = slave Stream (Complex(actual_cartesian_width))
+    val dout = master Stream (SInt(actual_output_width bits))
+  }
+
+  val cordic = CordicAtan()
+
+  cordic.io.xy << io.cartesian.translateInto(cordic.io.xy.clone())((to, from) => {
+    val w = cordic.io.xy.payload.data_width / 2
+
+    to.data := from.im.resize(w) ## from.re.resize(w)
+    to.user := 0
+  })
+
+  io.dout << cordic.io.dout.map(_.data.asSInt.resize(io.dout.payload.getWidth))
+}
+
+object CordicAtanWrapper extends App {
+  Config.spinal.generateVerilog(CordicAtanWrapper())
 }

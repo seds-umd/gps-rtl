@@ -66,18 +66,6 @@ case class CordicSinCosWrapper(phase_width: Int = 12, output_width: Int = 9, wit
   })
 }
 
-// case class CordicTest() extends Component {
-//   val io = new Bundle {
-//     val phase = slave Stream(new CordicBundle(16, 3))
-//     val dout = master Stream(new CordicBundle(32, 3))
-//   }
-
-//   val cordic = CordicSinCos()
-
-//   cordic.io.s_axis_phase << io.phase
-//   cordic.io.m_axis_dout >> io.dout
-// }
-
-// object CordicTestVerilog extends App {
-//   Config.spinal.generateVerilog(CordicTest())
-// }
+object CordicSinCosVerilog extends App {
+  Config.spinal.generateVerilog(CordicSinCosWrapper())
+}

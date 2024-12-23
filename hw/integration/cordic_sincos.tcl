@@ -35,7 +35,7 @@ if { [file isdirectory "IP/CordicSinCos"] } {
         CONFIG.ARESETN {true} \
         CONFIG.Data_Format {SignedFraction} \
         CONFIG.phase_has_tuser {true} \
-        CONFIG.phase_tuser_width {3} \
+        CONFIG.phase_tuser_width {4} \
         CONFIG.out_tready {true} \
     ] [get_ips CordicSinCos]
 

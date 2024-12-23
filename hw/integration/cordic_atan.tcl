@@ -35,7 +35,7 @@ if { [file isdirectory "IP/CordicAtan"] } {
         CONFIG.ARESETN {true} \
         CONFIG.Data_Format {SignedFraction} \
         CONFIG.cartesian_has_tuser {true} \
-        CONFIG.cartesian_tuser_width {3} \
+        CONFIG.cartesian_tuser_width {4} \
         CONFIG.out_tready {true} \
         CONFIG.coarse_rotation {true} \
     ] [get_ips CordicAtan]

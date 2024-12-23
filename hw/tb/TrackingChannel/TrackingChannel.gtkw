@@ -1,15 +1,15 @@
 [*]
 [*] GTKWave Analyzer v3.3.104 (w)1999-2020 BSI
-[*] Thu Dec 19 20:38:00 2024
+[*] Sun Dec 22 04:41:17 2024
 [*]
 [dumpfile] "/home/nathan/seds/gps-rtl/hw/tb/TrackingChannel/sim_build/TrackingChannel.fst"
-[dumpfile_mtime] "Thu Dec 19 18:55:03 2024"
-[dumpfile_size] 14280429
+[dumpfile_mtime] "Sun Dec 22 04:39:27 2024"
+[dumpfile_size] 3988633
 [savefile] "/home/nathan/seds/gps-rtl/hw/tb/TrackingChannel/TrackingChannel.gtkw"
 [timestart] 0
 [size] 1428 867
 [pos] -1 -1
-*-29.000000 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+*-27.000000 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
 [treeopen] TrackingChannel.
 [sst_width] 214
 [signals_width] 285
@@ -42,20 +42,20 @@ TrackingChannel.io_iq_valid
 @1401200
 -IQ
 @c00200
--CORDIC
+-Sin Cos CORDIC
 @10420
-TrackingChannel.cordic.io_dout_payload_re[7:0]
-TrackingChannel.cordic.io_dout_payload_im[7:0]
+TrackingChannel.cordic_sincos.io_dout_payload_re[7:0]
+TrackingChannel.cordic_sincos.io_dout_payload_im[7:0]
 @28
-TrackingChannel.cordic.io_dout_ready
-TrackingChannel.cordic.io_dout_valid
+TrackingChannel.cordic_sincos.io_dout_ready
+TrackingChannel.cordic_sincos.io_dout_valid
 @24
-TrackingChannel.cordic.io_phase_payload[9:0]
+TrackingChannel.cordic_sincos.io_phase_payload[9:0]
 @28
-TrackingChannel.cordic.io_phase_ready
-TrackingChannel.cordic.io_phase_valid
+TrackingChannel.cordic_sincos.io_phase_ready
+TrackingChannel.cordic_sincos.io_phase_valid
 @1401200
--CORDIC
+-Sin Cos CORDIC
 @c00200
 -Carrier Phase
 @420
@@ -100,14 +100,14 @@ TrackingChannel.prn_1.absolute_offset[11:0]
 @c00200
 -Prompt Decimated
 @420
-TrackingChannel.dec_prompt.io_iq_out_payload_im[13:0]
 TrackingChannel.dec_prompt.io_iq_out_payload_re[13:0]
+TrackingChannel.dec_prompt.io_iq_out_payload_im[13:0]
 @28
 TrackingChannel.dec_prompt.io_iq_out_ready
 TrackingChannel.dec_prompt.io_iq_out_valid
 @1401200
 -Prompt Decimated
-@800200
+@c00200
 -Carrier PLL
 @28
 TrackingChannel.carrier_pll.io_locked
@@ -121,9 +121,24 @@ TrackingChannel.carrier_pll.io_nco_payload[7:0]
 @28
 TrackingChannel.carrier_pll.io_nco_ready
 TrackingChannel.carrier_pll.io_nco_valid
-@1000200
+@1401200
 -Carrier PLL
+@c00200
+-Atan2 CORDIC
+@420
+TrackingChannel.cordic_atan.io_cartesian_payload_re[10:0]
+TrackingChannel.cordic_atan.io_cartesian_payload_im[10:0]
 @28
-TrackingChannel.frequency_stream_valid
+TrackingChannel.cordic_atan.io_cartesian_ready
+TrackingChannel.cordic_atan.io_cartesian_valid
+@420
+TrackingChannel.cordic_atan.io_dout_payload[8:0]
+@28
+TrackingChannel.cordic_atan.io_dout_ready
+TrackingChannel.cordic_atan.io_dout_valid
+@1401200
+-Atan2 CORDIC
+@28
+TrackingChannel.io_debug_valid
 [pattern_trace] 1
 [pattern_trace] 0

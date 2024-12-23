@@ -8,24 +8,32 @@ import spinal.lib._
 // Are loop param equations optimal?
 // Make it more synthesize - multiplex muls to use a single DSP (and possibly even an external one)
 
-case class Pll(bw: Float, gain: Float, zeta: Float = 0.707f, ts: Float = 1e-3f) extends Component {
-  val w_n = 8 * zeta * bw / (4 * zeta * zeta + 1)
-  val tau1 = gain / (w_n * w_n)
-  val tau2 = 2 * zeta / w_n
+case class PllConfig(
+    bw: Float,
+    gain: Float,
+    zeta: Float = 0.707f,
+    ts: Float = 1e-3f,
+    width: Int = 8,
+    err_peak: Int = 0,
+    nco_peak: Int = 3
+)
+
+case class Pll(config: PllConfig) extends Component {
+  val w_n = 8 * config.zeta * config.bw / (4 * config.zeta * config.zeta + 1)
+  val tau1 = config.gain / (w_n * w_n)
+  val tau2 = 2 * config.zeta / w_n
   val _c1 = tau2 / tau1
-  val _c2 = ts / tau1
+  val _c2 = config.ts / tau1
 
   printf("tau1=%f, tau2=%f\n", tau1, tau2)
   printf("C1=%f, C2=%f\n", _c1, _c2)
 
-  val width = 8 bits
-
   val io = new Bundle {
     // err is +-1, 0 exp covers entire range
-    val err = slave Stream (SFix(0 exp, width))
+    val err = slave Stream (SFix(config.err_peak exp, config.width bits))
 
     // higher nco peak means faster slew rate but more noise at steady state
-    val nco = master Stream (SFix(3 exp, width))
+    val nco = master Stream (SFix(config.nco_peak exp, config.width bits))
 
     val locked = out Bool ()
   }
@@ -36,7 +44,6 @@ case class Pll(bw: Float, gain: Float, zeta: Float = 0.707f, ts: Float = 1e-3f) 
   c2 := _c2
 
   val last_err = Reg(io.err.payload.clone()) init 0
-  val last_nco = Reg(io.nco.payload.clone()) init 0
 
   val t1 = c1 * (io.err.payload - last_err)
   val t2 = c2 * io.err.payload
@@ -59,10 +66,6 @@ case class Pll(bw: Float, gain: Float, zeta: Float = 0.707f, ts: Float = 1e-3f) 
     last_err := io.err.payload
   }
 
-  when(io.nco.fire) {
-    last_nco := io.nco.payload
-  }
-
   // Locked after 128 cycles (128 ms)
   val err_threshold = 0.1
   val lock_counter = CounterUpDown(256)
@@ -77,8 +80,7 @@ case class Pll(bw: Float, gain: Float, zeta: Float = 0.707f, ts: Float = 1e-3f) 
 }
 
 object PllVerilog extends App {
-  val bw = 10f
-  val gain = 0.25f
+  val config = PllConfig(bw = 10f, gain = 0.25f)
 
-  Config.spinal.generateVerilog(Pll(bw, gain))
+  Config.spinal.generateVerilog(Pll(config))
 }

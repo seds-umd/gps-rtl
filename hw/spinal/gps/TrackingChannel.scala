@@ -5,7 +5,6 @@ import spinal.lib._
 import spinal.lib.fsm._
 
 // TODO:
-// Make cordic phase and output width configurable
 // Time multiplex CORDIC
 
 case class TrackingChannel(config: GpsConfig) extends Component {

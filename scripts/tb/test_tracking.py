@@ -6,13 +6,29 @@ import numpy as np
 import time
 
 
-# Tracking module uses the same IQ interface as acquisition
-class TrackingTestbench(template.IqTestbench):
-    def reset(self):
-        super().reset()
+def extract_signed(data: int, width: int):
+    val = data & ((1 << width) - 1)
+    data >>= width
 
-        # Enable tracking IQ input
-        self.csr_stream.write(0x214, 1)
+    if val > 2 ** (width - 1):
+        val -= 2 ** width
+
+    return data, val
+
+
+def extract_complex(data: int, width: int):
+    data, re = extract_signed(data, width)
+    data, im = extract_signed(data, width)
+
+    return data, re + 1j * im
+
+
+class TrackingTestbench(template.IqTestbench):
+    def __init__(self, ip: str):
+        super().__init__(ip, 1040)
+
+    def get_availability(self):
+        return int(1e6)
 
     def tracking_config(self, sv, freq_offset, phase_offset):
         val = sv & 0x3F
@@ -20,54 +36,22 @@ class TrackingTestbench(template.IqTestbench):
         val |= (phase_offset & 0xFFF) << 18
 
         self.csr_stream.write(0x210, val)
+        self.csr_stream.write(0x214, 0) # need to write to trigger valid
 
-    def _get_complex(self, addr, bits: int = 14, timeout=1):
-        start = time.time()
+    def get_debug_data(self):
+        data = self.iq_stream.recv()
+        data = int.from_bytes(data, "little")
 
-        data = 0
-        while not (data & (1 << 31)):
-            data = self.csr_stream.read(addr)
+        data, early = extract_complex(data, 14)
+        data, prompt = extract_complex(data, 14)
+        data, late = extract_complex(data, 14)
+        data, carr_err = extract_signed(data, 8)
+        data, carr_nco = extract_signed(data, 8)
 
-            if time.time() - start > timeout:
-                raise TimeoutError()
+        carr_err /= 2**7
+        carr_nco /= 2**3
 
-            time.sleep(0.01)
-
-        # print(hex(data))
-
-        re = data & ((1 << bits) - 1)
-        im = (data >> bits) & ((1 << bits) - 1)
-
-        # print(hex(re), hex(im))
-
-        if re >= 2 ** (bits - 1):
-            re = re - 2**bits
-
-        if im >= 2 ** (bits - 1):
-            im = im - 2**bits
-
-        res = re + 1j * im
-
-        return res
-
-    def get_tracking_data(self):
-        early = self._get_complex(0x200)
-        prompt = self._get_complex(0x204)
-        late = self._get_complex(0x208)
-
-        return early, prompt, late
-
-    def send_freq_delta(self, value: float):
-        exp = 8
-        width = 16
-
-        value = value * 2**(width - exp - 1)
-        value = int(value)
-
-        if value < 0:
-            value = value + 2**width
-
-        self.csr_stream.write(0x20C, value)
+        return early, prompt, late, carr_err, carr_nco
 
 
 if __name__ == "__main__":
@@ -80,62 +64,81 @@ if __name__ == "__main__":
     freq_offset = 10
     code_phase = 0
 
+    np.random.seed(2598793427)
     samples = gps_sim.generate_gps(
         4.092e6,
-        4092*150,
+        4092*50,
         sv,
         freq_offset * freq_step,
         sample_phase=code_phase,
-        signal_power=-128.5,
+        # signal_power=-128.5,
+        signal_power=-120,
     )
 
-    options = []
-    options.extend(range(0, 200))
-    options.extend(range(3900, 4092))
+    print("Input Count: ", tb.csr_stream.read(0x200))
+    print("Output Count: ", tb.csr_stream.read(0x204))
+    print("Input Hash: ", hex(tb.csr_stream.read(0x20C)))
+    print("Output Hash: ", hex(tb.csr_stream.read(0x208)))
+    print(np.sum(samples))
+    tb.tracking_config(sv, freq_offset, code_phase)
+    # tb.send_samples(samples)
+    time.sleep(0.1)
 
-    for code in options:
-        if code % 64 == 0:
-            print(f"i = {code}")
+    for i in range(0, 10, 2):
+        tb.send_samples(samples[i:i+2])
 
-        tb.reset()
-        tb.tracking_config(sv, freq_offset, code)
-        tb.send_freq_delta(freq_offset)
-        tb.send_samples(samples, True)
-        # tb.send_file(
-        #     "../../../gps-model/data/test0.ci16", np.int8, count=1e6, threaded=True
-        # )
+        t = tb.csr_stream.read(0x208)
+        print(i, t, tb.csr_stream.read(0x200))
 
-        pll = gps.PLL(10, 0.707, 0.25, 1e-3)
+        if t != 0:
+            print(i, t)
+            break
 
-        errors = []
-        ncos = []
-        prompts = []
+    prompts = []
+    carr_errs = []
+    carr_ncos = []
 
-        for _ in range(100):
-            early, late, prompt = tb.get_tracking_data()
-            if prompt.real == 0:
-                err = np.pi/2 * np.sign(prompt.imag)
-            else:
-                err = np.arctan(prompt.imag / prompt.real)
+    try:
+        while True:
+            _, prompt, _, carr_err, carr_nco = tb.get_debug_data()
 
-            last = pll.last_nco
-            nco = pll.update(err) - last
-            tb.send_freq_delta(nco / freq_step)
-
-            errors.append(err)
-            ncos.append(nco + last)
             prompts.append(prompt)
+            carr_errs.append(carr_err)
+            carr_ncos.append(carr_nco)
+    except IndexError:
+        pass
 
-        plt.figure(figsize=(8, 6), dpi=300)
-        plt.subplot(3, 1, 1)
-        plt.plot(np.real(prompts))
-        plt.plot(np.imag(prompts))
-        plt.subplot(3, 1, 2)
-        plt.title("Error")
-        plt.plot(errors)
-        plt.subplot(3, 1, 3)
-        plt.title("NCO Frequency")
-        plt.plot(ncos)
-        plt.tight_layout()
-        plt.savefig(f"output/out{code}.png")
-        plt.close()
+    time.sleep(0.5)
+
+    print("Received packets", len(prompts))
+    print("Input Count: ", tb.csr_stream.read(0x200))
+    print("Output Count: ", tb.csr_stream.read(0x204))
+    print("Input Hash: ", hex(tb.csr_stream.read(0x20C)))
+    # print("Output Hash: ", hex(tb.csr_stream.read(0x208)))
+    print("Output Hash: ", tb.csr_stream.read(0x208))
+
+    prompts = np.array(prompts)
+    frequencies = freq_offset * freq_step + np.cumsum(carr_ncos)
+
+    print(np.sum(prompts))
+
+    plt.figure(figsize=(8, 8), dpi=300)
+
+    plt.subplot(2, 2, 1)
+    plt.title("Carrier Discriminator")
+    plt.plot(carr_errs)
+
+    plt.subplot(2, 2, 2)
+    plt.title("Carrier NCO")
+    plt.plot(carr_ncos)
+
+    plt.subplot(2, 2, 3)
+    plt.title("Frequency Estimate")
+    plt.plot(frequencies)
+
+    plt.subplot(2, 2, 4)
+    plt.plot(prompts.real)
+    plt.plot(prompts.imag)
+
+    plt.tight_layout()
+    plt.savefig("tracking.png")

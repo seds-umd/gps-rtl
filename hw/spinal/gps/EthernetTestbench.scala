@@ -15,15 +15,7 @@ import ethernet.stream.{UdpStream, StreamAxiLite}
  * 0x10 - FIFO availability
  * 0x100 - write anything to reset all cycle counters (which will then run for 100M cycles)
  * 0x104 - total cycles
- * 0x200 - early
- * 0x204 - prompt
- * 0x208 - late
- * 0x20C - carrier freq delta SFix(8 exp, 16 bits)
- * 0x210 - tracking config
- *  [5:0] - sv
- *  [17:6] - freq_offset
- *  [29:18] - phase_offset
- * 0x214 - write 1 to enable tracking channel, 0 to disable (discards samples)
+ * 0x210-0x217 - tracking config
  * 0x300 - write MAX2769 SPI config data
  *
  * Debug counters - write to any one of them to start count, they store count
@@ -37,8 +29,10 @@ import ethernet.stream.{UdpStream, StreamAxiLite}
  * Ports:
  * 1000 - AXI-L reads and writes
  * 1010 - Acquisition data and results
- * 1020 - CORDIC testing
+ * 1020 - CORDIC sin/cos
+ * 1021 - CORDIC atan
  * 1030 - MAX2769 IQ data
+ * 1040 - tracking
  */
 
 case class EthDecimate(out_size: Int = 64) extends Component {
@@ -56,7 +50,7 @@ case class EthDecimate(out_size: Int = 64) extends Component {
   val tx_adapter = StreamFragmentWidthAdapter(tx_16b, io.tx)
 }
 
-case class EthernetTestbench() extends Component {
+case class EthernetTestbench(config: GpsConfig) extends Component {
   val io = new Bundle {
     val gtx_clk = in Bool ()
     val gtx_rst = in Bool ()
@@ -68,6 +62,9 @@ case class EthernetTestbench() extends Component {
     val max = MaxDspBus()
   }
 
+  val reset_timeout = Timeout(10 ms)
+
+  // UDP stack outside soft reset, it doesn't reset properly inside
   val udp = UdpStream()
   udp.io.gtx_clk := io.gtx_clk
   udp.io.gtx_rst := io.gtx_rst
@@ -77,8 +74,6 @@ case class EthernetTestbench() extends Component {
   udp.io.ip := B"8'd10" ## B"8'd0" ## B"8'd0" ## B"8'd2"
   udp.io.gateway := B"8'd10" ## B"8'd0" ## B"8'd0" ## B"8'd1"
   udp.io.subnet := 0
-
-  val reset_timeout = Timeout(10 ms)
 
   val stream_axil = StreamAxiLite()
   udp.addPort(1000, stream_axil.io.tx, stream_axil.io.rx)
@@ -92,88 +87,108 @@ case class EthernetTestbench() extends Component {
   bus_ctrl.read(U(timestamp, 32 bits), 0xffc)
 
   val rst_area = new ResetArea(!reset_timeout, true) {
-    val iq_stream = Stream(Fragment(Bits(8 bits)))
 
-    val acq = AcquisitionModular(freq_shift = 20, flush = false, debug = true)
-    val (iq_stream_unfragmented, iq_availability) =
-      iq_stream.toStreamOfFragment.queueWithAvailability(200000, forFMax = true)
-    val iq_full_bits = ComplexTimestamper(StreamWidthAdapter.make(iq_stream_unfragmented, Complex(2)))
-    val iq_forked = StreamFork(iq_full_bits, 2)
-    acq.io.iq << iq_forked(0).map(_.asBits)
+    val acquisition_area = config.eth_acquisition generate new Area {
+      val iq_stream = Stream(Fragment(Bits(8 bits)))
 
-    udp.addPort(1010, acq.io.results.fragmentTransaction(8), iq_stream)
+      val acq = AcquisitionModular(freq_shift = 20, flush = false, debug = true)
+      val (iq_stream_unfragmented, iq_availability) =
+        iq_stream.toStreamOfFragment.queueWithAvailability(20000, forFMax = true)
+      val iq_full_bits = ComplexTimestamper(StreamWidthAdapter.make(iq_stream_unfragmented, Complex(2)))
+      acq.io.iq << iq_full_bits.map(_.asBits)
 
-    val input_counter = Counter(32 bits, acq.io.iq.fire)
-    bus_ctrl.read(input_counter.value, 0x04)
+      udp.addPort(1010, acq.io.results.fragmentTransaction(8), iq_stream)
 
-    val result_counter = Counter(32 bits, acq.io.results.fire)
-    bus_ctrl.read(result_counter.value, 0x08)
+      val input_counter = Counter(32 bits, acq.io.iq.fire)
+      bus_ctrl.read(input_counter.value, 0x04)
 
-    // Acquisition cycle counting
-    val cycles_reset_timeout = Timeout(1 ms)
-    val cycles_total = Counter(32 bits)
-    val cycles_stalled = Counter(32 bits)
-    val cycles_empty = Counter(32 bits)
+      val result_counter = Counter(32 bits, acq.io.results.fire)
+      bus_ctrl.read(result_counter.value, 0x08)
 
-    when(cycles_total < 100 * 1000 * 1000 && cycles_reset_timeout) {
-      cycles_total.increment()
+      // Acquisition cycle counting
+      val cycles_reset_timeout = Timeout(1 ms)
+      val cycles_total = Counter(32 bits)
+      val cycles_stalled = Counter(32 bits)
+      val cycles_empty = Counter(32 bits)
 
-      when(acq.io.iq.ready && !acq.io.iq.valid) {
-        cycles_empty.increment()
+      when(cycles_total < 100 * 1000 * 1000 && cycles_reset_timeout) {
+        cycles_total.increment()
+
+        when(acq.io.iq.ready && !acq.io.iq.valid) {
+          cycles_empty.increment()
+        }
+        when(!acq.io.iq.ready & acq.io.iq.valid) {
+          cycles_stalled.increment()
+        }
       }
-      when(!acq.io.iq.ready & acq.io.iq.valid) {
-        cycles_stalled.increment()
+
+      bus_ctrl.onRead(0x100) {
+        cycles_total.clear()
+        cycles_stalled.clear()
+        cycles_empty.clear()
+        cycles_reset_timeout.clear()
       }
+
+      bus_ctrl.read(iq_availability, 0x10)
     }
 
-    bus_ctrl.onRead(0x100) {
-      cycles_total.clear()
-      cycles_stalled.clear()
-      cycles_empty.clear()
-      cycles_reset_timeout.clear()
+    val cordic_area = config.eth_cordic generate new Area {
+      // Sin/Cos CORDIC
+      val cordic = CordicSinCos()
+      val cordic_phase_8b = Stream(Fragment(Bits(8 bits)))
+      val cordic_adapter = StreamWidthAdapter(cordic_phase_8b.toStreamOfFragment, cordic.io.phase, padding = true)
+      udp.addPort(1020, cordic.io.dout.fragmentTransaction(8), cordic_phase_8b)
+
+      // Atan CORDIC
+      val cordic_atan = CordicAtan()
+      val cordic_xy_8b = Stream(Fragment(Bits(8 bits)))
+      val cordic_xy_adapter = StreamWidthAdapter(cordic_xy_8b.toStreamOfFragment, cordic_atan.io.xy, padding = true)
+      udp.addPort(1021, cordic_atan.io.dout.fragmentTransaction(8), cordic_xy_8b)
     }
-
-    printf("Availability width: %d\n", iq_availability.getWidth)
-    bus_ctrl.read(iq_availability, 0x10)
-
-    // Sin/Cos CORDIC
-    val cordic = CordicSinCos()
-    val cordic_phase_8b = Stream(Fragment(Bits(8 bits)))
-    val cordic_adapter = StreamWidthAdapter(cordic_phase_8b.toStreamOfFragment, cordic.io.phase, padding = true)
-    udp.addPort(1020, cordic.io.dout.fragmentTransaction(8), cordic_phase_8b)
-
-    // Atan CORDIC
-    val cordic_atan = CordicAtan()
-    val cordic_xy_8b = Stream(Fragment(Bits(8 bits)))
-    val cordic_xy_adapter = StreamWidthAdapter(cordic_xy_8b.toStreamOfFragment, cordic_atan.io.xy, padding = true)
-    udp.addPort(1021, cordic_atan.io.dout.fragmentTransaction(8), cordic_xy_8b)
 
     // Tracking
-    // val tracking_area = new Area {
-    //   // Tracking channel
-    //   val tracking = TrackingChannel()
-    //   val tracking_enabled = Bool()
-    //   bus_ctrl.drive(tracking_enabled, 0x214, 0) init False
-    //   tracking.io.iq << iq_forked(1).throwWhen(!tracking_enabled)
-    //   bus_ctrl.readStreamNonBlocking(tracking.io.early, 0x200, 31, 0)
-    //   bus_ctrl.readStreamNonBlocking(tracking.io.prompt, 0x204, 31, 0)
-    //   bus_ctrl.readStreamNonBlocking(tracking.io.late, 0x208, 31, 0)
-    //   bus_ctrl.driveFlow(tracking.io.freq_delta, 0x20c)
+    val tracking_area = config.eth_tracking generate new Area {
+      val tracking = TrackingChannel(config)
+      tracking.io.nav_data.freeRun()
 
-    //   // Config
-    //   val tracking_config = Flow(AcquisitionResults())
-    //   tracking_config.valid.setAsReg()
-    //   tracking.io.config << tracking_config
-    //   bus_ctrl.drive(tracking_config.sv, 0x210, 0)
-    //   bus_ctrl.drive(tracking_config.freq_offset, 0x210, 6)
-    //   bus_ctrl.drive(tracking_config.phase_offset, 0x210, 18)
-    //   tracking_config.snr := 0
-    //   bus_ctrl.onWrite(0x210)(tracking_config.valid := True)
-    //   when(tracking_config.valid)(tracking_config.valid := False)
-    // }
+      val iq_fragment = Stream(Fragment(Bits(8 bits)))
+      val (iq_stream, _) =
+        iq_fragment.toStreamOfFragment.queueWithAvailability(200)
+      val iq_2b =
+        ComplexTimestamper(StreamWidthAdapter.make(iq_stream, Complex(2)), period = config.prn_period)
+      tracking.io.iq << iq_2b
+      val results_8b = tracking.io.debug.toStream.queue(10).fragmentTransaction(8)
+      udp.addPort(1040, results_8b, iq_fragment)
+
+      bus_ctrl.driveFlow(tracking.io.config_flow, 0x210)
+
+      val sample_count = Counter(32 bits, tracking.io.iq.fire)
+      val result_count = Counter(32 bits, tracking.io.debug.fire)
+      bus_ctrl.read(sample_count.value, 0x200)
+      bus_ctrl.read(result_count.value, 0x204)
+
+      // Hash for debugging
+      val input_hash = Reg(UInt(32 bits)) init 0
+      val in_idx = Reg(UInt(1 bits)) init 0
+      val output_hash = Reg(Bits(32 bits)) init 0
+      val out_idx = Reg(UInt(2 bits)) init 0
+
+      when (results_8b.fire) {
+        // input_hash(16*in_idx, 16 bits) := input_hash(16*in_idx, 16 bits) ^ iq_2b.payload.asBits
+        // input_hash(0, 16 bits) := input_hash(0, 16 bits) + iq_2b.c.asBits.asUInt
+        // input_hash(16, 16 bits) := input_hash(16, 16 bits) + iq_2b.t
+        input_hash := input_hash + iq_2b.t
+        output_hash := iq_2b.t.asBits.resized
+        in_idx := in_idx + 1
+        // output_hash(8*out_idx, 8 bits) := output_hash(8*out_idx, 8 bits) ^ results_8b.payload
+        out_idx := out_idx + 1
+      }
+      bus_ctrl.read(input_hash, 0x20C)
+      bus_ctrl.read(output_hash, 0x208)
+    }
 
     // MAX2769
-    val max_area = new Area {
+    val max_area = config.eth_max2769 generate new Area {
       val config = MaxSpiConfig(div = 20, prog_defaults = false)
       config.io.spi <> io.spi
 
@@ -197,7 +212,7 @@ case class EthernetTestbench() extends Component {
     }
 
     // Frequency counter for interface status
-    val max_counters = new Area {
+    val max_counters = config.eth_max2769 generate new Area {
       val period = 10 ms
       val counter_width = log2Up((period * (16.368 MHz)).toInt)
 
@@ -233,10 +248,19 @@ case class EthernetTestbench() extends Component {
       bus_ctrl.read(data_val, 0x314)
       bus_ctrl.read(sync_val, 0x318)
     }
+
+    // Handle signals
+    val max_defaults = !config.eth_max2769 generate new Area {
+      io.spi.cs := True
+      io.spi.sclk := False
+      io.spi.sdata := False
+    }
   }
 }
 
 object EthernetTestbenchVerilog extends App {
-  val report = EthConfig.spinal.generateVerilog(EthernetTestbench())
+  val config = GpsConfig(debug = true)
+
+  val report = EthConfig.spinal.generateVerilog(EthernetTestbench(config))
   report.mergeRTLSource("sources")
 }

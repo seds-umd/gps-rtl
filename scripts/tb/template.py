@@ -101,8 +101,8 @@ class TemplateTb:
 
 
 class IqTestbench(TemplateTb):
-    def __init__(self, ip):
-        super().__init__(ip, 1010)
+    def __init__(self, ip, port=1010):
+        super().__init__(ip, port)
         self.thread = None
 
     def get_availability(self) -> int:

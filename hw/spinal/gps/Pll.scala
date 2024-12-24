@@ -43,10 +43,12 @@ case class Pll(config: PllConfig) extends Component {
   c1 := _c1
   c2 := _c2
 
-  val last_err = Reg(io.err.payload.clone()) init 0
+  val err = io.err.stage()
 
-  val t1 = c1 * (io.err.payload - last_err)
-  val t2 = c2 * io.err.payload
+  val last_err = Reg(err.payload.clone()) init 0
+
+  val t1 = RegNextWhen(c1 * (err.payload - last_err), err.ready)
+  val t2 = RegNextWhen(c2 * err.payload, err.ready)
   val nco_full = t1 + t2
 
   val nco_sat = io.nco.payload.clone()
@@ -60,10 +62,12 @@ case class Pll(config: PllConfig) extends Component {
     nco_sat := nco_full.truncated
   }
 
-  io.nco << io.err.translateWith(nco_sat)
+  io.nco.payload := nco_sat
+  io.nco.valid := RegNextWhen(err.valid, err.ready) init False
+  err.ready := io.nco.ready
 
-  when(io.err.fire) {
-    last_err := io.err.payload
+  when(err.fire) {
+    last_err := err.payload
   }
 
   // Locked after 128 cycles (128 ms)

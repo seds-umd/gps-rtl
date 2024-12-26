@@ -45,6 +45,7 @@ case class GpsConfig(
     eth_cordic: Boolean = true,
     eth_tracking: Boolean = true,
     eth_max2769: Boolean = true,
+    sim: Boolean = false,
 ) {
   def fft_bits = log2Up(prn_period)
   def fine_acq_factor = Math.pow(2, fine_acq_factor_log)

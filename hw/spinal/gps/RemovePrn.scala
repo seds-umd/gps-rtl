@@ -37,9 +37,8 @@ case class RemovePrn(
   val io = new Bundle {
     val input = slave Stream (ComplexTimestamp(iqInWidth, period))
 
-    val early = out(Complex(iqOutWidth))
-    val prompt = master Stream (Complex(iqOutWidth))
-    val late = out(Complex(iqOutWidth))
+    val output_multi = master Stream (Vec(Complex(iqOutWidth), 3))
+    val output_single = master Stream(Complex(iqOutWidth))
 
     val set = in Bool ()
     val sv = in UInt (6 bits)
@@ -58,7 +57,7 @@ case class RemovePrn(
     wrapped_phase
   }
 
-  val absolute_offset = Reg(UInt(phaseWidth bits))
+  val absolute_offset = Reg(UInt(phaseWidth bits)) init 0
 
   val prn = Prn()
   prn.io.sv := io.sv
@@ -109,8 +108,8 @@ case class RemovePrn(
   }
 
   // Advance PRN if it will get to alignment faster
-  val throw_prn = Reg(Bool())
-  val throw_iq = Reg(Bool())
+  val throw_prn = Reg(Bool()) init False
+  val throw_iq = Reg(Bool()) init False
   val aligned = Bool()
   aligned := False
 
@@ -159,7 +158,7 @@ case class RemovePrn(
       })
   }
 
-  if (earlyLate) {
+  val early_late_area = earlyLate generate new Area {
     val mixer_early = Mixer(mixerWidth)
     val mixer_prompt = Mixer(mixerWidth)
     val mixer_late = Mixer(mixerWidth)
@@ -170,23 +169,33 @@ case class RemovePrn(
     mixer_prompt.io.input_a </< inputs(1)
     mixer_late.io.input_a </< inputs(2)
 
-    val prn_code_history = History(prn_code, 2 * earlyLateShift + 1, prn.io.code.fire)
+    val prn_code_history = History(prn_code, 2 * earlyLateShift + 1, prn_code.fire, prn_code.clone.getZero)
     val prn_forked = StreamFork(prn_code, 3, true)
 
-    mixer_early.io.input_b </< prn_forked(0).translateWith(prn_code_history(0))
+    mixer_early.io.input_b </< prn_forked(0).translateWith(prn_code_history(2))
     mixer_prompt.io.input_b </< prn_forked(1).translateWith(prn_code_history(earlyLateShift))
     mixer_late.io.input_b </< prn_forked(2).translateWith(prn_code_history(2 * earlyLateShift))
 
-    io.early := process_output(mixer_early.io.output).freeRun.payload
-    io.prompt << process_output(mixer_prompt.io.output)
-    io.late := process_output(mixer_late.io.output).freeRun.payload
-  } else {
+    val joined = StreamJoin.vec(
+      Vec(
+        process_output(mixer_early.io.output),
+        process_output(mixer_prompt.io.output),
+        process_output(mixer_late.io.output)
+      )
+    )
+
+    io.output_multi << joined
+    io.output_single.setIdle()
+  }
+
+  val single_output = !earlyLate generate new Area {
     val mixer = Mixer(mixerWidth)
 
     mixer.io.input_a << input_stream
     mixer.io.input_b << prn_code
 
-    io.prompt << process_output(mixer.io.output)
+    io.output_single << process_output(mixer.io.output)
+    io.output_multi.setIdle()
   }
 
   val fsm = new StateMachine {
@@ -243,7 +252,7 @@ case class RemovePrn(
       whenIsActive {
         // In sims, IQ samples aren't limited by sample rate
         if (debug) {
-          when (offset > period / 2) {
+          when(offset > period / 2) {
             goto(advance_prn)
           } otherwise {
             goto(advance_iq)
@@ -292,32 +301,6 @@ case class RemovePrn(
   }
 }
 
-case class RemovePrnWrapper(iqInWidth: Int, iqOutWidth: Int, period: Int, phaseWidth: Int, sampleRate: HertzNumber)
-    extends Component {
-  val io = new Bundle {
-    val input = slave Stream (ComplexTimestamp(iqInWidth, period).asBits)
-    val output = master Stream (Complex(iqOutWidth).asBits)
-
-    val set = in Bool ()
-    val sv = in UInt (6 bits)
-    val phase_offset = in UInt (phaseWidth bits)
-  }
-
-  val dut = RemovePrn(iqInWidth, iqOutWidth, period, phaseWidth, sampleRate, earlyLate = true)
-
-  dut.io.input << io.input.translateInto(Stream(ComplexTimestamp(iqInWidth, period)))((to, from) => {
-    to.assignFromBits(from)
-  })
-
-  io.output << dut.io.prompt.translateInto(Stream(Complex(iqOutWidth).asBits))((to, from) => {
-    to := from.asBits
-  })
-
-  dut.io.set <> io.set
-  dut.io.sv <> io.sv
-  dut.io.phase_offset <> io.phase_offset
-}
-
 object RemovePrnVerilog extends App {
-  Config.spinal.generateVerilog(RemovePrnWrapper(2, 8, 4092, 12, 4.092 MHz))
+  Config.spinal.generateVerilog(RemovePrn(2, 8, 4092, 12, 4.092 MHz))
 }

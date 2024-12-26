@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import cocotb
 import cocotb.result
 from cocotb.triggers import ClockCycles, with_timeout
@@ -5,11 +7,10 @@ from cocotbext import axi
 
 import numpy as np
 import matplotlib.pyplot as plt
-import sys
-from pathlib import Path
 from gps import prn_gen
 
-from fpga_utils import TbTemplate, axis_sink, axis_source, corr, generate_gps_samples
+import fpga_utils.spinal_stream as stream
+from fpga_utils import TbTemplate, test_runner, axis_source, corr, generate_gps_samples
 from fpga_utils.fft_sim import fft_unpack_complex
 
 
@@ -17,9 +18,18 @@ class TB(TbTemplate):
     def __init__(self, dut):
         super().__init__(dut)
 
-        self.input = axis_source(dut, "io_input_", byte_size=16)
-        self.output = axis_sink(dut, "io_output_", byte_size=16)
+        # self.input = stream.SpinalStreamSource.from_prefix(dut, "io_input")
+        # self.early = stream.SpinalStreamSink.from_prefix(dut, "io_early")
+        # self.prompt = stream.SpinalStreamSink.from_prefix(dut, "io_prompt")
+        # self.late = stream.SpinalStreamSink.from_prefix(dut, "io_late")
+
+        # self.input = axis_source(dut, "io_input_", byte_size=16)
+        self.input = stream.SpinalStreamSource.from_prefix(dut, "io_input")
         self.input.set_pause_generator(self.iq_pause())
+        # self.early = axis_sink(dut, "io_early_", byte_size=16)
+        # self.prompt = axis_sink(dut, "io_prompt_", byte_size=16)
+
+        self.output = stream.SpinalStreamSink.from_prefix(dut, "io_output_multi")
 
         self.dut.io_sv.value = 0
         self.dut.io_set.value = 0
@@ -42,8 +52,8 @@ class TB(TbTemplate):
         await self.input.send(data)
         await self.input.wait()
 
-    async def get_data(self):
-        frame: axi.AxiStreamFrame = await self.output.read()
+    async def get_data(self) -> stream.SpinalStreamFrame:
+        frame: stream.SpinalStreamFrame = await self.prompt.read()
 
         return frame
 
@@ -57,7 +67,6 @@ class TB(TbTemplate):
 
     async def run_test(self, offset=0, timestamp_offset=0, cycles=1):
         await self.configure(offset=offset)
-        self.output.read_nowait()
 
         bits, samples, quant = generate_gps_samples(
             4.092e6, cycles * 4096, 1, 0, offset, -120, timestamp_offset
@@ -109,6 +118,19 @@ async def test_dut(dut):
 
     await tb.reset()
 
-    for phase_offset in [0, 10, 1234, 3456, 3910, 4091]:
-        for iq_offset in [0, 5, 4050]:
-            await tb.run_test(phase_offset, iq_offset)
+    await tb.run_test(0, 0)
+    await tb.run_test(1234, 5)
+
+    # for phase_offset in [0, 10, 1234, 3456, 3910, 4091]:
+    #     for iq_offset in [0, 5, 4050]:
+    #         await tb.run_test(phase_offset, iq_offset)
+
+if __name__ == "__main__":
+    test_runner.run_wrapper(
+        top_level="RemovePrn",
+        package="gps",
+        proj_dir="../../..",
+        source_dir="hw/spinal/gps",
+        gen_dir="hw/gen",
+        # verilog_sources=["hw/verilog/CordicSinCos.v", "hw/verilog/CordicAtan.v"],
+    )

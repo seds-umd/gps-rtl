@@ -25,7 +25,7 @@ case class RemovePrn(input_width: Int, config: GpsConfig) extends Component {
   val threshold = config.prn_period - ((1 << config.fft_bits) * (clocks_per_sample - 1) / clocks_per_sample).toInt
 
   val io = new Bundle {
-    val input = slave Stream (ComplexTimestamp(config.max_iq_size, config.prn_period))
+    val input = slave Stream (ComplexTimestamp(input_width, config.prn_period))
 
     val output = master Stream (Vec(Complex(config.prn_output_width), 3))
 
@@ -106,7 +106,7 @@ case class RemovePrn(input_width: Int, config: GpsConfig) extends Component {
     val aligned = Bool()
     aligned := False
 
-    val mixerWidth = config.max_iq_size * 2
+    val mixerWidth = input_width * 2
 
     val prn_code = prn.io.code
       .translateInto(Stream(Fragment(Complex(mixerWidth))))((to, from) => {
@@ -125,8 +125,8 @@ case class RemovePrn(input_width: Int, config: GpsConfig) extends Component {
     val input_stream = io.input
       .throwWhen(throw_iq) // Don't send to mixer before alignment
       .translateInto(Stream(Fragment(Complex(mixerWidth))))((to, from) => {
-        to.fragment.re := from.c.re @@ (U"1'b1" << (mixerWidth - config.max_iq_size - 1))
-        to.fragment.im := from.c.im @@ (U"1'b1" << (mixerWidth - config.max_iq_size - 1))
+        to.fragment.re := from.c.re @@ (U"1'b1" << (mixerWidth - input_width - 1))
+        to.fragment.im := from.c.im @@ (U"1'b1" << (mixerWidth - input_width - 1))
         to.last := False // Don't care
       })
 

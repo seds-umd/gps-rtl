@@ -77,11 +77,10 @@ case class TrackingChannel(config: GpsConfig) extends Component {
   val dec_prompt = Decimate(factor = config.prn_period, iq_out_size = config.dec_width)
   val dec_late = Decimate(factor = config.prn_period, iq_out_size = config.dec_width)
 
-  // Use prompt stream arbitration for all 3 streams
-  // val dec_fork = StreamFork(prn.io.prompt, 3, false)
-  // dec_early.io.iq_in << dec_fork(0).translateWith(prn.io.early)
-  // dec_prompt.io.iq_in << dec_fork(1)
-  // dec_late.io.iq_in << dec_fork(2).translateWith(prn.io.late)
+  val prn_removed = StreamFork(prn.io.output, 3, true)
+  dec_early.io.iq_in << prn_removed(0).map(_(0))
+  dec_prompt.io.iq_in << prn_removed(1).map(_(1))
+  dec_late.io.iq_in << prn_removed(2).map(_(2))
 
   val dec_prompt_vec = StreamFork(dec_prompt.io.iq_out, 2, true)
   val early_late = StreamJoin(dec_early.io.iq_out, dec_late.io.iq_out)

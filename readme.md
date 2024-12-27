@@ -260,3 +260,31 @@ Capture 2s of traffic with wireshark:
 ```bash
 tshark -i eth0 -a duration:2 -w filename.pcap
 ```
+
+# TODO
+
+With the 7S50 there's 120 DSPs so multiplication optimization is a low priority.
+
+* Major components
+  * Tracking
+  * SPI control
+  * Acquisition/tracking channel manager
+  * Record timing values for calculating position
+* Improvements
+  * Global configuration object for all components
+    * Sample rate, period, etc should all be in configuration object
+  * Mixer
+    * Time multiplex multiplications to use a single DSP
+      * Analyze the impact on performance, might be better to use the DSPs or choose case by case
+    * More optimal method of complex multiplication to use only 3 muls: https://mathworld.wolfram.com/ComplexMultiplication.html
+  * Acquisition
+    * Select SVs to skip - skip ones that are already being tracked or are known to be not visible or not exist
+  * PLL
+    * Loop params runtime configurable
+    * Time multiplex multiplications
+  * SNR
+    * Use fixed point div to get more SNR precision
+  * StreamMemory
+    * Use sync reads
+  * TrackingChannel
+    * Time multiplex CORDICs for carrier generation and for discriminator

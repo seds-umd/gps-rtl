@@ -2,7 +2,7 @@ package gps
 
 import spinal.core._
 
-case class GpsTop() extends Component {
+case class GpsTop(config: GpsConfig) extends Component {
   val io = new Bundle {
     // MAX2769 interface
     val clk_ser = in Bool ()
@@ -13,7 +13,7 @@ case class GpsTop() extends Component {
     val debug_out = out Bits ()
   }
 
-  val acq = AcquisitionModular(2, 4096)
+  val acq = AcquisitionModular(config)
   val max = MaxInterface(2)
 
   max.io.max.clk_ser <> io.clk_ser
@@ -30,5 +30,7 @@ case class GpsTop() extends Component {
 }
 
 object GpsTopVerilog extends App {
-  Config.spinal.generateVerilog(GpsTop())
+  val gps_config = GpsConfig()
+
+  Config.spinal.generateVerilog(GpsTop(gps_config))
 }

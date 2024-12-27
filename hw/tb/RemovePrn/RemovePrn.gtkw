@@ -1,154 +1,106 @@
 [*]
-[*] GTKWave Analyzer v3.3.103 (w)1999-2019 BSI
-[*] Sun May 19 22:04:48 2024
+[*] GTKWave Analyzer v3.3.104 (w)1999-2020 BSI
+[*] Fri Dec 27 01:49:35 2024
 [*]
-[dumpfile] "/home/nathan/seds/gps-rtl/hw/tb/RemovePrn/sim_build/RemovePrnWrapper.fst"
-[dumpfile_mtime] "Sun May 19 22:04:30 2024"
-[dumpfile_size] 215340
-[savefile] "/home/nathan/seds/gps-rtl/hw/tb/RemovePrn/RemovePrn.gtkw"
+[dumpfile] "/home/nathan/seds/gps-rtl/hw/tb/RemovePrn/sim_build/RemovePrn.fst"
+[dumpfile_mtime] "Fri Dec 27 01:48:40 2024"
+[dumpfile_size] 12501199
+[savefile] "/home/nathan/seds/gps-rtl/hw/tb/RemovePrn/*.gtkw"
 [timestart] 0
-[size] 1908 1007
+[size] 1428 867
 [pos] -1 -1
-*-16.347851 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
-[treeopen] RemovePrnWrapper.
-[treeopen] RemovePrnWrapper.dut.
-[sst_width] 310
-[signals_width] 246
+*-17.000000 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+[treeopen] RemovePrn.
+[sst_width] 214
+[signals_width] 230
 [sst_expanded] 1
-[sst_vpaned_height] 295
+[sst_vpaned_height] 245
 @28
-RemovePrnWrapper.clk
-RemovePrnWrapper.reset
-RemovePrnWrapper.io_set
-@24
-RemovePrnWrapper.io_sv[5:0]
-RemovePrnWrapper.io_phase_offset[11:0]
-@200
--
-@c00200
--Input
-@420
-RemovePrnWrapper.dut.io_input_payload_c_re[1:0]
-RemovePrnWrapper.dut.io_input_payload_c_im[1:0]
-@24
-RemovePrnWrapper.dut.io_input_payload_t[11:0]
-@28
-RemovePrnWrapper.io_input_ready
-RemovePrnWrapper.io_input_valid
-@1401200
--Input
-@c00200
--Mixer IQ In
-@420
-RemovePrnWrapper.dut.mixer_1.io_input_a_payload_fragment_re[3:0]
-RemovePrnWrapper.dut.mixer_1.io_input_a_payload_fragment_im[3:0]
-@28
-RemovePrnWrapper.dut.mixer_1.io_input_a_ready
-RemovePrnWrapper.dut.mixer_1.io_input_a_valid
-@1401200
--Mixer IQ In
-@c00200
--PRN Gen
-@28
-RemovePrnWrapper.dut.prn_1.io_set
-@22
-RemovePrnWrapper.dut.prn_1.io_sv[5:0]
-@200
--
-@28
-RemovePrnWrapper.dut.prn_1.io_code_payload
-RemovePrnWrapper.dut.prn_1.io_code_fire
-RemovePrnWrapper.dut.prn_1.io_code_ready
-RemovePrnWrapper.dut.prn_1.io_code_valid
-@24
-RemovePrnWrapper.dut.prn_1.io_code_count[9:0]
-@22
-RemovePrnWrapper.dut.prn_1.io_inc[16:0]
-@24
-RemovePrnWrapper.dut.prn_1.io_sample_count[11:0]
-@28
-RemovePrnWrapper.dut.prn_1.advance_code
-@1401200
--PRN Gen
-@c00200
--Mixer PRN In
-@420
-RemovePrnWrapper.dut.mixer_1.io_input_b_payload_fragment_re[3:0]
-RemovePrnWrapper.dut.mixer_1.io_input_b_payload_fragment_im[3:0]
-@28
-RemovePrnWrapper.dut.mixer_1.io_input_b_ready
-RemovePrnWrapper.dut.mixer_1.io_input_b_valid
-@1401200
--Mixer PRN In
-@c00200
--Mixer Pipeline
-@420
-RemovePrnWrapper.dut.mixer_1.s1_a_im[3:0]
-RemovePrnWrapper.dut.mixer_1.s1_a_re[3:0]
-RemovePrnWrapper.dut.mixer_1.s1_b_im[3:0]
-RemovePrnWrapper.dut.mixer_1.s1_b_re[3:0]
-RemovePrnWrapper.dut.mixer_1.s2_im_mix1[7:0]
-RemovePrnWrapper.dut.mixer_1.s2_im_mix2[7:0]
-RemovePrnWrapper.dut.mixer_1.s2_re_mix1[7:0]
-RemovePrnWrapper.dut.mixer_1.s2_re_mix2[7:0]
-RemovePrnWrapper.dut.mixer_1.s3_im_mix[7:0]
-RemovePrnWrapper.dut.mixer_1.s3_re_mix[7:0]
-@1401200
--Mixer Pipeline
-@800200
--Output
-@c00420
-RemovePrnWrapper.dut.io_output_payload_re[7:0]
-@28
-(0)RemovePrnWrapper.dut.io_output_payload_re[7:0]
-(1)RemovePrnWrapper.dut.io_output_payload_re[7:0]
-(2)RemovePrnWrapper.dut.io_output_payload_re[7:0]
-(3)RemovePrnWrapper.dut.io_output_payload_re[7:0]
-(4)RemovePrnWrapper.dut.io_output_payload_re[7:0]
-(5)RemovePrnWrapper.dut.io_output_payload_re[7:0]
-(6)RemovePrnWrapper.dut.io_output_payload_re[7:0]
-(7)RemovePrnWrapper.dut.io_output_payload_re[7:0]
-@1401200
--group_end
-@c00420
-RemovePrnWrapper.dut.io_output_payload_im[7:0]
-@28
-(0)RemovePrnWrapper.dut.io_output_payload_im[7:0]
-(1)RemovePrnWrapper.dut.io_output_payload_im[7:0]
-(2)RemovePrnWrapper.dut.io_output_payload_im[7:0]
-(3)RemovePrnWrapper.dut.io_output_payload_im[7:0]
-(4)RemovePrnWrapper.dut.io_output_payload_im[7:0]
-(5)RemovePrnWrapper.dut.io_output_payload_im[7:0]
-(6)RemovePrnWrapper.dut.io_output_payload_im[7:0]
-(7)RemovePrnWrapper.dut.io_output_payload_im[7:0]
-@1401200
--group_end
-@28
-RemovePrnWrapper.io_output_ready
-RemovePrnWrapper.io_output_valid
-@1000200
--Output
-@200
--
-@28
-RemovePrnWrapper.dut.mixer_1.joined_fire
-@200
--
+RemovePrn.clk
+RemovePrn.reset
 @820
-RemovePrnWrapper.dut.fsm_stateReg_string[87:0]
+RemovePrn.fsm_stateReg_string[87:0]
+@800200
+-Input
+@420
++{c_re} RemovePrn.io_input_payload_c_re[1:0]
++{c_im} RemovePrn.io_input_payload_c_im[1:0]
+@24
++{t} RemovePrn.io_input_payload_t[11:0]
 @28
-RemovePrnWrapper.dut.aligned
-RemovePrnWrapper.dut.throw_iq
-RemovePrnWrapper.dut.throw_prn
++{ready} RemovePrn.io_input_ready
++{valid} RemovePrn.io_input_valid
+@1000200
+-Input
+@c00200
+-Output
+@420
++{0_re} RemovePrn.io_output_payload_0_re[7:0]
++{0_im} RemovePrn.io_output_payload_0_im[7:0]
++{1_re} RemovePrn.io_output_payload_1_re[7:0]
++{1_im} RemovePrn.io_output_payload_1_im[7:0]
++{2_re} RemovePrn.io_output_payload_2_re[7:0]
++{2_im} RemovePrn.io_output_payload_2_im[7:0]
+@28
++{ready} RemovePrn.io_output_ready
++{valid} RemovePrn.io_output_valid
+@1401200
+-Output
+@c00200
+-Config
+@28
++{set} RemovePrn.io_set
+@22
++{sv} RemovePrn.io_sv[5:0]
++{phase_offset} RemovePrn.io_phase_offset[11:0]
+@1401200
+-Config
+@800200
+-PRN Generator
+@28
+RemovePrn.prn_1.io_set
 @24
-RemovePrnWrapper.dut.prn_1_io_sample_count[11:0]
-RemovePrnWrapper.dut.io_input_payload_t[11:0]
-RemovePrnWrapper.dut.offset[11:0]
-RemovePrnWrapper.dut.offset_next[11:0]
-@200
--
+RemovePrn.prn_1.io_sample_count[11:0]
+@28
+RemovePrn.prn_1.io_code_payload
+RemovePrn.prn_1.io_code_ready
+RemovePrn.prn_1.io_code_valid
+@1000200
+-PRN Generator
+@28
+RemovePrn.throw_iq
+RemovePrn.throw_prn
 @24
-RemovePrnWrapper.dut.last_iq_phase[11:0]
-RemovePrnWrapper.dut.last_prn_phase[11:0]
++{dropped_iq} RemovePrn.dropped_iq_value[15:0]
++{dropped_prn} RemovePrn.dropped_prn_value[15:0]
+@28
+RemovePrn.aligned
+@24
+RemovePrn.offset[11:0]
+RemovePrn.offset_next[11:0]
+@420
+RemovePrn.offset_signed[12:0]
+@24
+RemovePrn.offset_target[11:0]
+@420
++{prn_early} RemovePrn.mixer_early.io_input_b_payload_fragment_re[3:0]
++{prn_prompt} RemovePrn.mixer_prompt.io_input_b_payload_fragment_re[3:0]
++{prn_late} RemovePrn.mixer_late.io_input_b_payload_fragment_re[3:0]
+@c00200
+-Early Mixer
+@420
+RemovePrn.mixer_early.io_input_a_payload_fragment_re[3:0]
+RemovePrn.mixer_early.io_input_a_payload_fragment_im[3:0]
+@28
+RemovePrn.mixer_early.io_input_a_ready
+RemovePrn.mixer_early.io_input_a_valid
+@420
+RemovePrn.mixer_early.io_input_b_payload_fragment_re[3:0]
+RemovePrn.mixer_early.io_input_b_payload_fragment_im[3:0]
+@28
+RemovePrn.mixer_early.io_input_b_ready
+RemovePrn.mixer_early.io_input_b_valid
+@1401200
+-Early Mixer
 [pattern_trace] 1
 [pattern_trace] 0

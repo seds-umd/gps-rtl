@@ -91,7 +91,7 @@ case class EthernetTestbench(config: GpsConfig) extends Component {
     val acquisition_area = config.eth_acquisition generate new Area {
       val iq_stream = Stream(Fragment(Bits(8 bits)))
 
-      val acq = AcquisitionModular(freq_shift = 20, flush = false, debug = true)
+      val acq = AcquisitionModular(config, freq_shift = 20, flush = false, debug = true)
       val (iq_stream_unfragmented, iq_availability) =
         iq_stream.toStreamOfFragment.queueWithAvailability(20000, forFMax = true)
       val iq_full_bits = ComplexTimestamper(StreamWidthAdapter.make(iq_stream_unfragmented, Complex(2)))

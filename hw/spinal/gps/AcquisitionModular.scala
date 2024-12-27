@@ -30,6 +30,7 @@ case class AcquisitionResults(fft_size_log: Int = 12) extends Bundle {
 }
 
 case class AcquisitionModular(
+    config: GpsConfig,
     iq_size: Int = 2,
     fft_size: Int = 4096,
     fft_width: Int = 8,
@@ -126,13 +127,13 @@ case class AcquisitionModular(
   mixer.io.input_b << prn_mem.io.output
 
   val fine_acq = new Area {
-    val remove_prn = RemovePrn(iq_size, fft_width, period, fft_size_log, 4.092 MHz, debug)
+    val remove_prn = RemovePrn(iq_size, config)
     remove_prn.io.sv := sv
     remove_prn.io.set := False
     remove_prn.io.input << iq_area.output_fine
 
     val decimator = Decimate(iq_in_size = fft_width, iq_out_size = fft_width, factor = dec_factor)
-    decimator.io.iq_in << remove_prn.io.output_single
+    decimator.io.iq_in << remove_prn.io.output.map(_(1))
     val dec_out = decimator.io.iq_out
   }
 
@@ -431,6 +432,8 @@ case class AcquisitionModular(
 }
 
 object AcquisitionModularVerilog extends App {
+  val gps_config = GpsConfig(debug = true)
+
   // Generate verilog for testbench. If freq_shift is changed, also change in tb.
-  Config.spinal.generateVerilog(AcquisitionModular(freq_shift = 2, flush = false, debug = true))
+  Config.spinal.generateVerilog(AcquisitionModular(gps_config, freq_shift = 2, flush = false, debug = true))
 }

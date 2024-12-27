@@ -5,6 +5,10 @@ import spinal.core._
 case class GpsConfig(
     // Set by MAX2769 register config
     max_iq_size: Int = 2,
+    f_samp: HertzNumber = 4.092 MHz,
+
+    // From FPGA configuration
+    f_logic: HertzNumber = 50 MHz,
 
     // Process 1ms at a time at fs=4.092 MHz
     prn_period: Int = 4092,
@@ -36,6 +40,12 @@ case class GpsConfig(
     pll_width: Int = 8,
     pll_err_peak: Int = 0,
     pll_nco_peak: Int = 3,
+
+    // Tracking code discriminator settings
+    early_late_shift: Int = 1,
+
+    // RemovePrn output width
+    prn_output_width: Int = 8,
 
     // Decimated sample width
     dec_width: Int = 14,

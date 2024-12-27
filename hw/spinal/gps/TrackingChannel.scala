@@ -52,13 +52,8 @@ case class TrackingChannel(config: GpsConfig) extends Component {
   val code_phase = Reg(UInt(config.fft_bits bits))
   val prn =
     RemovePrn(
-      iqInWidth = 8,
-      iqOutWidth = 8,
-      period = config.prn_period,
-      phaseWidth = 12,
-      sampleRate = 4.092 MHz,
-      earlyLate = true,
-      debug = config.debug
+      input_width = 8,
+      config = config
     )
   val sv = Reg(UInt(6 bits)) init 0
   prn.io.sv := sv

@@ -23,7 +23,7 @@ case class Prn() extends Component {
   val advance_code = chip_fraction_next(16) & io.code.fire
 
   val code_count = Counter(1023, advance_code)
-  val sample_count = Counter(4 * 1023, io.code.ready) // TODO: don't hard code sample rate
+  val sample_count = Counter(4 * 1023, io.code.fire) // TODO: don't hard code sample rate
 
   io.code_count <> code_count
   io.sample_count <> sample_count

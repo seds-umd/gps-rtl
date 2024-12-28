@@ -20,7 +20,7 @@ case class MixerTimestamp(width: Int = 8, period: Int = 4092) extends Component 
   // Output ready skips pipeline to stall input bus
 
   val joined = StreamJoin(io.input_a, io.input_b)
-  joined.ready := io.output.ready
+  joined.ready := io.output.ready || !io.output.valid
 
   val s1_a = Reg(Complex(width))
   val s1_b = Reg(Complex(width))
@@ -36,8 +36,8 @@ case class MixerTimestamp(width: Int = 8, period: Int = 4092) extends Component 
   val s3_im_mix = Reg(SInt(2 * width bits))
   val s3_valid = Reg(Bool()) init False
 
-  // Advance only when output is ready
-  when(io.output.ready) {
+  // Advance only when output is ready or bubble in pipeline
+  when(io.output.ready || !io.output.valid) {
     // Advance first stage
     when(joined.fire) {
       s1_a := joined.payload._1.c

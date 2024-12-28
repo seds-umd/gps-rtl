@@ -8,7 +8,6 @@ from litex.soc.integration.builder import Builder
 from litex.soc.integration.soc_core import SoCCore
 from litex_boards.platforms import sitlinv_stlv7325_v1
 
-# from litex_boards.targets.sitlinv_stlv7325_v1 import _CRG
 from migen import *
 
 """

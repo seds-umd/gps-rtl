@@ -62,10 +62,11 @@ case class EthernetTestbench(config: GpsConfig) extends Component {
     val max = MaxDspBus()
   }
 
-  val reset_timeout = Timeout(10 ms)
+  val reset_period = if (config.sim) 5 us else 10 ms
+  val reset_timeout = Timeout(reset_period)
 
   // UDP stack outside soft reset, it doesn't reset properly inside
-  val udp = UdpStream()
+  val udp = UdpStream(sim = config.sim)
   udp.io.gtx_clk := io.gtx_clk
   udp.io.gtx_rst := io.gtx_rst
   udp.io.gmii <> io.gmii
@@ -140,10 +141,15 @@ case class EthernetTestbench(config: GpsConfig) extends Component {
       udp.addPort(1020, cordic.io.dout.fragmentTransaction(8), cordic_phase_8b)
 
       // Atan CORDIC
-      val cordic_atan = CordicAtan()
-      val cordic_xy_8b = Stream(Fragment(Bits(8 bits)))
-      val cordic_xy_adapter = StreamWidthAdapter(cordic_xy_8b.toStreamOfFragment, cordic_atan.io.xy, padding = true)
-      udp.addPort(1021, cordic_atan.io.dout.fragmentTransaction(8), cordic_xy_8b)
+      val cordic_atan1 = CordicAtan()
+      val cordic1_xy_8b = Stream(Fragment(Bits(8 bits)))
+      val cordic1_xy_adapter = StreamWidthAdapter(cordic1_xy_8b.toStreamOfFragment, cordic_atan1.io.xy, padding = true)
+      udp.addPort(1021, cordic_atan1.io.dout.fragmentTransaction(8), cordic1_xy_8b)
+
+      val cordic_atan2 = CordicAtanWrapper()
+      val cordic2_xy_8b = Stream(Fragment(Bits(8 bits)))
+      val cordic2_xy_adapter = StreamWidthAdapter(cordic2_xy_8b.toStreamOfFragment, cordic_atan2.io.cartesian, padding = true)
+      udp.addPort(1022, cordic_atan2.io.dout.fragmentTransaction(8), cordic2_xy_8b)
     }
 
     // Tracking
@@ -152,13 +158,16 @@ case class EthernetTestbench(config: GpsConfig) extends Component {
       tracking.io.nav_data.freeRun()
 
       val iq_fragment = Stream(Fragment(Bits(8 bits)))
-      val (iq_stream, _) =
-        iq_fragment.toStreamOfFragment.queueWithAvailability(200)
+      val (iq_stream, iq_avail) =
+        iq_fragment.toStreamOfFragment.queueWithAvailability(20000)
       val iq_2b =
-        ComplexTimestamper(StreamWidthAdapter.make(iq_stream, Complex(2)), period = config.prn_period)
-      tracking.io.iq << iq_2b
-      val results_8b = tracking.io.debug.toStream.queue(10).fragmentTransaction(8)
+        ComplexTimestamper(StreamWidthAdapter.make(iq_stream, Complex(2)), period = config.prn_period).stage()
+      val results_8b = tracking.io.debug.toStream.queue(5).fragmentTransaction(8)
       udp.addPort(1040, results_8b, iq_fragment)
+
+      // Slow down by 8x to prevent timing issues
+      val halt_counter = Counter(3 bits, True)
+      tracking.io.iq << iq_2b.haltWhen(!halt_counter.willOverflow)
 
       bus_ctrl.driveFlow(tracking.io.config_flow, 0x210)
 
@@ -173,18 +182,37 @@ case class EthernetTestbench(config: GpsConfig) extends Component {
       val output_hash = Reg(Bits(32 bits)) init 0
       val out_idx = Reg(UInt(2 bits)) init 0
 
-      when (results_8b.fire) {
-        // input_hash(16*in_idx, 16 bits) := input_hash(16*in_idx, 16 bits) ^ iq_2b.payload.asBits
-        // input_hash(0, 16 bits) := input_hash(0, 16 bits) + iq_2b.c.asBits.asUInt
-        // input_hash(16, 16 bits) := input_hash(16, 16 bits) + iq_2b.t
-        input_hash := input_hash + iq_2b.t
-        output_hash := iq_2b.t.asBits.resized
+      when (iq_2b.fire) {
+        input_hash(16*in_idx, 16 bits) := input_hash(16*in_idx, 16 bits) ^ iq_2b.payload.asBits.asUInt
         in_idx := in_idx + 1
-        // output_hash(8*out_idx, 8 bits) := output_hash(8*out_idx, 8 bits) ^ results_8b.payload
+      }
+
+      when (results_8b.fire) {
+        output_hash(8*out_idx, 8 bits) := output_hash(8*out_idx, 8 bits) ^ results_8b.payload
         out_idx := out_idx + 1
       }
       bus_ctrl.read(input_hash, 0x20C)
       bus_ctrl.read(output_hash, 0x208)
+
+      bus_ctrl.read(tracking.prn.set_area.fsm.stateReg.pull(), 0x220)
+      bus_ctrl.read(tracking.prn.set_area.aligned.pull(), 0x224)
+      bus_ctrl.read(tracking.prn.set_area.dropped_iq.pull(), 0x228)
+      bus_ctrl.read(tracking.prn.set_area.dropped_prn.pull(), 0x22C)
+
+      bus_ctrl.read(tracking.io.iq.ready.pull(), 0x230, 0)
+      bus_ctrl.read(tracking.io.iq.valid.pull(), 0x230, 1)
+      bus_ctrl.read(tracking.prn.io.input.ready.pull(), 0x230, 2)
+      bus_ctrl.read(tracking.prn.io.input.valid.pull(), 0x230, 3)
+      bus_ctrl.read(tracking.prn.io.output.ready.pull(), 0x230, 4)
+      bus_ctrl.read(tracking.prn.io.output.valid.pull(), 0x230, 5)
+      bus_ctrl.read(tracking.carrier_mixer.io.input_a.ready.pull(), 0x230, 6)
+      bus_ctrl.read(tracking.carrier_mixer.io.input_a.valid.pull(), 0x230, 7)
+      bus_ctrl.read(tracking.carrier_mixer.io.input_b.ready.pull(), 0x230, 8)
+      bus_ctrl.read(tracking.carrier_mixer.io.input_b.valid.pull(), 0x230, 9)
+
+      tracking.io.fb_enabled := bus_ctrl.createWriteOnly(Bool(), 0x234, 0)
+
+      bus_ctrl.read(iq_avail, 0x238)
     }
 
     // MAX2769
@@ -259,7 +287,7 @@ case class EthernetTestbench(config: GpsConfig) extends Component {
 }
 
 object EthernetTestbenchVerilog extends App {
-  val config = GpsConfig(debug = true)
+  val config = GpsConfig()
 
   val report = EthConfig.spinal.generateVerilog(EthernetTestbench(config))
   report.mergeRTLSource("sources")

@@ -16,6 +16,9 @@ case class TrackingChannel(config: GpsConfig) extends Component {
     val nav_data = master Stream (Bool())
 
     val debug = master Flow (TrackingDebugReg(config))
+
+    // Debugging
+    val fb_enabled = in Bool ()
   }
 
   // Same conversion as in acquisition, unbiases input and converts to 8 bits
@@ -45,20 +48,20 @@ case class TrackingChannel(config: GpsConfig) extends Component {
 
   // Carrier mixing
   val carrier_mixer = MixerTimestamp(8)
-  carrier_mixer.io.input_a << iq_biased.addFragmentLast(False)
+  carrier_mixer.io.input_a << iq_biased.addFragmentLast(False).stage()
   carrier_mixer.io.input_b << cordic_sincos.io.dout.addFragmentLast(False)
 
   // Code mixing
-  val code_phase = Reg(UInt(config.fft_bits bits))
+  val code_phase = Reg(UInt(config.fft_bits bits))// init 0
   val prn =
     RemovePrn(
       input_width = 8,
       config = config
     )
   val sv = Reg(UInt(6 bits)) init 0
-  prn.io.sv := sv
   prn.io.set := Delay(io.config_flow.fire, 1)
-  prn.io.phase_offset := code_phase
+  prn.io.sv := io.config_flow.sv
+  prn.io.phase_offset := io.config_flow.phase_offset
   prn.io.input << carrier_mixer.io.output.toStreamOfFragment
 
   // Configure acquisition settings
@@ -93,7 +96,7 @@ case class TrackingChannel(config: GpsConfig) extends Component {
 
   // Carrier discriminator - sign(I) * Q
   // carrier_pll.io.err << dec_prompt_vec(1).translateInto(carrier_pll.io.err.clone())((to, from) => {
-  //   when(~from.re.sign) {
+  //   when(from.re.sign) {
   //     to.raw := -from.im.sat(widthOf(from.im) - widthOf(to.raw)) / 2
   //   } otherwise {
   //     to.raw := from.im.sat(widthOf(from.im) - widthOf(to.raw)) / 2
@@ -113,31 +116,31 @@ case class TrackingChannel(config: GpsConfig) extends Component {
   })
 
   carrier_pll.io.nco.ready := True
-  when(carrier_pll.io.nco.fire) {
-    // carrier_freq_est := (carrier_freq_est + (carrier_pll.io.nco.payload >> 5)).truncated
+  when(carrier_pll.io.nco.fire && io.fb_enabled) {
+    carrier_freq_est := (carrier_freq_est + (carrier_pll.io.nco.payload >> 5)).truncated
   }
 
-  // Noncoherent discriminator - sim only version
-  // val early_power = dec_early.io.iq_out.re.clone()
-  // val late_power = dec_late.io.iq_out.re.clone()
-
-  // early_power := dec_early.io.iq_out.re*dec_early.io.iq_out.re - dec_early.io.iq_out.im*dec_early.io.iq_out.im + 2 * dec_early.io.iq_out.re * dec_early.io.iq_out.im
-  // late_power := dec_late.io.iq_out.re*dec_late.io.iq_out.re - dec_late.io.iq_out.im*dec_late.io.iq_out.im + 2 * dec_late.io.iq_out.re * dec_late.io.iq_out.im
-
-  // val code_err = (early_power - late_power)/(early_power + late_power)
   // Code DLL
-  // val code_dll = Pll(bw = 1f, gain = 1f)
-  // code_dll.io.err << early_late.translateWith((code_err.toSFix >> 7).truncated)
+  val code_dll = Pll(config.code_pll_config)
+  code_dll.io.err << early_late.translateInto(code_dll.io.err.clone())((to, from) => {
+    val early = from._1
+    val late = from._2
+
+    // Noncoherent discriminator - sim only version
+    // val early_power = early.re * early.re - early.im * early.im + 2 * early.re * early.im
+    // val late_power = late.re * late.re - late.im * late.im + 2 * late.re * late.im
+    // val err = ((early_power - late_power) << 7) / (early_power + late_power)
+    // val err = ((early_power - late_power) << 7)
+
+    val err = early.re - early.im
+
+    to.raw := err.sat(6)
+  })
+  code_dll.io.nco.freeRun()
 
   // io.lost_lock := !(carrier_pll.io.locked && code_dll.io.locked)
 
   ////////////// Temp stuff to just make it compile
-
-  early_late.ready := True
-
-  // dec_early.io.iq_out.freeRun()
-  // dec_prompt.io.iq_out.freeRun()
-  // dec_late.io.iq_out.freeRun()
 
   io.lost_lock := False
 
@@ -159,9 +162,8 @@ case class TrackingChannel(config: GpsConfig) extends Component {
   }
 
   val debug_area = new Area {
-    val debug_reg = Reg(TrackingDebugReg(config))
-    // val debug_reg_valid = Reg(Bits(7 bits)) init 0
-    val debug_reg_valid = Reg(Bits(5 bits)) init 0
+    val debug_reg = Reg(TrackingDebugReg(config)) init TrackingDebugReg(config).getZero
+    val debug_reg_valid = Reg(Bits(7 bits)) init 0
 
     io.debug.payload := debug_reg
     io.debug.valid := debug_reg_valid.andR
@@ -195,8 +197,15 @@ case class TrackingChannel(config: GpsConfig) extends Component {
       debug_reg_valid(4) := True
     }
 
-    debug_reg.code_err := 0
-    debug_reg.code_nco := 0
+    when(code_dll.io.err.fire) {
+      debug_reg.code_err := code_dll.io.err.payload
+      debug_reg_valid(5) := True
+    }
+
+    when(code_dll.io.nco.fire) {
+      debug_reg.code_nco := code_dll.io.nco.payload
+      debug_reg_valid(6) := True
+    }
   }
 }
 

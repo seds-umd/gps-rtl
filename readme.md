@@ -288,3 +288,5 @@ With the 7S50 there's 120 DSPs so multiplication optimization is a low priority.
     * Use sync reads
   * TrackingChannel
     * Time multiplex CORDICs for carrier generation and for discriminator
+  * EthernetTestbench
+    * Timeout on inputs to prevent deadlock

@@ -45,13 +45,16 @@ case class CordicAtanWrapper(cartesian_width: Int = 12, output_width: Int = 11, 
   cordic.io.xy << io.cartesian.translateInto(cordic.io.xy.clone())((to, from) => {
     val w = cordic.io.xy.payload.data_width / 2
 
-    to.data := from.im.resize(w) ## from.re.resize(w)
+    val re = (from.re.sign) ? -from.re | from.re
+    val im = (from.re.sign) ? -from.im | from.im
+
+    to.data := im.resize(w) ## re.resize(w)
     to.user := 0
   })
 
   io.dout << cordic.io.dout.map(_.data.asSInt.resize(io.dout.payload.getWidth))
 }
 
-object CordicAtanWrapper extends App {
+object CordicAtanWrapperVerilog extends App {
   Config.spinal.generateVerilog(CordicAtanWrapper())
 }

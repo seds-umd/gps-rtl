@@ -33,13 +33,14 @@ case class GpsConfig(
     // PLL settings
     carrier_pll_bw: Float = 10f,
     carrier_pll_gain: Float = 0.25f,
+    carrier_pll_nco_peak: Int = 4,
     code_pll_bw: Float = 1f,
     code_pll_gain: Float = 1f,
+    code_pll_nco_peak: Int = 7,
     pll_zeta: Float = 0.707f,
     pll_ts: Float = 1e-3f,
-    pll_width: Int = 8,
+    pll_width: Int = 16,
     pll_err_peak: Int = 0,
-    pll_nco_peak: Int = 3,
 
     // Tracking code discriminator settings
     early_late_shift: Int = 1,
@@ -70,7 +71,7 @@ case class GpsConfig(
     ts = pll_ts,
     width = pll_width,
     err_peak = pll_err_peak,
-    nco_peak = pll_nco_peak
+    nco_peak = carrier_pll_nco_peak
   )
   def code_pll_config = PllConfig(
     bw = code_pll_bw,
@@ -79,6 +80,6 @@ case class GpsConfig(
     ts = pll_ts,
     width = pll_width,
     err_peak = pll_err_peak,
-    nco_peak = pll_nco_peak
+    nco_peak = code_pll_nco_peak
   )
 }

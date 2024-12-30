@@ -111,7 +111,8 @@ case class TrackingChannel(config: GpsConfig) extends Component {
   })
   carrier_pll.io.err << cordic_atan.io.dout.map((angle) => {
     val x = carrier_pll.io.err.payload.clone()
-    x.raw := angle.roundToInf(1) / 2
+    // x.raw := angle.roundToInf(1) / 2
+    x.raw := (angle ## B(0, x.raw.getWidth-angle.getWidth bits)).asSInt / 2
     x
   })
 
@@ -134,7 +135,7 @@ case class TrackingChannel(config: GpsConfig) extends Component {
 
     val err = early.re - early.im
 
-    to.raw := err.sat(6)
+    to.raw := err.sat(err.getWidth - to.raw.getWidth)
   })
   code_dll.io.nco.freeRun()
 
@@ -214,9 +215,9 @@ case class TrackingDebugReg(config: GpsConfig) extends Bundle {
   val dec_prompt = Complex(config.dec_width)
   val dec_late = Complex(config.dec_width)
   val carr_err = SFix(config.pll_err_peak exp, config.pll_width bits)
-  val carr_nco = SFix(config.pll_nco_peak exp, config.pll_width bits)
+  val carr_nco = SFix(config.carrier_pll_nco_peak exp, config.pll_width bits)
   val code_err = SFix(config.pll_err_peak exp, config.pll_width bits)
-  val code_nco = SFix(config.pll_nco_peak exp, config.pll_width bits)
+  val code_nco = SFix(config.code_pll_nco_peak exp, config.pll_width bits)
 }
 
 object TrackingChannelVerilog extends App {

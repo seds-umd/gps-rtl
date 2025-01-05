@@ -19,10 +19,10 @@ jobs:
         java-version: 17
         cache: sbt
 
-    - name: Set up Python $PY_VER
+    - name: Set up Python ${{ env.PY_VER }}
       uses: actions/setup-python@v2
       with:
-        python-version: $PY_VER
+        python-version: ${{ env.PY_VER }}
     
     - name: Install dependencies
       run: |

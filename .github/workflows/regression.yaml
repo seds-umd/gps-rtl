@@ -20,13 +20,11 @@ jobs:
         cache: sbt
 
     - name: Install key
-      env:
-        KEY_FPGA_UTILS: ${{ secrets.SSH_KEY_FPGA_UTILS }}
-        KEY_GPS_MODEL: ${{ secrets.SSH_KEY_GPS_MODEL }}
-      run: |
-        eval `ssh-agent -s`
-        ssh-add - <<< "$KEY_FPGA_UTILS"
-        ssh-add - <<< "$KEY_GPS_MODEL"
+      uses: webfactory/ssh-agent@v0.9.0
+      with:
+        ssh-private-key:
+          ${{ secrets.SSH_KEY_FPGA_UTILS }}
+          ${{ secrets.SSH_KEY_GPS_MODEL }}
 
     - name: Set up Python ${{ env.PY_VER }}
       uses: actions/setup-python@v5

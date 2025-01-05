@@ -19,6 +19,8 @@ jobs:
         java-version: 17
         cache: sbt
 
+    - uses: sbt/setup-sbt@v1
+
     - name: Install key
       uses: webfactory/ssh-agent@v0.9.0
       with:

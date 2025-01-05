@@ -19,10 +19,24 @@ jobs:
         java-version: 17
         cache: sbt
 
+    - name: Install key
+      env:
+        KEY_FPGA_UTILS: ${{ secrets.SSH_KEY_FPGA_UTILS }}
+        KEY_GPS_MODEL: ${{ secrets.SSH_KEY_GPS_MODEL }}
+      run: |
+        eval `ssh-agent -s`
+        ssh-add - <<< "$KEY_FPGA_UTILS"
+        ssh-add - <<< "$KEY_GPS_MODEL"
+
     - name: Set up Python ${{ env.PY_VER }}
-      uses: actions/setup-python@v2
+      uses: actions/setup-python@v5
       with:
         python-version: ${{ env.PY_VER }}
+        cache: "pip"
+        cache-dependency-path: |
+          requirements.txt
+          requirements/common.txt
+          requirements/release.txt
     
     - name: Install dependencies
       run: |

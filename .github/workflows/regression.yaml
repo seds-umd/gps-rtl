@@ -10,10 +10,6 @@ jobs:
     steps:
     - uses: actions/checkout@v2
 
-    - name: Install Icarus Verilog
-      run: |
-        sudo apt install -y iverilog
-
     - name: Set up JDK
       uses: actions/setup-java@v4
       with:

@@ -113,16 +113,24 @@ case class AcquisitionModular(
   sample_mem.io.output_offset := 0
   val prn_mem = StreamMemory(Complex(8), fft_size_log)
 
+  val run_mem = Bool()
+  sample_mem.io.run := run_mem
+  prn_mem.io.run := run_mem
+  run_mem := False
+
   // PRN
   val prn_gen = Prn()
-  prn_gen.io.inc := U"17'h4000" // TODO: automatically calculate based on sample rate
-  prn_gen.io.set := False
+  prn_gen.io.ratio := 0.25 // TODO: make frequency configurable
+  prn_gen.io.sv.valid := False
+  prn_gen.io.freq_adj.setIdle()
 
   val sv = Reg(UInt(6 bits)) init 0
-  prn_gen.io.sv := sv
+  prn_gen.io.sv.payload := sv
 
   // Feed sample and PRN memory into mixer
   val mixer = Mixer(8)
+  val run_mixer = Bool()
+  run_mixer := False
   mixer.io.input_a << sample_mem.io.output
   mixer.io.input_b << prn_mem.io.output
 
@@ -271,7 +279,7 @@ case class AcquisitionModular(
       }
 
       whenIsActive {
-        prn_gen.io.set := True
+        prn_gen.io.sv.valid := True
 
         goto(samples_in)
       }
@@ -321,6 +329,8 @@ case class AcquisitionModular(
         fft.output_sel := fft.OUT_SEL_MAG
 
         transfer(fft.in_gate_config)
+
+        run_mem := True
       }
 
       whenIsActive {

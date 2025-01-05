@@ -1,29 +1,42 @@
 [*]
-[*] GTKWave Analyzer v3.3.103 (w)1999-2019 BSI
-[*] Sun May 19 03:46:54 2024
+[*] GTKWave Analyzer v3.3.104 (w)1999-2020 BSI
+[*] Sun Jan  5 18:15:53 2025
 [*]
 [dumpfile] "/home/nathan/seds/gps-rtl/hw/tb/Prn/sim_build/Prn.fst"
-[dumpfile_mtime] "Sun May 19 03:44:56 2024"
-[dumpfile_size] 324075
+[dumpfile_mtime] "Sun Jan  5 18:14:47 2025"
+[dumpfile_size] 345230
 [savefile] "/home/nathan/seds/gps-rtl/hw/tb/Prn/Prn.gtkw"
 [timestart] 0
-[size] 1908 1007
+[size] 1428 867
 [pos] -1 -1
-*-27.924549 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+*-16.924549 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
 [sst_width] 214
-[signals_width] 257
+[signals_width] 230
 [sst_expanded] 1
-[sst_vpaned_height] 295
+[sst_vpaned_height] 246
 @28
 Prn.clk
 Prn.reset
 @200
 -
-@28
-Prn.io_set
 @22
-Prn.io_sv[5:0]
-Prn.io_inc[16:0]
+Prn.io_sv_payload[5:0]
+@28
+Prn.io_sv_valid
+@22
+Prn.io_freq_adj_payload[15:0]
+@28
+Prn.io_freq_adj_valid
+@200
+-
+@22
+Prn.io_ratio[28:0]
+Prn.chip_fraction[27:0]
+Prn.chip_fraction_next[29:0]
+@420
+Prn.inc_base[28:0]
+Prn.inc_delta[15:0]
+Prn.inc_sum[28:0]
 @200
 -
 @28
@@ -32,8 +45,6 @@ Prn.io_code_valid
 Prn.io_code_payload
 @200
 -
-@22
-Prn.chip_fraction[15:0]
 @28
 Prn.advance_code
 @24
@@ -43,8 +54,25 @@ Prn.sample_count_value[11:0]
 -
 @22
 Prn.g1[9:0]
+@c00022
 Prn.g2[9:0]
+@28
+(0)Prn.g2[9:0]
+(1)Prn.g2[9:0]
+(2)Prn.g2[9:0]
+(3)Prn.g2[9:0]
+(4)Prn.g2[9:0]
+(5)Prn.g2[9:0]
+(6)Prn.g2[9:0]
+(7)Prn.g2[9:0]
+(8)Prn.g2[9:0]
+(9)Prn.g2[9:0]
+@1401200
+-group_end
+@22
 Prn.g2_tap1[3:0]
 Prn.g2_tap2[3:0]
+@28
+Prn.g2i
 [pattern_trace] 1
 [pattern_trace] 0

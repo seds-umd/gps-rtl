@@ -1,20 +1,20 @@
 [*]
 [*] GTKWave Analyzer v3.3.104 (w)1999-2020 BSI
-[*] Tue Oct  8 22:39:29 2024
+[*] Sun Jan  5 18:15:00 2025
 [*]
 [dumpfile] "/home/nathan/seds/gps-rtl/hw/tb/AcquisitionModular/sim_build/AcquisitionModular.fst"
-[dumpfile_mtime] "Tue Oct  8 22:37:54 2024"
-[dumpfile_size] 6679016
+[dumpfile_mtime] "Sun Jan  5 18:10:30 2025"
+[dumpfile_size] 4396201
 [savefile] "/home/nathan/seds/gps-rtl/hw/tb/AcquisitionModular/AcquisitionModular.gtkw"
 [timestart] 0
-[size] 2868 1695
+[size] 1428 867
 [pos] -1 -1
 *-29.000000 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
 [treeopen] AcquisitionModular.
 [sst_width] 278
 [signals_width] 326
 [sst_expanded] 1
-[sst_vpaned_height] 537
+[sst_vpaned_height] 246
 @28
 AcquisitionModular.clk
 AcquisitionModular.reset
@@ -117,7 +117,7 @@ AcquisitionModular.fft_inst.m_axis_data_tready
 AcquisitionModular.fft_inst.m_axis_data_tvalid
 @1401200
 -FFT Output
-@800200
+@c00200
 -PRN
 @28
 AcquisitionModular.prn_gen.io_code_payload
@@ -125,12 +125,15 @@ AcquisitionModular.prn_gen.io_code_fire
 @22
 AcquisitionModular.prn_gen.io_code_count[9:0]
 AcquisitionModular.prn_gen.io_sample_count[11:0]
-AcquisitionModular.prn_gen.io_sv[5:0]
+AcquisitionModular.prn_gen.io_freq_adj_payload[15:0]
 @28
-AcquisitionModular.prn_gen.io_set
+AcquisitionModular.prn_gen.io_freq_adj_valid
 @22
-AcquisitionModular.prn_gen.io_inc[16:0]
-@1000200
+AcquisitionModular.prn_gen.io_ratio[28:0]
+AcquisitionModular.prn_gen.io_sv_payload[5:0]
+@28
+AcquisitionModular.prn_gen.io_sv_valid
+@1401200
 -PRN
 @c00200
 -Mixer
@@ -143,35 +146,37 @@ AcquisitionModular.prn_gen.io_inc[16:0]
 @c00200
 -Sample Mem
 @22
-AcquisitionModular.sample_mem.io_input_payload_fragment_im[7:0]
 AcquisitionModular.sample_mem.io_input_payload_fragment_re[7:0]
+AcquisitionModular.sample_mem.io_input_payload_fragment_im[7:0]
 @28
-AcquisitionModular.sample_mem.io_input_payload_last
-AcquisitionModular.sample_mem.io_input_ready
-AcquisitionModular.sample_mem.io_input_valid
 AcquisitionModular.sample_mem.io_input_fire
 @22
-AcquisitionModular.sample_mem.io_output_payload_fragment_im[7:0]
 AcquisitionModular.sample_mem.io_output_payload_fragment_re[7:0]
+AcquisitionModular.sample_mem.io_output_payload_fragment_im[7:0]
 @28
 AcquisitionModular.sample_mem.io_output_payload_last
 AcquisitionModular.sample_mem.io_output_ready
 AcquisitionModular.sample_mem.io_output_valid
-AcquisitionModular.sample_mem.io_output_fire
 @22
 AcquisitionModular.sample_mem.io_output_offset[11:0]
+AcquisitionModular.sample_mem.rd_addr[11:0]
 @1401200
 -Sample Mem
 @c00200
 -PRN Mem
-@22
+@420
 AcquisitionModular.prn_mem.io_output_offset[11:0]
+@22
+AcquisitionModular.prn_mem.rd_addr[11:0]
 @28
-AcquisitionModular.prn_mem.io_output_fire
+AcquisitionModular.prn_mem.io_output_ready
+AcquisitionModular.prn_mem.io_output_valid
 @1401200
 -PRN Mem
-@800200
+@c00200
 -Magnitude
+@22
+AcquisitionModular.max_mag.io_input_payload_data[15:0]
 @28
 AcquisitionModular.max_mag.io_input_fire
 AcquisitionModular.max_mag.io_input_payload_last
@@ -184,7 +189,7 @@ AcquisitionModular.max_mag.io_done_last
 AcquisitionModular.max_mag.mag_abs[22:0]
 @20000
 -
-@1000200
+@1401200
 -Magnitude
 @200
 -Fine Acquisition

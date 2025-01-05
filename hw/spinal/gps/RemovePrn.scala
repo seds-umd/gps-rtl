@@ -48,9 +48,10 @@ case class RemovePrn(input_width: Int, config: GpsConfig) extends Component {
   }
 
   val prn = Prn()
-  prn.io.set := Delay(io.set, 1)
-  prn.io.sv := Delay(io.sv, 1)
-  prn.io.inc := U"17'h4000"
+  prn.io.ratio := 0.25
+  prn.io.sv.valid := Delay(io.set, 1)
+  prn.io.sv.payload := Delay(io.sv, 1)
+  prn.io.freq_adj.setIdle()
 
   val set_area = new ResetArea(io.set, true) {
     // Target offset

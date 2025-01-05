@@ -3,13 +3,28 @@ package gps
 import spinal.core._
 import spinal.lib._
 
-// Increment is 2^16/samples per chip
-case class Prn() extends Component {
+/* Code frequency math:
+ *
+ * Nominal frequency: 1.023 MHz
+ * inc = f_code / f_samp * 2^width
+ * f_code = inc * f_samp / 2^width
+ * inc LSB = 1 * f_samp / 2^width
+ *
+ * 16b: 62.4 Hz
+ * 20b: 3.90 Hz
+ * 24b: 0.244 Hz
+ * 28b: 15.2 mHz
+ *
+ * Frequency adjust range of at least 100ppm = width - 13, -12 for signed
+ */
+
+// nom_ratio is f_code / f_samp = 1/4 for f_samp=4.092 MHz
+case class Prn(counter_width: Int = 28, nom_ratio: Double = 1 / 4) extends Component {
   val io = new Bundle {
     // Configuration
-    val set = in Bool ()
-    val sv = in UInt (6 bits) // An input of 0 means SV 1
-    val inc = in UInt (17 bits)
+    val sv = slave Flow (UInt(6 bits)) // Offset by 1, 0 means SV 1
+    val ratio = in UFix (1 exp, counter_width + 1 bits)
+    val freq_adj = slave Flow (SInt(counter_width - 12 bits))
 
     // Output
     val code = master Stream (Bool())
@@ -17,10 +32,13 @@ case class Prn() extends Component {
     val sample_count = out UInt (12 bits)
   }
 
-  val chip_fraction = Reg(UInt(16 bits)) init U"16'h8000"
-  val increment = Reg(UInt(17 bits)) init 0
-  val chip_fraction_next = chip_fraction +^ increment
-  val advance_code = chip_fraction_next(16) & io.code.fire
+  val inc_base = Reg(UInt(counter_width + 1 bits)) init U(((1 << counter_width) * nom_ratio).toInt)
+  val inc_delta = Reg(SInt(counter_width - 12 bits)) init 0
+  val inc_sum = inc_base + inc_delta.resize(counter_width + 1 bits).asUInt
+
+  val chip_fraction = Reg(UInt(counter_width bits)) init U(1 << (counter_width - 1))
+  val chip_fraction_next = chip_fraction +^ inc_sum
+  val advance_code = chip_fraction_next(counter_width) & io.code.fire
 
   val code_count = Counter(1023, advance_code)
   val sample_count = Counter(4 * 1023, io.code.fire) // TODO: don't hard code sample rate
@@ -29,17 +47,21 @@ case class Prn() extends Component {
   io.sample_count <> sample_count
 
   // Absolute sample count for debugging. Will be optimized out in synthesis.
-  val debug_count = Counter(64 bits, io.code.fire)
+  val debug_count = Counter(32 bits, io.code.fire)
 
-  when(io.set) {
-    chip_fraction := U"16'h8000"
-    increment := io.inc
+  when(io.sv.fire) {
+    chip_fraction := U(1 << (counter_width - 1))
+    inc_base := io.ratio.raw
 
     code_count.clear()
     sample_count.clear()
     debug_count.clear()
-  } elsewhen (io.code.ready) {
-    chip_fraction := chip_fraction_next(15 downto 0)
+  } elsewhen (io.code.fire) {
+    chip_fraction := chip_fraction_next.trim(2)
+  }
+
+  when(io.freq_adj.fire) {
+    inc_delta := io.freq_adj.payload
   }
 
   // Code generation
@@ -52,11 +74,11 @@ case class Prn() extends Component {
   val g2_tap1, g2_tap2 = Reg(UInt(4 bits)) init 0
   val g2i = g2(g2_tap1 - 1) ^ g2(g2_tap2 - 1)
   io.code.payload := g2i ^ g1(10 - 1)
-  io.code.valid := ~io.set & ~(g2_tap1 === 0)
+  io.code.valid := ~io.sv.fire & ~(g2_tap1 === 0)
 
   // Set taps
-  when(io.set) {
-    switch(io.sv + 1) {
+  when(io.sv.fire) {
+    switch(io.sv.payload + 1) {
       is(1)(g2_tap1 := 2, g2_tap2 := 6)
       is(2)(g2_tap1 := 3, g2_tap2 := 7)
       is(3)(g2_tap1 := 4, g2_tap2 := 8)
@@ -96,7 +118,7 @@ case class Prn() extends Component {
     g2 := B"10'h3FF"
   }
 
-  when(advance_code & !io.set) {
+  when(advance_code & !io.sv.fire) {
     g1 := g1(8 downto 0) ## g1_new
     g2 := g2(8 downto 0) ## g2_new
   }

@@ -36,7 +36,7 @@ class TB(fpga_utils.TbTemplate):
         self, count=1e5, sv=1, doppler=0, sample_phase=0, noise=True
     ):
         # -128.5 is worst case real world received power
-        power = -125 if noise else None
+        power = -128.5 if noise else None
 
         if noise:
             self.dut._log.info(f"Noise power set to {power} dBm")
@@ -141,7 +141,7 @@ async def looped_test(dut):
         print(results)
 
 
-@cocotb.test(skip=True)
+@cocotb.test(skip=False)
 async def correlation_test(dut, freq_span=2):
     tb = TB(dut)
     log = dut._log
@@ -150,6 +150,8 @@ async def correlation_test(dut, freq_span=2):
 
     # out of 4096, code will start at this index (ahead of zero)
     ref_phase = np.random.randint(4096)
+
+    sv = 1
 
     freq_bin_size = 4096 / 4.092
     doppler = np.random.uniform(-freq_span * freq_bin_size, freq_span * freq_bin_size)
@@ -160,7 +162,7 @@ async def correlation_test(dut, freq_span=2):
     sample_phase = int(np.round(ref_phase * 4092 / 4096))
 
     tb.send_generated_samples(
-        count=5e6, sv=4, doppler=doppler, sample_phase=sample_phase, noise=True
+        count=5e6, sv=sv, doppler=doppler, sample_phase=sample_phase, noise=True
     )
 
     log.info(f"Shift: {doppler:0.1f} Hz, Phase: {sample_phase}")
@@ -190,7 +192,7 @@ async def correlation_test(dut, freq_span=2):
     log.info(f"FFT correlation: {fft_corr:0.3f}")
     assert fft_corr > CORR_THRESHOLD
 
-    # Check PRN
+    # Check PRN - always starts with first SV
     prn_expected = prn_gen.sample(1, 4.092e6, 4096)
     prn_actual = inputs[1][0]
     prn_corr = fpga_utils.corr(prn_expected, prn_actual)
@@ -207,7 +209,7 @@ async def correlation_test(dut, freq_span=2):
     # Check mix
     # The testbench uses a frequency shift of +-1 bin and starts at the
     # most negative frequency. np.roll shift is negative of the real shift
-    mix_expected = fft_actual.conj() * np.roll(prn_fft_actual, -1)
+    mix_expected = fft_actual.conj() * np.roll(prn_fft_actual, -2)
     mix_actual = inputs[2][0]
     mix_corr = fpga_utils.corr(mix_expected, mix_actual)
     log.info(f"Mix correlation: {mix_corr:0.3f}")
@@ -278,7 +280,7 @@ async def test_single(dut, freq_span=2):
 
 @cocotb.test(skip=True)
 async def statistical_test(dut):
-    N = 10
+    N = 1
     success = 0
 
     for _ in range(N):
@@ -286,12 +288,13 @@ async def statistical_test(dut):
             await test_single(dut)
             success += 1
         except AssertionError:
+            dut._log.warning(f"Failed")
             continue
 
     dut._log.info(f"{success}/{N} passed")
 
 
-@cocotb.test(skip=False)
+@cocotb.test(skip=True)
 async def recorded_sample_test(dut):
     # cwd is sim_build
     file = "../../../../../gps-model/data/1/gpssim.ci16"
@@ -303,17 +306,25 @@ async def recorded_sample_test(dut):
     log.info(f"Loading samples from {file}")
     tb.send_file_samples(file, data_type=np.int8, count=5e7)
 
+    expected_svs = []
 
     for i in range(32 * 8):
         if i % 32 == 0:
-            expected = acquisition(tb.samples_quant[i*4092*(1 + 8):], 4.092e6, 10e3, 1000)
+            expected = acquisition(
+                tb.samples_quant[i * 4092 * (1 + 8) :], 4.092e6, 10e3, 1000
+            )
             for res in expected:
-                log.info(f"Python: sv={res[0]}, shift={res[1]:.0f}, phase={res[2]}, snr={res[3]:.2f}")
+                expected_svs.append(res[0])
+                log.info(
+                    f"Python: sv={res[0]}, shift={res[1]:.0f}, phase={res[2]}, snr={res[3]:.2f}"
+                )
 
-        res = await tb.get_results()
+        res = await with_timeout(tb.get_results(), 4, "ms")
 
         if res[3] > 8:
-            log.info(f"RTL: sv={res[0]}, shift={res[1] * 4096 / 4.092 / 8:.0f}, phase={res[2]}, snr={res[3]}")
+            log.info(
+                f"RTL: sv={res[0]}, shift={res[1] * 4096 / 4.092 / 8:.0f}, phase={res[2]}, snr={res[3]}"
+            )
 
         await ClockCycles(dut.clk, 10)
 

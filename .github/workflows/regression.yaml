@@ -1,11 +1,13 @@
 name: Regression Tests
+
 on: [push]
+
+env:
+  PY_VER: "3.10"
+
 jobs:
   run_tests:
     runs-on: self-hosted
-    strategy:
-      matrix:
-        python-version: [3.10]
 
     steps:
     - uses: actions/checkout@v2
@@ -17,10 +19,10 @@ jobs:
         java-version: 17
         cache: sbt
 
-    - name: Set up Python ${{ matrix.python-version }}
+    - name: Set up Python $PY_VER
       uses: actions/setup-python@v2
       with:
-        python-version: ${{ matrix.python-version }}
+        python-version: $PY_VER
     
     - name: Install dependencies
       run: |

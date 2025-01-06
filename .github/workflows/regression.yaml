@@ -5,6 +5,11 @@ on: [push]
 env:
   PY_VER: "3.10"
 
+permissions:
+  contents: read
+  actions: read
+  checks: write
+
 jobs:
   run_tests:
     runs-on: self-hosted
@@ -22,14 +27,6 @@ jobs:
         cache: sbt
 
     - uses: sbt/setup-sbt@v1
-
-    - name: Install key
-      uses: webfactory/ssh-agent@v0.9.0
-      with:
-        ssh-private-key:
-          ${{ secrets.SSH_KEY_FPGA_UTILS }}
-          ${{ secrets.SSH_KEY_GPS_MODEL }}
-          ${{ secrets.SSH_KEY_SPINALHDL_ETHERNET }}
 
     - name: Set up Python ${{ env.PY_VER }}
       uses: actions/setup-python@v5

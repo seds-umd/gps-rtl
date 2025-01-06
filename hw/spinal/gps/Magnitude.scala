@@ -97,6 +97,6 @@ object MagnitudeVerilog extends App {
   Config.spinal.generateVerilog(Magnitude())
 }
 
-object MagnitudeStreamVerilog extends App {
+object MagnitudeStreamWrapperVerilog extends App {
   Config.spinal.generateVerilog(MagnitudeStreamWrapper())
 }

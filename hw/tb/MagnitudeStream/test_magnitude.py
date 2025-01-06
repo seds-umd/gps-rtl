@@ -4,17 +4,13 @@ from cocotb.triggers import ClockCycles, with_timeout
 from cocotbext import axi
 
 import numpy as np
-import sys
-from pathlib import Path
 
-utils_path = Path(__file__).resolve().parent.parent
-sys.path.insert(len(sys.path), str(utils_path.resolve()))
-
-from fft_sim import pack_complex, unpack_complex
-from utils import TB_Template, axis_sink, axis_source, corr, random_pause
+from fpga_utils import test_runner
+from fpga_utils import TbTemplate, axis_sink, axis_source, corr, random_pause
+from fpga_utils.fft_sim import fft_pack_complex
 
 
-class TB(TB_Template):
+class TB(TbTemplate):
     def __init__(self, dut):
         super().__init__(dut)
 
@@ -46,10 +42,20 @@ async def test_magnitude_stream(dut):
     for _ in range(runs):
         data = np.random.uniform(-1, 1, N) + 1j * np.random.uniform(-1, 1, N)
 
-        await tb.send_data(pack_complex(data))
+        await tb.send_data(fft_pack_complex(data))
 
         expected = np.abs(data)
         actual = await tb.get_data()
         mag_corr = corr(expected, actual)
 
         tb.dut._log.info(f"Correlation: {mag_corr:0.3f}")
+
+if __name__ == "__main__":
+    test_runner.run_wrapper(
+        top_level="MagnitudeStreamWrapper",
+        scala_name="Magnitude",
+        package="gps",
+        proj_dir="../../..",
+        source_dir="hw/spinal/gps",
+        gen_dir="hw/gen",
+    )

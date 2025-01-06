@@ -143,6 +143,7 @@ async def looped_test(dut):
 
 @cocotb.test(skip=False)
 async def correlation_test(dut, freq_span=2):
+    np.random.seed(785498247)
     tb = TB(dut)
     log = dut._log
 

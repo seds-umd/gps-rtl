@@ -6,14 +6,14 @@ from cocotb.triggers import ClockCycles
 from fpga_utils import spinal_stream as stream
 from fpga_utils import test_runner
 from fpga_utils.testbench import TbTemplate
-from fpga_utils.cordic_sim import CordicSim, encode_phase, decode_complex
+from fpga_utils.cordic_sim import CordicSinCosSim, encode_phase, decode_complex
 
 
 class Tb(TbTemplate):
     def __init__(self, dut):
         super().__init__(dut, "aclk")
 
-        self.sim = CordicSim(dut)
+        self.sim = CordicSinCosSim(dut)
 
         self.phase = stream.SpinalStreamSource.from_prefix(
             self.dut, "s_axis_phase", "aclk", "aresetn", axis=True

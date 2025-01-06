@@ -1,0 +1,48 @@
+name: Regression Tests
+
+on: [push]
+
+env:
+  PY_VER: "3.10"
+
+jobs:
+  run_tests:
+    runs-on: self-hosted
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Set up JDK
+      uses: actions/setup-java@v4
+      with:
+        distribution: temurin
+        java-version: 17
+        cache: sbt
+
+    - uses: sbt/setup-sbt@v1
+
+    - name: Install key
+      uses: webfactory/ssh-agent@v0.9.0
+      with:
+        ssh-private-key:
+          ${{ secrets.SSH_KEY_FPGA_UTILS }}
+          ${{ secrets.SSH_KEY_GPS_MODEL }}
+          ${{ secrets.SSH_KEY_SPINALHDL_ETHERNET }}
+
+    - name: Set up Python ${{ env.PY_VER }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ env.PY_VER }}
+        cache: "pip"
+        cache-dependency-path: |
+          requirements.txt
+          requirements/common.txt
+          requirements/release.txt
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Run tests
+      run: ./hw/tb/run_all.sh

@@ -4,9 +4,6 @@ SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 
 RC=0
 
-# Catch errors
-trap 'RC=1' ERR
-
 DIRS=($SCRIPT_DIR/*)
 
 for dir in ${DIRS[@]}; do
@@ -14,9 +11,14 @@ for dir in ${DIRS[@]}; do
         printf "\n\n\nTesting $dir \n\n"
         cd $dir
         rm sim_build/results.xml &> /dev/null
-        python test_*.py
 
-        if grep -q "failure" "sim_build/results.xml"; then
+        trap 'RC=1' ERR
+        python test_*.py
+        trap - ERR
+
+        failed=$(grep -q "failure" "sim_build/results.xml")$?
+
+        if [ $failed -eq 0 ]; then
             RC=1
         fi
     fi

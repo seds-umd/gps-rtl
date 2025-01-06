@@ -43,3 +43,11 @@ jobs:
 
     - name: Run tests
       run: ./hw/tb/run_all.sh
+
+    - name: Test Summary
+      uses: dorny/test-reporter@v1
+      if: always()
+      with:
+        name: Test Report
+        path: "hw/tb/*/sim_build/results.xml"
+        reporter: swift-xunit

@@ -4,10 +4,15 @@ from cocotb.triggers import ClockCycles, with_timeout
 from cocotbext import axi
 
 import numpy as np
-import sys
-from pathlib import Path
 
-from fpga_utils import TbTemplate, axis_sink, axis_source, random_pause, corr
+from fpga_utils import (
+    test_runner,
+    TbTemplate,
+    axis_sink,
+    axis_source,
+    random_pause,
+    corr,
+)
 from fpga_utils.fft_sim import fft_pack_complex, fft_unpack_complex
 
 
@@ -73,3 +78,14 @@ async def test_dut(dut):
 
         tb.dut._log.info(f"Correlation: {mix_corr:0.3f}")
         assert mix_corr > 0.99
+
+
+if __name__ == "__main__":
+    test_runner.run_wrapper(
+        top_level="MixerWrapper",
+        scala_name="Mixer",
+        package="gps",
+        proj_dir="../../..",
+        source_dir="hw/spinal/gps",
+        gen_dir="hw/gen",
+    )

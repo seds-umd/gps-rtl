@@ -148,7 +148,8 @@ case class EthernetTestbench(config: GpsConfig) extends Component {
 
       val cordic_atan2 = CordicAtanWrapper()
       val cordic2_xy_8b = Stream(Fragment(Bits(8 bits)))
-      val cordic2_xy_adapter = StreamWidthAdapter(cordic2_xy_8b.toStreamOfFragment, cordic_atan2.io.cartesian, padding = true)
+      val cordic2_xy_adapter =
+        StreamWidthAdapter(cordic2_xy_8b.toStreamOfFragment, cordic_atan2.io.cartesian, padding = true)
       udp.addPort(1022, cordic_atan2.io.dout.fragmentTransaction(8), cordic2_xy_8b)
     }
 
@@ -182,22 +183,22 @@ case class EthernetTestbench(config: GpsConfig) extends Component {
       val output_hash = Reg(Bits(32 bits)) init 0
       val out_idx = Reg(UInt(2 bits)) init 0
 
-      when (iq_2b.fire) {
-        input_hash(16*in_idx, 16 bits) := input_hash(16*in_idx, 16 bits) ^ iq_2b.payload.asBits.asUInt
+      when(iq_2b.fire) {
+        input_hash(16 * in_idx, 16 bits) := input_hash(16 * in_idx, 16 bits) ^ iq_2b.payload.asBits.asUInt
         in_idx := in_idx + 1
       }
 
-      when (results_8b.fire) {
-        output_hash(8*out_idx, 8 bits) := output_hash(8*out_idx, 8 bits) ^ results_8b.payload
+      when(results_8b.fire) {
+        output_hash(8 * out_idx, 8 bits) := output_hash(8 * out_idx, 8 bits) ^ results_8b.payload
         out_idx := out_idx + 1
       }
-      bus_ctrl.read(input_hash, 0x20C)
+      bus_ctrl.read(input_hash, 0x20c)
       bus_ctrl.read(output_hash, 0x208)
 
       bus_ctrl.read(tracking.prn.set_area.fsm.stateReg.pull(), 0x220)
       bus_ctrl.read(tracking.prn.set_area.aligned.pull(), 0x224)
       bus_ctrl.read(tracking.prn.set_area.dropped_iq.pull(), 0x228)
-      bus_ctrl.read(tracking.prn.set_area.dropped_prn.pull(), 0x22C)
+      bus_ctrl.read(tracking.prn.set_area.dropped_prn.pull(), 0x22c)
 
       bus_ctrl.read(tracking.io.iq.ready.pull(), 0x230, 0)
       bus_ctrl.read(tracking.io.iq.valid.pull(), 0x230, 1)
@@ -291,4 +292,9 @@ object EthernetTestbenchVerilog extends App {
 
   val report = EthConfig.spinal.generateVerilog(EthernetTestbench(config))
   report.mergeRTLSource("sources")
+}
+
+object EthernetTestbenchSimVerilog extends App {
+  val config_sim = GpsConfig(sim = true)
+  EthConfig.spinal.generateVerilog(EthernetTestbench(config_sim))
 }

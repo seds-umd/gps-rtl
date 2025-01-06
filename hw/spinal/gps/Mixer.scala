@@ -131,6 +131,6 @@ case class MixerWrapper() extends Component {
   })
 }
 
-object MixerVerilog extends App {
+object MixerWrapperVerilog extends App {
   Config.spinal.generateVerilog(MixerWrapper())
 }

@@ -1,17 +1,11 @@
 import cocotb
 
-from cocotb.clock import Clock 
 from cocotb.triggers import ClockCycles
 
-import sys
-from pathlib import Path
+from fpga_utils import test_runner, TbTemplate, axis_source
 
-utils_path = Path(__file__).resolve().parent.parent
-sys.path.insert(len(sys.path), str(utils_path.resolve()))
 
-from utils import TB_Template, axis_source
-
-class TB(TB_Template):
+class TB(TbTemplate):
     def __init__(self, dut):
         super().__init__(dut)
 
@@ -21,12 +15,23 @@ class TB(TB_Template):
         await self.input.write(data)
         await self.input.wait()
 
+
 @cocotb.test()
 async def test_three_wire_spi(dut):
     tb = TB(dut)
     await tb.reset()
 
-    await tb.send_data([0x8000000F]*2)
+    await tb.send_data([0x8000000F] * 2)
     await tb.send_data([0x12345678])
 
     await ClockCycles(tb.dut.clk, 10000)
+
+
+if __name__ == "__main__":
+    test_runner.run_wrapper(
+        top_level="MaxSpiConfig",
+        package="gps",
+        proj_dir="../../..",
+        source_dir="hw/spinal/gps",
+        gen_dir="hw/gen",
+    )

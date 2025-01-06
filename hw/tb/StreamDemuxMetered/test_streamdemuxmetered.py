@@ -2,20 +2,13 @@ import cocotb
 from cocotb.clock import Clock
 import cocotb.result
 from cocotb.triggers import ClockCycles, with_timeout
-from cocotbext import axi
 
-import logging
 import numpy as np
-import sys
-from pathlib import Path
 
-utils_path = Path(__file__).resolve().parent.parent
-sys.path.insert(len(sys.path), str(utils_path.resolve()))
-
-from utils import TB_Template, axis_sink, axis_source
+from fpga_utils import test_runner, TbTemplate, axis_sink, axis_source
 
 
-class TB(TB_Template):
+class TB(TbTemplate):
     def __init__(self, dut, lanes=4):
         self.lanes = lanes
 
@@ -60,3 +53,14 @@ async def test_streamdemuxmetered(dut):
         assert False, "This should have thrown a timeout error"
     except cocotb.result.SimTimeoutError:
         pass
+
+
+if __name__ == "__main__":
+    # test_runner.run_wrapper(
+    #     top_level="StreamDemuxMetered",
+    #     package="gps",
+    #     proj_dir="../../..",
+    #     source_dir="hw/spinal/gps",
+    #     gen_dir="hw/gen",
+    # )
+    print("StreamDemuxMetered - Unused, skipping test")

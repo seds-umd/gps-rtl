@@ -73,7 +73,7 @@ class TB(TbTemplate):
         )
 
         self.dut._log.info(
-            f"Magnitude expected: {expected_max}, actual: {max_val}, error: {(expected_max - max_val)/expected_max:0.3f}"
+            f"Magnitude expected: {expected_max}, actual: {max_val}, diff: {(expected_max - max_val)/expected_max:0.3f}"
         )
 
 

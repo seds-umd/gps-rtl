@@ -5,13 +5,8 @@ from cocotbext import axi
 
 import logging
 import numpy as np
-import sys
-from pathlib import Path
 
-utils_path = Path(__file__).resolve().parent.parent
-sys.path.insert(len(sys.path), str(utils_path.resolve()))
-
-from utils import stream_axis_bus
+from fpga_utils import test_runner, stream_axis_bus
 
 
 class TB:
@@ -74,3 +69,13 @@ async def test_streammuxmetered(dut):
     for _ in range(100):
         sel = np.random.randint(4)
         await tb.run_test(sel, N)
+
+if __name__ == "__main__":
+    test_runner.run_wrapper(
+        top_level="StreamMuxMetered",
+        package="gps",
+        proj_dir="../../..",
+        source_dir="hw/spinal/gps",
+        gen_dir="hw/gen",
+    )
+    print("StreamMuxMetered - Unused, skipping test")

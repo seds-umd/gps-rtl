@@ -7,12 +7,14 @@ import numpy as np
 from fpga_utils import test_runner
 from fpga_utils.dsp import corr
 
+
 async def send_values(dut, real, imag):
     for i in range(len(real)):
         dut.io_re.value = int(real[i])
         dut.io_im.value = int(imag[i])
 
         await RisingEdge(dut.clk)
+
 
 @cocotb.test()
 async def test_magnitude(dut, runs=1, num=8192):
@@ -34,20 +36,23 @@ async def test_magnitude(dut, runs=1, num=8192):
         # Prime pipeline
         await ClockCycles(dut.clk, 6)
 
-        mag_ref = np.abs(real + 1j*imag)
+        mag_ref = np.abs(real + 1j * imag)
         mag_res = []
 
         for i in range(num):
             mag_res.append(int(dut.io_mag.value))
             await RisingEdge(dut.clk)
-        
+
         mag_res = np.array(mag_res)
         err = np.abs(mag_ref - mag_res)
 
         mag_corr = corr(mag_res, mag_ref)
-        dut._log.info(f"Average error: {np.mean(err):0.2f}, max error: {np.max(err):0.2f}, corr: {mag_corr:0.3f}")
+        dut._log.info(
+            f"Average err: {np.mean(err):0.2f}, max err: {np.max(err):0.2f}, corr: {mag_corr:0.3f}"
+        )
 
         assert np.mean(err) < 4
+
 
 if __name__ == "__main__":
     test_runner.run_wrapper(

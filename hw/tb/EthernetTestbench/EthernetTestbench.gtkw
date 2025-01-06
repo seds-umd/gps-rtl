@@ -1,22 +1,22 @@
 [*]
 [*] GTKWave Analyzer v3.3.104 (w)1999-2020 BSI
-[*] Thu Dec 12 06:23:40 2024
+[*] Tue Dec 24 17:54:27 2024
 [*]
 [dumpfile] "/home/nathan/seds/gps-rtl/hw/tb/EthernetTestbench/sim_build/EthernetTestbench.fst"
-[dumpfile_mtime] "Thu Dec 12 06:16:32 2024"
-[dumpfile_size] 487862
+[dumpfile_mtime] "Tue Dec 24 17:51:59 2024"
+[dumpfile_size] 326509
 [savefile] "/home/nathan/seds/gps-rtl/hw/tb/EthernetTestbench/EthernetTestbench.gtkw"
 [timestart] 0
-[size] 2868 1767
-[pos] -1 -1
-*-24.000000 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+[size] 1428 867
+[pos] 31 31
+*-23.000000 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
 [treeopen] EthernetTestbench.
 [treeopen] EthernetTestbench.stream_axil.
 [treeopen] EthernetTestbench.udp_arb_mux_1.
-[sst_width] 454
-[signals_width] 318
+[sst_width] 214
+[signals_width] 297
 [sst_expanded] 1
-[sst_vpaned_height] 561
+[sst_vpaned_height] 245
 @28
 EthernetTestbench.clk
 EthernetTestbench.reset
@@ -35,7 +35,7 @@ EthernetTestbench.io_leds[7:0]
 -group_end
 @28
 EthernetTestbench.rst_area_newReset
-@800200
+@c00200
 -GMII
 @28
 EthernetTestbench.io_gmii_gmii_rx_clk
@@ -51,7 +51,7 @@ EthernetTestbench.io_gmii_gmii_tx_er
 EthernetTestbench.io_gmii_gmii_txd[7:0]
 @28
 EthernetTestbench.io_gmii_mii_tx_clk
-@1000200
+@1401200
 -GMII
 @820
 +{AXIL Decoder State} EthernetTestbench.stream_axil.fsm_stateReg_string[103:0]
@@ -127,14 +127,9 @@ EthernetTestbench.stream_axil.io_axil_wvalid
 -AXIL W
 @c00200
 -IQ In
-@22
-EthernetTestbench.rst_area_acq.io_iq_payload[15:0]
-@28
-EthernetTestbench.rst_area_acq.io_iq_ready
-EthernetTestbench.rst_area_acq.io_iq_valid
 @1401200
 -IQ In
-@800200
+@c00200
 -MAX2769
 @28
 EthernetTestbench.io_max_clk_ser
@@ -147,7 +142,7 @@ EthernetTestbench.rst_area_max_area_dsp.io_iq_payload_t[11:0]
 EthernetTestbench.rst_area_max_area_dsp.sample_fifo_io_pushOccupancy[3:0]
 @28
 EthernetTestbench.rst_area_max_area_stopped
-@1000200
+@1401200
 -MAX2769
 @c00200
 -UDP In
@@ -164,30 +159,17 @@ EthernetTestbench.udp_udp.m_udp_payload_axis_tuser
 EthernetTestbench.udp_udp.m_udp_payload_axis_tvalid
 @1401200
 -UDP In
-@800028
-EthernetTestbench.udp_arb_mux_1.arb_inst.request[2:0]
+@800200
+-Tracking IQ In
 @28
-(0)EthernetTestbench.udp_arb_mux_1.arb_inst.request[2:0]
-(1)EthernetTestbench.udp_arb_mux_1.arb_inst.request[2:0]
-(2)EthernetTestbench.udp_arb_mux_1.arb_inst.request[2:0]
-@1001200
--group_end
-@800028
-EthernetTestbench.udp_arb_mux_1.arb_inst.acknowledge[2:0]
+EthernetTestbench.rst_area_tracking_area_tracking.io_iq_payload_c_im[1:0]
+EthernetTestbench.rst_area_tracking_area_tracking.io_iq_payload_c_re[1:0]
+@22
+EthernetTestbench.rst_area_tracking_area_tracking.io_iq_payload_t[11:0]
 @28
-(0)EthernetTestbench.udp_arb_mux_1.arb_inst.acknowledge[2:0]
-(1)EthernetTestbench.udp_arb_mux_1.arb_inst.acknowledge[2:0]
-(2)EthernetTestbench.udp_arb_mux_1.arb_inst.acknowledge[2:0]
-@1001200
--group_end
-@28
-EthernetTestbench.udp_arb_mux_1.arb_inst.grant[2:0]
-EthernetTestbench.udp_arb_mux_1.arb_inst.grant_valid
-EthernetTestbench.stream_tx_port_1030.io_stream_ready
-EthernetTestbench.stream_tx_port_1030.io_stream_valid
-@24
-EthernetTestbench.stream_tx_port_1030.fifo_io_occupancy[10:0]
-@28
-EthernetTestbench.stream_tx_port_1030.do_transmit
+EthernetTestbench.rst_area_tracking_area_tracking.io_iq_ready
+EthernetTestbench.rst_area_tracking_area_tracking.io_iq_valid
+@1000200
+-Tracking IQ In
 [pattern_trace] 1
 [pattern_trace] 0

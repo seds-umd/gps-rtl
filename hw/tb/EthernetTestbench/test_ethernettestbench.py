@@ -8,6 +8,8 @@ from cocotbext.eth import GmiiFrame, GmiiPhy
 import fpga_utils
 from fpga_utils import test_runner
 from fpga_utils.fft_sim import FFT_Sim
+from fpga_utils.cordic_sim import CordicAtan2Sim, CordicSinCosSim
+from gps import gps_sim
 
 import logging
 import numpy as np
@@ -28,8 +30,21 @@ class TB:
         self.dut.io_max_time_sync.value = 0
 
         # FFT module
-        self.fft_sim = FFT_Sim(dut.rst_area_acq.fft_inst, 12, 1, store=True)
-        self.fft_sim.log.setLevel(logging.WARNING)
+        try:
+            self.fft_sim = FFT_Sim(
+                dut.rst_area_acquisition_area_acq.fft_inst, 12, 1, store=True
+            )
+            self.fft_sim.log.setLevel(logging.WARNING)
+        except AttributeError:
+            pass
+
+        # CORDIC
+        self.atan_cordic = CordicAtan2Sim(
+            dut.rst_area_tracking_area_tracking.cordic_atan.cordic
+        )
+        self.sincos_cordic = CordicSinCosSim(
+            dut.rst_area_tracking_area_tracking.cordic_sincos.cordic
+        )
 
         self.host_mac = host_mac
         self.device_mac = device_mac
@@ -111,21 +126,22 @@ class TB:
         await self.send_udp_frame(cmd, 12345, 1000)
         # TODO: get reply
 
-    async def send_samples(self, samples):
+    async def send_samples(self, samples, port=1040):
         # Normalize - scaling optimized for SNR
         samples /= np.max(np.abs(samples))
         samples *= 127
 
-        # Repeat
-        times_single = np.arange(4092)
-        times = np.tile(times_single, int(len(samples) / 4092) + 1)
-        times = times.astype(np.uint16)[0 : len(samples)]
+        assert len(samples) % 2 == 0, "Must have an even number of samples"
 
         # Convert to 4 bit format
         samples_re = samples.real.astype(np.int8).astype(np.uint8) >> 6
         samples_im = samples.imag.astype(np.int8).astype(np.uint8) >> 6
-        bits = samples_re | (samples_im << 2) | (times << 4)
-        bits = np.array(bits, dtype=np.uint16)
+        bits = (
+            samples_re[1::2]
+            | (samples_im[1::2] << 2)
+            | (samples_re[::2] << 4)
+            | (samples_im[::2] << 6)
+        )
 
         # Get quantized samples
         samples_re = (samples_re << 6).astype(np.int8) | 0b100000
@@ -134,16 +150,11 @@ class TB:
         samples_quant = samples_re + samples_im * 1j
         samples_quant /= 128
 
-        # SpinalHDL width adapter puts lower bits in first
-        bits_bytes = np.empty(len(bits) * 2, dtype=np.uint8)
-        bits_bytes[::2] = bits & 0xFF
-        bits_bytes[1::2] = bits >> 8
-
-        for i in range(0, len(bits_bytes), 500):
+        for i in range(0, len(bits), 500):
             data = bytearray()
-            data.extend(bits_bytes[i : i + 500])
+            data.extend(bits[i : i + 500])
             data.insert(0, 0)  # last = 0
-            await self.send_udp_frame(data, 12345, 1010)
+            await self.send_udp_frame(data, 12345, port)
 
     async def _run(self):
         while True:
@@ -174,8 +185,8 @@ class TB:
                 await self._send_packet(self.tx_queue.get_nowait())
 
 
-@cocotb.test
-async def test_ethtb(dut):
+@cocotb.test(skip=False)
+async def test_max2769(dut):
     SRC_MAC = "01:23:45:67:89:ab"
     DST_MAC = "00:00:01:00:00:02"
     SRC_IP = "10.0.0.1"
@@ -210,6 +221,35 @@ async def test_ethtb(dut):
         print(tb.rx_queue.get_nowait())
 
 
+@cocotb.test(skip=False)
+async def test_tracking(dut):
+    SRC_MAC = "01:23:45:67:89:ab"
+    DST_MAC = "00:00:01:00:00:02"
+    SRC_IP = "10.0.0.1"
+    DST_IP = "10.0.0.2"
+
+    tb = TB(dut, SRC_MAC, DST_MAC, SRC_IP, DST_IP)
+    await tb.reset()
+    await ClockCycles(dut.clk, 50)
+
+    # Soft reset
+    await tb.axil_write(0x00, 0x00)
+    await Timer(8, "us")
+
+    # Tracking config
+    await tb.axil_write(0x210, 1)
+    await tb.axil_write(0x214, 0)
+
+    # N = 100000
+    N = 50000
+    np.random.seed(2598793427)
+    samples = np.random.uniform(-1, 1, N) + 1j * np.random.uniform(-1, 1, N)
+    print(np.sum(samples), samples.shape)
+
+    await tb.send_samples(samples, port=1040)
+    await Timer(100, "us")
+
+
 if __name__ == "__main__":
     verilog_eth_path = Path("../../../verilog-ethernet/rtl")
     verilog_axi_path = Path("../../../verilog-ethernet/lib/axis/rtl")
@@ -221,9 +261,12 @@ if __name__ == "__main__":
     verilog_sources.extend([f"verilog-ethernet/rtl/{x}" for x in eth_files])
     verilog_sources.extend([f"verilog-ethernet/lib/axis/rtl/{x}" for x in axi_files])
     verilog_sources.append("hw/verilog/XilinxFFT.v")
+    verilog_sources.append("hw/verilog/CordicAtan.v")
+    verilog_sources.append("hw/verilog/CordicSinCos.v")
 
     test_runner.run_wrapper(
         top_level="EthernetTestbench",
+        scala_object="EthernetTestbenchSimVerilog",
         package="gps",
         proj_dir="../../..",
         source_dir="hw/spinal/gps",

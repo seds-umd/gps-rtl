@@ -4,22 +4,24 @@ from cocotb.triggers import ClockCycles
 from cocotbext import uart
 
 import numpy as np
-import sys
 import logging
-from pathlib import Path
 
-utils_path = Path(__file__).resolve().parent.parent
-sys.path.insert(len(sys.path), str(utils_path.resolve()))
+from fpga_utils import (
+    test_runner,
+    TbTemplate,
+    axis_source,
+    axis_sink,
+    ratio_pause,
+    complex_to_2bit,
+)
 
-from utils import TB_Template, axis_source, axis_sink, iq_pause, pack_iq
 
-
-class TB(TB_Template):
+class TB(TbTemplate):
     def __init__(self, dut, baud=115200):
         super().__init__(dut, period=20)
 
         self.iq_in = axis_source(dut, "io_iq_", byte_size=4)
-        self.iq_in.set_pause_generator(iq_pause())
+        self.iq_in.set_pause_generator(ratio_pause())
         self.uart_source = uart.UartSource(dut.io_uart_rxd, baud)
         self.uart_sink = uart.UartSink(dut.io_uart_txd, baud)
 
@@ -55,7 +57,7 @@ async def test_dut(dut):
     await tb.send_uart([commanded_len])
     await tb.uart_source.wait()
 
-    data = pack_iq(data)
+    data = complex_to_2bit(data)
     await tb.send_iq(data)
 
     data = np.array(data)
@@ -77,7 +79,18 @@ async def test_dut(dut):
     for _ in range(10):
         word = np.random.randint(0, 2**32 - 1)
         await tb.send_uart([0x20])
-        await tb.send_uart(int(word).to_bytes(4, 'big'))
+        await tb.send_uart(int(word).to_bytes(4, "big"))
 
         actual = (await tb.spi_data.read(1))[0]
         assert word == actual
+
+
+if __name__ == "__main__":
+    test_runner.run_wrapper(
+        top_level="UartControlWrapper",
+        scala_name="UartControl",
+        package="gps",
+        proj_dir="../../..",
+        source_dir="hw/spinal/gps",
+        gen_dir="hw/gen",
+    )

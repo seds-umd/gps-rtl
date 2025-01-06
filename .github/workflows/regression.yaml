@@ -40,9 +40,9 @@ jobs:
           requirements/release.txt
     
     - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
+      env:
+        GITHUB_TOKEN: ${{ secrets.GH_CLONE_TOKEN }}
+      run: pip install -r requirements/github-actions.txt
 
     - name: Run tests
       run: ./hw/tb/run_all.sh

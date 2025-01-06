@@ -41,7 +41,7 @@ jobs:
     
     - name: Install dependencies
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_TOKEN: ${{ secrets.GH_CLONE_TOKEN }}
       run: pip install -r requirements/github-actions.txt
 
     - name: Run tests

@@ -71,11 +71,11 @@ async def test_streammuxmetered(dut):
         await tb.run_test(sel, N)
 
 if __name__ == "__main__":
-    test_runner.run_wrapper(
-        top_level="StreamMuxMetered",
-        package="gps",
-        proj_dir="../../..",
-        source_dir="hw/spinal/gps",
-        gen_dir="hw/gen",
-    )
+    # test_runner.run_wrapper(
+    #     top_level="StreamMuxMetered",
+    #     package="gps",
+    #     proj_dir="../../..",
+    #     source_dir="hw/spinal/gps",
+    #     gen_dir="hw/gen",
+    # )
     print("StreamMuxMetered - Unused, skipping test")

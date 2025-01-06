@@ -138,6 +138,6 @@ case class UartControlWrapper() extends Component {
   uart_ctrl.io.spi_data >> io.spi_data
 }
 
-object UartControlVerilog extends App {
+object UartControlWrapperVerilog extends App {
   Config.spinal.generateVerilog(UartControlWrapper())
 }

@@ -11,7 +11,9 @@ DIRS=($SCRIPT_DIR/*)
 
 for dir in ${DIRS[@]}; do
     if [ -d $dir ]; then
+        printf "\n\n\nTesting $dir \n\n"
         cd $dir
+        rm sim_build/results.xml &> /dev/null
         python test_*.py
 
         if grep -q "failure" "sim_build/results.xml"; then

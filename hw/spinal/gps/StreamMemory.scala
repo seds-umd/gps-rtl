@@ -15,8 +15,8 @@ case class StreamMemory[T <: Data](dataType: T, sizeLog: Int) extends Component 
 
   val size = 1 << sizeLog
 
-  // input always valid
   io.input.ready := True
+  io.output.valid := True
 
   val mem = Mem(dataType, wordCount = size)
   mem.addAttribute("ram_style", "block")
@@ -24,18 +24,16 @@ case class StreamMemory[T <: Data](dataType: T, sizeLog: Int) extends Component 
   val wr_addr = Counter(size, io.input.fire)
   mem.write(wr_addr, io.input.payload, io.input.fire)
 
-  val rd_addr_counter = Counter(size, io.output.fire)
-  val rd_addr = Reg(UInt(sizeLog bits)) init(0)
-  val rd_addr_mod = (rd_addr_counter.value + io.output_offset.asUInt) % size
+  val rd_addr_counter = Counter(size)
+  val rd_addr = (rd_addr_counter.valueNext + io.output_offset.asUInt) % size
+  val rd_data = mem.readSync(rd_addr.resized)
 
   when(io.output.fire) {
-    rd_addr := rd_addr_mod
+    rd_addr_counter.increment()
   }
 
-  val rd_data = mem.readSync(rd_addr, io.output.ready)
   io.output.fragment := rd_data
-  io.output.valid := RegNext(io.output.ready, init = False)
-  io.output.last := RegNext(rd_addr_counter.willOverflowIfInc, init = False)
+  io.output.last     := rd_addr_counter.willOverflowIfInc
 }
 
 object StreamMemoryVerilog extends App {

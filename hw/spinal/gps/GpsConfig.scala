@@ -48,6 +48,9 @@ case class GpsConfig(
     // RemovePrn output width
     prn_output_width: Int = 8,
 
+    // Prn frequency counter
+    prn_counter_width: Int = 28,
+
     // Decimated sample width
     dec_width: Int = 14,
 

@@ -34,6 +34,8 @@ case class RemovePrn(input_width: Int, config: GpsConfig) extends Component {
     val phase_offset = in UInt (config.fft_bits bits)
 
     val dropped = out UInt (16 bits)
+
+    val freq_adj = slave Flow (SInt(config.prn_counter_width - 12 bits))
   }
 
   // Wrap phase at period instead of integer overflow
@@ -47,11 +49,11 @@ case class RemovePrn(input_width: Int, config: GpsConfig) extends Component {
     wrapped_phase
   }
 
-  val prn = Prn()
+  val prn = Prn(config.prn_counter_width)
   prn.io.ratio := 0.25
   prn.io.sv.valid := Delay(io.set, 1)
   prn.io.sv.payload := Delay(io.sv, 1)
-  prn.io.freq_adj.setIdle()
+  prn.io.freq_adj << io.freq_adj
 
   val set_area = new ResetArea(io.set, true) {
     // Target offset

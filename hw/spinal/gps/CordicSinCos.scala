@@ -51,7 +51,7 @@ case class CordicSinCosWrapper(phase_width: Int = 12, output_width: Int = 9, wit
 
   // Input phase is 0-1023 for 12 bit input (10 bit actual)
   cordic.io.phase << io.phase.translateInto(cordic.io.phase.clone())((to, from) => {
-    when(from > (1 << (actual_phase_width - 1))) {
+    when(from <= (1 << (actual_phase_width - 1))) {
       to.data := from.asBits.resized
     } otherwise {
       to.data := ((0x7 << actual_phase_width) + from).asBits.resized

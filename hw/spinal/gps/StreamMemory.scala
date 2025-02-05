@@ -33,7 +33,7 @@ case class StreamMemory[T <: Data](dataType: T, sizeLog: Int) extends Component 
   }
 
   io.output.fragment := rd_data
-  io.output.last     := rd_addr_counter.willOverflowIfInc
+  io.output.last := rd_addr_counter.willOverflowIfInc
 }
 
 object StreamMemoryVerilog extends App {

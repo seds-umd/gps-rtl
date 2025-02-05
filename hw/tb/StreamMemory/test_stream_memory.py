@@ -33,15 +33,18 @@ class TB(TbTemplate):
 
     def pause_gen(self):
         while True:
-            if self.paused or self.dut.io_output_payload_last.value == 1:
+            if self.paused or (
+                self.dut.io_output_payload_last.value == 1
+                and self.output.bus.tready.value == 1
+            ):
                 self.paused = True
                 yield True
 
             elif self.random_pause:
-                yield np.random.rand() > 0.1 
+                yield np.random.rand() < 0.5
 
             else:
-                yield False  
+                yield False
 
     async def send_data(self, data: bytes):
         assert len(data) == self.size
@@ -62,6 +65,7 @@ class TB(TbTemplate):
         return frame.tdata
 
     async def run_test(self, count, offset):
+        self.dut._log.info(f"Running with N={count}, offset={offset}")
         for _ in range(count):
             data = np.random.bytes(self.size)
             await self.send_data(data)
@@ -70,20 +74,20 @@ class TB(TbTemplate):
             assert expected == actual
 
 
-
-@cocotb.test(1, "ms")
+@cocotb.test(2, "ms")
 async def test_stream_memory(dut):
     N = 16
+    RUNS = 1000
     tb = TB(dut, N)
 
     await tb.reset()
 
     # Test w/o random pauses
     tb.random_pause = False
-    await tb.run_test(100, 0)  # No offset
-    await tb.run_test(100, np.random.randint(N))  # Random offset
+    await tb.run_test(RUNS, 0)  # No offset
+    await tb.run_test(RUNS, np.random.randint(N))  # Random offset
 
     # Test with random pauses
     tb.random_pause = True
-    await tb.run_test(100, 0)  # No offset
-    await tb.run_test(100, np.random.randint(N))  # Random offset
+    await tb.run_test(RUNS, 0)  # No offset
+    await tb.run_test(RUNS, np.random.randint(N))  # Random offset

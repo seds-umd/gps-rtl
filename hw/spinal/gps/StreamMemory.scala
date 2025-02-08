@@ -3,7 +3,7 @@ package gps
 import spinal.core._
 import spinal.lib._
 
-// TODO: make reads synchronous so BRAM can be used - right now it synthesizes to LUTRAM
+// Synchronous reads with BRAM
 
 case class StreamMemory[T <: Data](dataType: T, sizeLog: Int) extends Component {
   val io = new Bundle {
@@ -24,9 +24,15 @@ case class StreamMemory[T <: Data](dataType: T, sizeLog: Int) extends Component 
   val wr_addr = Counter(size, io.input.fire)
   mem.write(wr_addr, io.input.payload, io.input.fire)
 
-  val rd_addr_counter = Counter(size, io.output.fire)
-  val rd_addr = (rd_addr_counter.value + io.output_offset.asUInt) % size
-  io.output.fragment := mem.readAsync(rd_addr)
+  val rd_addr_counter = Counter(size)
+  val rd_addr = (rd_addr_counter.valueNext + io.output_offset.asUInt) % size
+  val rd_data = mem.readSync(rd_addr.resized)
+
+  when(io.output.fire) {
+    rd_addr_counter.increment()
+  }
+
+  io.output.fragment := rd_data
   io.output.last := rd_addr_counter.willOverflowIfInc
 }
 

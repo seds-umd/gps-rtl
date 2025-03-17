@@ -9,12 +9,12 @@ from fpga_utils import test_runner
 # https://github.com/schang412/cocotbext-spi/tree/main
 
 @cocotb.test()
-async def test_spi_send_1bit(dut):
+async def test_spi_send_16bit(dut):
 
     spi_bus = SpiBus.from_prefix(dut, "io")  
 
     spi_config = SpiConfig(
-        word_width    =   1,  
+        word_width    =   16,  
         sclk_freq     =   1e6,     # 1 MHz, T = 1 µs
         cpol          =   False,   # Mode 1 : Master updates on rising edge, slave reads on falling edge
         cpha          =   True,   
@@ -24,15 +24,19 @@ async def test_spi_send_1bit(dut):
 
     spi_master = SpiMaster(spi_bus, spi_config)
 
-    command = [1]  
-    await spi_master.write(command)
-    await Timer(1, units="us") 
+    command = [0b1_000000000000101] 
+    await spi_master.write(command)  
+    await Timer(4, units="us")  
 
-    received_bit = int(dut.io_received_bit.value)
+    rw_flag = int(dut.io_rw.value)
+    addr = int(dut.io_addr.value)
+    received_flag = int(dut.io_received_flag.value)
 
-    assert received_bit == 1, f"Received {received_bit}"
-    
-    print(f"Successfully received {received_bit}")
+    assert received_flag == 1, "Full command not received"
+    assert rw_flag == 1, "RW bit incorrect"
+    assert addr == 0x0005, f"Received {addr:04x}"
+
+    print(f"RW={rw_flag}, addr={addr:04x}")
 
 if __name__ == "__main__":
     test_runner.run_wrapper(

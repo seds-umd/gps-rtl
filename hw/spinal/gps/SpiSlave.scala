@@ -22,7 +22,7 @@ case class SpiSlave() extends Component {
     clock = io.sclk,
     config = ClockDomainConfig(
       resetKind = BOOT,
-      clockEdge = FALLING         // SPI Mode 1
+      clockEdge = FALLING         // SPI Mode 1 : CPOL=0, CPHA=1
     )
   )
 
@@ -31,17 +31,41 @@ case class SpiSlave() extends Component {
     val shift_reg = Reg(Bits(16 bits)) init(0) 
     val counter   = Reg(UInt(5 bits)) init(0)     // max 16
     val valid_reg = Reg(Bool()) init(False)
-    
-    when(!io.cs) {               // active-low
-      shift_reg := (shift_reg(14 downto 0) ## io.mosi)  
-      counter := counter + 1
 
-      when(counter === 15) {  
-        valid_reg := True
-      }
+    when(!io.cs) { 
+      shift_reg := shift_reg(14 downto 0) ## io.mosi  
+      counter := counter + 1
     }.otherwise {
       counter := 0
       valid_reg := False
+    }
+
+    val fsm = new StateMachine {
+
+      val idle = new State with EntryPoint
+      val receiving = new State
+      val complete = new State
+
+      idle.whenIsActive {
+        valid_reg := False
+
+        when(!io.cs) {            // active-low
+          goto(receiving)
+        }
+      }
+
+      receiving.whenIsActive {
+        when(counter === 15) {
+          valid_reg := True
+          goto(complete)
+        }
+      }
+
+      complete.whenIsActive {
+        when(io.cs) {  
+          goto(idle)
+        }
+      }
     }
 
     io.rw := shift_reg(15) 

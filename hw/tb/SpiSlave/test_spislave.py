@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import cocotb
+from cocotb.clock import Clock
 from cocotbext.spi import SpiMaster, SpiBus, SpiConfig
 from cocotb.triggers import Timer
 import random
@@ -12,11 +13,18 @@ from fpga_utils import test_runner
 @cocotb.test()
 async def test_spi_send_16bit(dut):
 
+    cocotb.start_soon(Clock(dut.io_system_clk, 50, units="ns").start())  # 20 MHz, T = 50 ns
+
+    dut.io_system_rst.value = 1     
+    await Timer(100, units="ns")  
+    dut.io_system_rst.value = 0 
+    await Timer(100, units="ns") 
+
     spi_bus = SpiBus.from_prefix(dut, "io")  
 
     spi_config = SpiConfig(
         word_width    =   16,  
-        sclk_freq     =   1e6,     # 1 MHz, T = 1 µs
+        sclk_freq     =   1e5,     # 100 kHz, T = 10 μs
         cpol          =   False,   # SPI Mode 1 : Master updates on rising edge, slave reads on falling edge
         cpha          =   True,   
         msb_first     =   True,
@@ -27,21 +35,21 @@ async def test_spi_send_16bit(dut):
 
     command = random.randint(0, 0xFFFF)
     await spi_master.write([command])  
-    await Timer(4, units="us")  
+    await Timer(200, units="us")  
 
-    expected_rw_flag = (command >> 15) & 0x1  
+    expected_rw = (command >> 15) & 0x1  
     expected_addr = command & 0x7FFF  
 
-    rw_flag = int(dut.io_rw.value)
+    rw = int(dut.io_rw.value)
     addr = int(dut.io_addr.value)
     received_flag = int(dut.io_received_flag.value)
 
     assert received_flag == 1, "Full command not received"
-    assert rw_flag == expected_rw_flag, f"RW bit incorrect, expected {expected_rw_flag}, got {rw_flag}"
+    assert rw == expected_rw, f"RW bit incorrect, expected {expected_rw}, got {rw}"
     assert addr == expected_addr, f"Address incorrect, expected {expected_addr:04x}, got {addr:04x}"
 
     print(f"Sent {command:04x}")
-    print(f"RW {rw_flag}")
+    print(f"RW {rw}")
     print(f"Address {addr:04x}")
 
 if __name__ == "__main__":

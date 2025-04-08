@@ -52,7 +52,17 @@ pip install -r requirements/dev.txt
 
 Litex is used to run portable Vivado builds. It is only needed if you're working with a physical FPGA board.
 
-TODO: setup instructions
+```bash
+mkdir ~/litex
+cd ~/litex
+wget https://raw.githubusercontent.com/enjoy-digital/litex/master/litex_setup.py
+chmod +x litex_setup.py
+python3 -m venv venv
+source venv/bin/activate
+./litex_setup.py --init --install --config standard
+```
+
+This installs litex in a virtual environment inside `~/litex`. You will need to activate this virtual environment instead of the normal one to run litex builds. This is done because litex takes a lot of space so it makes more sense to only have one copy of it.
 
 ## Directories
 

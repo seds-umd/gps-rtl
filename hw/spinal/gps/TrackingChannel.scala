@@ -31,16 +31,18 @@ case class TrackingChannel(config: GpsConfig) extends Component {
   // Carrier generation
   val cordic_sincos = CordicSinCosWrapper()
   val carrier_phase = Reg(UInt(config.sincos_phase_actual_bits bits)) init 0
-  val carrier_freq_est = Reg(SFix(8 exp, 16 bits)) // in units of ~125 Hz
   cordic_sincos.io.phase.payload := carrier_phase
   cordic_sincos.io.phase.valid := RegNext(io.iq.valid, False)
+
+  // Base units of fs / fft_len / dec_factor ~= 125 Hz
+  val carrier_freq_est = Reg(SFix(config.carrier_freq_peak exp, config.carrier_freq_width bits))
 
   // Phase increments by freq / ts
   // ts is period of individual sample, 1/4.092MHz
   val carrier_phase_inc =
     carrier_freq_est >> (config.fft_bits + config.fine_acq_factor_log - config.sincos_phase_actual_bits)
   val carrier_phase_rem = Reg(carrier_phase_inc.clone())
-  val carrier_phase_next = (carrier_phase_inc + carrier_phase_rem).toSInt
+  val carrier_phase_next = (carrier_phase_inc + carrier_phase_rem).raw.roundToInf(-carrier_phase_inc.minExp)
 
   when(cordic_sincos.io.phase.fire) {
     carrier_phase := (carrier_phase.asSInt - carrier_phase_next.resized).asUInt
@@ -82,9 +84,9 @@ case class TrackingChannel(config: GpsConfig) extends Component {
   val dec_late = Decimate(factor = config.prn_period, iq_out_size = config.dec_width)
 
   val prn_removed = StreamFork(prn.io.output, 3, true)
-  dec_early.io.iq_in << prn_removed(0).map(_(0))
-  dec_prompt.io.iq_in << prn_removed(1).map(_(1))
-  dec_late.io.iq_in << prn_removed(2).map(_(2))
+  dec_early.io.iq_in << prn_removed(0).map(_(0).c) // TODO: output timestamp
+  dec_prompt.io.iq_in << prn_removed(1).map(_(1).c)
+  dec_late.io.iq_in << prn_removed(2).map(_(2).c)
 
   val dec_prompt_vec = StreamFork(dec_prompt.io.iq_out, 3, true)
   val dec_outputs = StreamJoin.vec(Vec(dec_early.io.iq_out, dec_prompt_vec(2).stage(), dec_late.io.iq_out))
@@ -95,10 +97,11 @@ case class TrackingChannel(config: GpsConfig) extends Component {
   // Carrier PLL - arctan discriminator
   val carrier_pll = Pll(config.carrier_pll_config)
   val cordic_atan = CordicAtanWrapper()
-  cordic_atan.io.cartesian << dec_prompt_vec(1).translateInto(cordic_atan.io.cartesian.clone())((to, from) => {
-    to.re := from.re.sat(from.re.getWidth - to.re.getWidth)
-    to.im := from.im.sat(from.im.getWidth - to.im.getWidth)
-  })
+
+  val carr_gain = ShiftGain(config.dec_width, config.atan_in_bits - 1)
+  carr_gain.io.input << dec_prompt_vec(1)
+  cordic_atan.io.cartesian << carr_gain.io.output
+
   carrier_pll.io.err << cordic_atan.io.dout.map((angle) => {
     val x = carrier_pll.io.err.payload.clone()
     x.raw := (angle ## B(0, x.raw.getWidth - angle.getWidth bits)).asSInt / 2
@@ -107,7 +110,7 @@ case class TrackingChannel(config: GpsConfig) extends Component {
 
   carrier_pll.io.nco.ready := True
   when(carrier_pll.io.nco.fire && io.fb_enabled) {
-    carrier_freq_est := (carrier_freq_est + (carrier_pll.io.nco.payload >> 5)).truncated
+    carrier_freq_est := (carrier_freq_est + (carrier_pll.io.nco.payload >> 4)).truncated
   }
 
   // Code DLL - dot product discriminator
@@ -117,17 +120,16 @@ case class TrackingChannel(config: GpsConfig) extends Component {
     val prompt = from(1)
     val late = from(2)
 
-    val err = prompt.re * (early.re - late.re) + prompt.im * (early.im - late.im)
+    val err = (prompt.re * (early.re - late.re) + prompt.im * (early.im - late.im))
 
     printf("DLL err width: %d to %d\n", err.getWidth, to.raw.getWidth)
 
     // -4 is chosen from testing to match scale of python model
-    to.raw := err.roundToInf(err.getWidth - to.raw.getWidth - 4).sat(4)
+    to.raw := err.roundToInf(err.getWidth - to.raw.getWidth - 3).sat(3)
   })
-  // code_dll.io.nco.freeRun()
-  val nco_accum = Reg(prn.io.freq_adj.payload.clone()) init 0
+  val nco_accum = Reg(SInt(config.prn_counter_width - 12 bits)) init 0
   val nco_accum_next = nco_accum + code_dll.io.nco.payload.raw
-  when (code_dll.io.nco.fire) {
+  when(code_dll.io.nco.fire) {
     nco_accum := nco_accum_next
   }
   prn.io.freq_adj << code_dll.io.nco.toFlow.translateWith(nco_accum_next)
@@ -135,13 +137,6 @@ case class TrackingChannel(config: GpsConfig) extends Component {
   io.locked := !(carrier_pll.io.locked && code_dll.io.locked)
 
   // Debugging signals, will get optimized out
-  val frequency_stream = Flow(SFix(8 exp, 16 bits))
-  frequency_stream.payload := carrier_freq_est
-  frequency_stream.valid := False
-  when(carrier_pll.io.nco.fire) {
-    frequency_stream.valid := True
-  }
-
   val debug_area = new Area {
     val debug_reg = Reg(TrackingDebugReg(config)) init TrackingDebugReg(config).getZero
     val debug_reg_valid = Reg(Bits(7 bits)) init 0
@@ -176,6 +171,8 @@ case class TrackingChannel(config: GpsConfig) extends Component {
     when(carrier_pll.io.nco.fire) {
       debug_reg.carr_nco := carrier_pll.io.nco.payload
       debug_reg_valid(4) := True
+
+      debug_reg.carr_freq := carrier_freq_est
     }
 
     when(code_dll.io.err.fire) {
@@ -186,6 +183,8 @@ case class TrackingChannel(config: GpsConfig) extends Component {
     when(code_dll.io.nco.fire) {
       debug_reg.code_nco := code_dll.io.nco.payload
       debug_reg_valid(6) := True
+
+      debug_reg.code_freq_offset := nco_accum
     }
   }
 }
@@ -198,6 +197,8 @@ case class TrackingDebugReg(config: GpsConfig) extends Bundle {
   val carr_nco = SFix(config.carrier_pll_nco_peak exp, config.pll_width bits)
   val code_err = SFix(config.pll_err_peak exp, config.pll_width bits)
   val code_nco = SFix(config.code_pll_nco_peak exp, config.pll_width bits)
+  val carr_freq = SFix(config.carrier_freq_peak exp, config.carrier_freq_width bits)
+  val code_freq_offset = SInt(config.prn_counter_width - 12 bits)
 }
 
 object TrackingChannelVerilog extends App {

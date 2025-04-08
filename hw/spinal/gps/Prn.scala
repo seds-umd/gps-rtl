@@ -32,11 +32,11 @@ case class Prn(counter_width: Int = 28, nom_ratio: Double = 1 / 4) extends Compo
     val sample_count = out UInt (12 bits)
   }
 
-  val inc_base = Reg(UInt(counter_width + 1 bits)) init U(((1 << counter_width) * nom_ratio).toInt)
+  val inc_base = Reg(UInt(counter_width + 1 bits)) init U(((1l << counter_width) * nom_ratio).toInt)
   val inc_delta = Reg(SInt(counter_width - 12 bits)) init 0
   val inc_sum = inc_base + inc_delta.resize(counter_width + 1 bits).asUInt
 
-  val chip_fraction = Reg(UInt(counter_width bits)) init U(1 << (counter_width - 1))
+  val chip_fraction = Reg(UInt(counter_width bits)) init U(1l << (counter_width - 1))
   val chip_fraction_next = chip_fraction +^ inc_sum
   val advance_code = chip_fraction_next(counter_width) & io.code.fire
 
@@ -50,7 +50,7 @@ case class Prn(counter_width: Int = 28, nom_ratio: Double = 1 / 4) extends Compo
   val debug_count = Counter(32 bits, io.code.fire)
 
   when(io.sv.fire) {
-    chip_fraction := U(1 << (counter_width - 1))
+    chip_fraction := U(1l << (counter_width - 1))
     inc_base := io.ratio.raw
 
     code_count.clear()

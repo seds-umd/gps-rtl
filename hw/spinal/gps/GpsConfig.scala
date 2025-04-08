@@ -36,23 +36,27 @@ case class GpsConfig(
     carrier_pll_nco_peak: Int = 4,
     code_pll_bw: Float = 1f,
     code_pll_gain: Float = 1f,
-    code_pll_nco_peak: Int = 7,
+    code_pll_nco_peak: Int = 4,
     pll_zeta: Float = 0.707f,
     pll_ts: Float = 1e-3f,
     pll_width: Int = 16,
     pll_err_peak: Int = 0,
 
     // Tracking code discriminator settings
-    early_late_shift: Int = 1,
+    early_late_shift: Int = 2,
 
     // RemovePrn output width
     prn_output_width: Int = 8,
 
     // Prn frequency counter
-    prn_counter_width: Int = 28,
+    prn_counter_width: Int = 32,
 
     // Decimated sample width
     dec_width: Int = 14,
+
+    // Tracking frequency settings
+    carrier_freq_peak: Int = 10, // 2^10*125 = 128 kHz
+    carrier_freq_width: Int = 20,
 
     // Ethernet testbench configuration
     eth_acquisition: Boolean = true,

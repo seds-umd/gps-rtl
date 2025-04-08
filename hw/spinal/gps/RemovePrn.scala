@@ -27,7 +27,7 @@ case class RemovePrn(input_width: Int, config: GpsConfig) extends Component {
   val io = new Bundle {
     val input = slave Stream (ComplexTimestamp(input_width, config.prn_period))
 
-    val output = master Stream (Vec(Complex(config.prn_output_width), 3))
+    val output = master Stream (Vec(ComplexTimestamp(config.prn_output_width, config.prn_period), 3))
 
     val set = in Bool ()
     val sv = in UInt (6 bits)
@@ -64,14 +64,17 @@ case class RemovePrn(input_width: Int, config: GpsConfig) extends Component {
     }
 
     val prn_phase_history = History(prn.io.sample_count, 2 * config.early_late_shift + 1, prn.io.code.fire)
-    val last_prn_phase = prn_phase_history(2 * config.early_late_shift)
+    val last_prn_phase = prn_phase_history(config.early_late_shift + 1)
     val last_iq_phase = RegNextWhen(io.input.t, io.input.fire)
 
     // Intermediate signed value to properly handle overflows
-    val wide_width = config.fft_bits + 1
-    val offset_signed = (last_prn_phase.resize(wide_width bits) -
-      last_iq_phase.resize(wide_width bits) -
-      offset_target.resize(wide_width bits)).asSInt
+    val wide_width = config.fft_bits + 2
+    val offset_signed1 = last_prn_phase.resize(wide_width bits).asSInt -
+      last_iq_phase.resize(wide_width bits).asSInt -
+      offset_target.resize(wide_width bits).asSInt
+
+    // val offset_signed = (offset_signed1 < config.prn_period) ? (offset_signed1 - config.prn_period) | offset_signed1
+    val offset_signed = offset_signed1
 
     val offset =
       ((offset_signed < 0) ? (offset_signed + config.prn_period) | offset_signed).asUInt.resize(config.fft_bits bits)
@@ -127,9 +130,10 @@ case class RemovePrn(input_width: Int, config: GpsConfig) extends Component {
 
     val input_stream = io.input
       .throwWhen(throw_iq) // Don't send to mixer before alignment
-      .translateInto(Stream(Fragment(Complex(mixerWidth))))((to, from) => {
-        to.fragment.re := from.c.re @@ (U"1'b1" << (mixerWidth - input_width - 1))
-        to.fragment.im := from.c.im @@ (U"1'b1" << (mixerWidth - input_width - 1))
+      .translateInto(Stream(Fragment(ComplexTimestamp(mixerWidth, config.prn_period))))((to, from) => {
+        to.c.re := from.c.re @@ (U"1'b1" << (mixerWidth - input_width - 1))
+        to.c.im := from.c.im @@ (U"1'b1" << (mixerWidth - input_width - 1))
+        to.t := from.t
         to.last := False // Don't care
       })
 
@@ -137,26 +141,27 @@ case class RemovePrn(input_width: Int, config: GpsConfig) extends Component {
     val dropped_prn = Counter(16 bits, prn.io.code.fire && throw_prn)
     io.dropped := dropped_iq
 
-    def process_output(stream: Stream[Fragment[Complex]]): Stream[Complex] = {
+    def process_output(stream: Stream[Fragment[ComplexTimestamp]]): Stream[ComplexTimestamp] = {
       stream
         .stage() // Buffer output for StreamJoin to prevent deadlock
-        .translateInto(Stream(Complex(config.prn_output_width)))((to, from) => {
+        .translateInto(Stream(ComplexTimestamp(config.prn_output_width, config.prn_period)))((to, from) => {
           // Shift to use full scale of output
           val shift = config.prn_output_width - mixerWidth + 1
 
           if (shift > 0) {
-            to.re := (from.re << shift).resized
-            to.im := (from.im << shift).resized
+            to.c.re := (from.c.re << shift).resized
+            to.c.im := (from.c.im << shift).resized
           } else {
-            to.re := (from.re >> -shift).resized
-            to.im := (from.im >> -shift).resized
+            to.c.re := (from.c.re >> -shift).resized
+            to.c.im := (from.c.im >> -shift).resized
           }
+          to.t := from.t
         })
     }
 
-    val mixer_early = Mixer(mixerWidth)
-    val mixer_prompt = Mixer(mixerWidth)
-    val mixer_late = Mixer(mixerWidth)
+    val mixer_early = MixerTimestamp(mixerWidth, config.prn_period)
+    val mixer_prompt = MixerTimestamp(mixerWidth, config.prn_period)
+    val mixer_late = MixerTimestamp(mixerWidth, config.prn_period)
 
     val inputs = StreamFork(input_stream, 3, false)
 
@@ -230,27 +235,28 @@ case class RemovePrn(input_width: Int, config: GpsConfig) extends Component {
       val idle: State = new State {
         whenIsActive {
           // In sims, IQ samples aren't limited by sample rate
-          if (config.debug) {
-            when(offset > config.prn_period / 2) {
-              goto(advance_prn)
-            } otherwise {
-              goto(advance_iq)
-            }
-          } else {
-            when(offset > threshold) {
-              goto(advance_prn)
-            } otherwise {
-              goto(advance_iq)
-            }
-          }
+          // if (config.debug) {
+          //   when(offset > config.prn_period / 2) {
+          //     goto(advance_prn)
+          //   } otherwise {
+          //     goto(advance_iq)
+          //   }
+          // } else {
+          //   when(offset > threshold) {
+          //     goto(advance_prn)
+          //   } otherwise {
+          //     goto(advance_iq)
+          //   }
+          // }
+          goto(advance_prn)
         }
       }
 
       val advance_prn: State = new State {
         whenIsActive {
-          if (!config.debug) {
-            throw_iq := True
-          }
+          // if (!config.debug) {
+          //   throw_iq := True
+          // }
           throw_prn := True
 
           when(offset_next === 0) {

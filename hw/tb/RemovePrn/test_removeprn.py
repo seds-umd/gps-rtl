@@ -18,6 +18,9 @@ from fpga_utils import (
 )
 
 
+EARLY_LATE_SHIFT = 2
+
+
 class TB(TbTemplate):
     def __init__(self, dut):
         super().__init__(dut)
@@ -55,7 +58,7 @@ class TB(TbTemplate):
         await ClockCycles(self.dut.clk, 1)
 
     async def run_test(
-        self, offset=0, timestamp_offset=0, cycles=2, gps_data=True, slow=False
+        self, offset=0, timestamp_offset=0, cycles=1, gps_data=True, slow=False
     ):
         if slow:
             # Doesn't have to be correct fs, just slower than main clock
@@ -94,26 +97,27 @@ class TB(TbTemplate):
 
         # Receive data
         actual = await with_timeout(self.output.read(), 150000, "ns")
-        early_sim = np.array(actual.payload["0_re"]).astype(np.int8) + 1j * np.array(
-            actual.payload["0_im"]
+        early_sim = np.array(actual.payload["0_c_re"]).astype(np.int8) + 1j * np.array(
+            actual.payload["0_c_im"]
         ).astype(np.int8)
-        prompt_sim = np.array(actual.payload["1_re"]).astype(np.int8) + 1j * np.array(
-            actual.payload["1_im"]
+        prompt_sim = np.array(actual.payload["1_c_re"]).astype(np.int8) + 1j * np.array(
+            actual.payload["1_c_im"]
         ).astype(np.int8)
-        late_sim = np.array(actual.payload["2_re"]).astype(np.int8) + 1j * np.array(
-            actual.payload["2_im"]
+        late_sim = np.array(actual.payload["2_c_re"]).astype(np.int8) + 1j * np.array(
+            actual.payload["2_c_im"]
         ).astype(np.int8)
+
+        # Get correct offset
+        dropped = actual.payload["0_t"][0] - data["t"][0]
 
         # Reference data
         prn_data = prn_gen.sample(
             1, 4.092e6, cycles * 4096, offset_samples=offset + timestamp_offset
         )
-        early_ref = samples_quant * np.roll(prn_data, -1)
+        early_ref = samples_quant * np.roll(prn_data, -EARLY_LATE_SHIFT)
         prompt_ref = samples_quant * np.roll(prn_data, 0)
-        late_ref = samples_quant * np.roll(prn_data, 1)
+        late_ref = samples_quant * np.roll(prn_data, EARLY_LATE_SHIFT)
 
-        # Get correct offset
-        dropped = int(self.dut.io_dropped.value)
         early_ref = early_ref[dropped:]
         prompt_ref = prompt_ref[dropped:]
         late_ref = late_ref[dropped:]
@@ -170,6 +174,8 @@ async def test_dut(dut):
 
     await tb.reset()
 
+    await tb.run_test(3910, 4050)
+
     await tb.run_test(0, 0, gps_data=False, slow=True)
     await tb.run_test(0, 0, gps_data=False, slow=False)
     await tb.run_test(123, 321, gps_data=False, slow=False)
@@ -189,5 +195,4 @@ if __name__ == "__main__":
         proj_dir="../../..",
         source_dir="hw/spinal/gps",
         gen_dir="hw/gen",
-        # verilog_sources=["hw/verilog/CordicSinCos.v", "hw/verilog/CordicAtan.v"],
     )

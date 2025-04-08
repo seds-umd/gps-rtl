@@ -4,59 +4,16 @@ import cocotb
 from cocotb.triggers import ClockCycles
 
 import numpy as np
-import matplotlib.pyplot as plt
-import logging
+import pickle
+import datetime
 
-import fpga_utils
+import common
+import graph
 import fpga_utils.spinal_stream as stream
 from fpga_utils import TbTemplate, test_runner
 from fpga_utils.cordic_sim import CordicSinCosSim, CordicAtan2Sim
-from fpga_utils.dsp import corr, from_sfix
-from gps import gps, gps_sim, prn_gen
-
-
-PLL_WIDTH = 16
-PLL_ERR_PEAK = 0
-PLL_CARR_NCO_PEAK = 3
-PLL_CODE_NCO_PEAK = 7
-PRN_FREQ_WIDTH = 28
-
-
-# Modified PLL to match sim behavior
-class PLL:
-    def __init__(self, bw: float, zeta: float, gain: float, ts: float):
-        """Phase locked loop
-
-        Args:
-            bw (float): Noise bandwidth
-            zeta (float): Damping ratio
-            gain (float): Loop gain
-            ts (float): Sampling time
-        """
-
-        self.set_params(bw, zeta, gain, ts)
-        self.reset()
-
-    def set_params(self, bw: float, zeta: float, gain: float, ts: float):
-        w_n = 8 * zeta * bw / (4 * zeta**2 + 1)
-        tau1 = gain / (w_n * w_n)
-        tau2 = 2 * zeta / w_n
-
-        self.c1 = tau2 / tau1  # derivative term
-        self.c2 = ts / tau1  # proportional term
-
-    def update(self, err):
-        # nco = self.last_nco + self.c1 * (err - self.last_err) + err * self.c2
-        nco = self.c1 * (err - self.last_err) + err * self.c2
-
-        self.last_err = err
-        self.last_nco = nco
-
-        return nco
-
-    def reset(self):
-        self.last_err = 0
-        self.last_nco = 0
+from fpga_utils.dsp import corr, from_sfix, from_twos_comp
+from gps import gps_sim
 
 
 def decode_complex_samples(payload: dict, prefix: str = None, width: int = 8):
@@ -99,145 +56,8 @@ def get_real_samples(mon: stream.SpinalStreamMonitor, peak: int = 0, width: int 
     return decode_real_samples(data.payload, peak, width)
 
 
-def quantize(val: int, peak: int, width: int):
-    val = int(np.round(val * 2 ** (width - peak - 1))) / 2 ** (width - peak - 1)
-    return val
-
-
-def tracking_model(
-    x: np.ndarray,
-    f_s: float,
-    sv: int,
-    freq_est: float,
-    code_est: int,
-    debug_results: bool = False,
-):
-    freq_est = int(freq_est / 125)
-
-    carrier_pll = PLL(10, 0.707, 0.25, 1e-3)
-    code_dll = PLL(1, 0.707, 1, 1e-3)
-
-    # Parameters
-    ms_count = int(1e3 * len(x) / f_s)
-    code_freq_basis = 1.023e6
-    early_late_spacing = 0.5
-
-    code_ref = prn_gen.generate(sv)
-    code_ref = np.concatenate([[code_ref[-1]], code_ref, [code_ref[0]]])
-
-    # Variables
-    carrier_phase = 0
-    carrier_freq = freq_est
-
-    # code_phase = 0  # units of code chips
-    code_phase = 0.5
-    # code_phase = code_est
-    code_freq = code_freq_basis
-
-    sample_position = int(f_s / 1e3 - code_est)
-    # sample_position = 0
-
-    # Outputs
-    res_samples = []
-
-    # Debug outputs
-    res_carr_freq = []
-    res_carr_err = []
-    res_carr_nco = []
-    res_code_freq = []
-    res_code_err = []
-    res_code_nco = []
-    res_code_phase = []
-    res_code_pos = []
-
-    for _ in range(ms_count):
-        code_phase_step = code_freq / f_s
-        blksize = int(np.ceil((1023 - code_phase) / code_phase_step))
-
-        # Get chunk of data
-        raw_signal = x[sample_position : sample_position + blksize]
-        sample_position = sample_position + blksize
-
-        # Exit if not enough samples
-        if len(raw_signal) < blksize:
-            break
-
-        # Generate code replicas
-        tcode = code_phase + np.arange(blksize, dtype=float) * code_phase_step
-        prompt_code = code_ref[np.ceil(tcode).astype(int)]
-
-        tcode_early = np.ceil(tcode - early_late_spacing).astype(int)
-        early_code = code_ref[tcode_early]
-
-        tcode_late = np.ceil(tcode + early_late_spacing).astype(int)
-        late_code = code_ref[tcode_late]
-
-        code_phase = tcode[-1] + code_phase_step - 1023
-
-        # Advance phase
-        phase_inc = carrier_freq / 2 ** (12 + 3 - 10)
-        phase = phase_inc * np.arange(blksize + 1) + 2**10 * carrier_phase / (2 * np.pi)
-        phase = phase * 2 * np.pi / 2**10
-        carrier_phase = phase[-1] % (2 * np.pi)
-
-        # Shift to DC, remove PRN, and sum
-        baseband = raw_signal * np.exp(-1j * phase[:-1])
-
-        # Match shift of 6 in Decimate
-        prompt = np.sum(baseband * prompt_code) / 2**6
-        early = np.sum(baseband * early_code) / 2**6
-        late = np.sum(baseband * late_code) / 2**6
-
-        # Update carrier PLL
-        carrier_err = np.arctan(prompt.imag / prompt.real) / (2 * np.pi)
-        carrier_err = quantize(carrier_err, PLL_ERR_PEAK, PLL_WIDTH)
-        carrier_nco = carrier_pll.update(carrier_err) / 2**5
-        carrier_nco = quantize(carrier_nco, PLL_CARR_NCO_PEAK, PLL_WIDTH)
-        old_carr_freq = carrier_freq
-        carrier_freq += carrier_nco
-
-        # Update code DLL
-        code_err = prompt.real * (early.real - late.real) + prompt.imag * (
-            early.imag - late.imag
-        )
-        code_err /= blksize**2
-        code_nco = code_dll.update(code_err)
-        code_freq -= code_nco
-
-        # Save stuff for graphing and debugging
-        res_samples.append(prompt)
-
-        if debug_results:
-            res_carr_freq.append(old_carr_freq)
-            res_carr_err.append(carrier_err)
-            res_carr_nco.append(carrier_nco)
-
-            res_code_freq.append(code_freq)
-            res_code_err.append(code_err)
-            res_code_nco.append(code_nco)
-            res_code_phase.append(code_phase)
-            res_code_pos.append(sample_position)
-
-    res_samples = np.array(res_samples, dtype=np.complex64)
-
-    if debug_results:
-        return (
-            np.array(res_samples),
-            np.array(res_carr_freq),
-            np.array(res_carr_err),
-            np.array(res_carr_nco),
-            np.array(res_code_freq),
-            np.array(res_code_err),
-            np.array(res_code_nco),
-            np.array(res_code_phase),
-            np.array(res_code_pos),
-        )
-    else:
-        return res_samples
-
-
 class Tb(TbTemplate):
-    def __init__(self, dut, debug=False):
+    def __init__(self, dut):
         super().__init__(dut)
 
         self.fs = 4.092e6
@@ -253,11 +73,6 @@ class Tb(TbTemplate):
         self.config = stream.SpinalStreamSource.from_prefix(self.dut, "io_config_flow")
         self.nav_data = stream.SpinalStreamSink.from_prefix(self.dut, "io_nav_data")
         self.debug_flow = stream.SpinalStreamSink.from_prefix(self.dut, "io_debug")
-
-        if debug:
-            self.frequency = stream.SpinalStreamMonitor.from_prefix(
-                dut, "frequency_stream"
-            )
 
         self.dut.io_fb_enabled.value = 1
 
@@ -308,20 +123,46 @@ class Tb(TbTemplate):
     def get_debug_data(self):
         frame = self.debug_flow.read_nowait()
 
-        dec_early = decode_complex_samples(frame.payload, prefix="dec_early", width=14)
-        dec_prompt = decode_complex_samples(
-            frame.payload, prefix="dec_prompt", width=14
+        dec_early = decode_complex_samples(
+            frame.payload, prefix="dec_early", width=common.DEC_WIDTH
         )
-        dec_late = decode_complex_samples(frame.payload, prefix="dec_late", width=14)
+        dec_prompt = decode_complex_samples(
+            frame.payload, prefix="dec_prompt", width=common.DEC_WIDTH
+        )
+        dec_late = decode_complex_samples(
+            frame.payload, prefix="dec_late", width=common.DEC_WIDTH
+        )
 
-        carrier_err = decode_real_samples(frame.payload["carr_err"], peak=0, width=16)
-        carrier_nco = decode_real_samples(frame.payload["carr_nco"], peak=4, width=16)
-        carrier_nco *= 125  # Scale to Hz
-        carrier_nco /= 2**5  # Match shift of 5 to carrier_freq_est
+        carrier_err = decode_real_samples(
+            frame.payload["carr_err"], peak=common.PLL_ERR_PEAK, width=common.PLL_WIDTH
+        )
+        carrier_nco = decode_real_samples(
+            frame.payload["carr_nco"],
+            peak=common.PLL_CARR_NCO_PEAK,
+            width=common.PLL_WIDTH,
+        )
 
-        code_err = decode_real_samples(frame.payload["code_err"], peak=0, width=16)
-        code_nco = np.array(frame.payload["code_nco"]).astype(np.int16).astype(np.float64)
-        code_nco *= 1.023e6 / 2**PRN_FREQ_WIDTH
+        code_err = decode_real_samples(
+            frame.payload["code_err"], peak=common.PLL_ERR_PEAK, width=common.PLL_WIDTH
+        )
+        code_nco = decode_real_samples(
+            frame.payload["code_nco"],
+            peak=common.PLL_CODE_NCO_PEAK,
+            width=common.PLL_WIDTH,
+        )
+
+        carr_freq = decode_real_samples(
+            frame.payload["carr_freq"],
+            peak=common.CARR_FREQ_PEAK,
+            width=common.CARR_FREQ_WIDTH,
+        )
+
+        code_freq_offset = frame.payload["code_freq_offset"]
+        code_freq_offset = [
+            from_twos_comp(x, width=common.PRN_FREQ_WIDTH - 12)
+            for x in code_freq_offset
+        ]
+        code_freq_offset = np.array(code_freq_offset)
 
         return (
             dec_early,
@@ -331,14 +172,17 @@ class Tb(TbTemplate):
             carrier_nco,
             code_err,
             code_nco,
+            carr_freq,
+            code_freq_offset,
         )
 
 
 @cocotb.test(skip=False)
-async def test_tracking_debug(dut, graph=True):
+async def test_tracking_graph(dut):
     np.random.seed(958736385)
-    tb = Tb(dut, debug=True)
+    tb = Tb(dut)
     log = dut._log
+    log.info(f"Starting at {datetime.datetime.now().isoformat()}")
     await tb.reset()
 
     sv = 1
@@ -346,7 +190,7 @@ async def test_tracking_debug(dut, graph=True):
     code_phase = 10
     period = 4092
 
-    N = period * 100  # ms of data
+    N = period * 10  # ms of data
 
     tb.set_config(sv, int(freq_offset / 125), code_phase)
     np.random.seed(259879342)
@@ -356,114 +200,42 @@ async def test_tracking_debug(dut, graph=True):
 
     await ClockCycles(dut.clk, int(N * 1.1))
 
-    # Collect data
-    frequencies = get_real_samples(tb.frequency, 8, 16) * 125
-
-    dec_early, dec_prompt, dec_late, carrier_err, carrier_nco, code_err, code_nco = (
-        tb.get_debug_data()
-    )
-    dropped_samples = int(tb.dut.prn_1.dropped_iq_value.value)
-
-    # Reference GPS tracking
     (
-        ref_prompt,
-        ref_carr_freq,
-        ref_carr_err,
-        ref_carr_nco,
-        ref_code_freq,
-        ref_code_err,
-        ref_code_nco,
-        ref_code_phase,
-        _,
-    ) = tracking_model(
-        samples_biased, tb.fs, sv, freq_offset, (code_phase) % 4092, True
-    )
-    ref_carr_freq *= 125
-    ref_carr_nco *= 125
+        dec_early,
+        dec_prompt,
+        dec_late,
+        carrier_err,
+        carrier_nco,
+        code_err,
+        code_nco,
+        carr_freq,
+        code_freq_offset,
+    ) = tb.get_debug_data()
 
-    code_err_calc = dec_prompt.real * (dec_early.real - dec_late.real) + dec_prompt.imag * (
-        dec_early.imag - dec_late.imag
-    )
-    code_err_calc /= 2**26
+    save_data = {
+        "sv": sv,
+        "freq_offset": freq_offset,
+        "code_phase": code_phase,
+        "sample_count": N,
+        "dec_early": dec_early,
+        "dec_prompt": dec_prompt,
+        "dec_late": dec_late,
+        "carrier_err": carrier_err,
+        "carrier_nco": carrier_nco,
+        "code_err": code_err,
+        "code_nco": code_nco,
+        "samples": samples,
+        "samples_biased": samples_biased,
+        "carrier_phase": np.array(tb.cordic_sincos.past_inputs),
+        "carrier_out": np.array(tb.cordic_sincos.past_outputs),
+        "carr_freq": carr_freq,
+        "code_freq_offset": code_freq_offset,
+    }
 
-    # Graphs
-    if graph:
-        rows = 4
-        plt.figure(figsize=(8, 12), dpi=300)
+    with open("data.pickle", "wb") as f:
+        pickle.dump(save_data, f)
 
-        plt.subplot(rows, 2, 1)
-        plt.title("Carrier Discriminator")
-        plt.plot(carrier_err, label="sim")
-        plt.plot(ref_carr_err, label="ref")
-        plt.legend()
-
-        plt.subplot(rows, 2, 2)
-        plt.title("Carrier NCO")
-        plt.plot(carrier_nco, label="sim")
-        plt.plot(ref_carr_nco, label="ref")
-
-        plt.subplot(rows, 2, 3)
-        plt.title("Frequency Estimate")
-        plt.plot(frequencies)
-        plt.plot(ref_carr_freq)
-
-        plt.subplot(rows, 2, 4)
-        plt.title("Decimated Samples")
-        plt.plot(dec_prompt.real, "-C0", label="sim re")
-        plt.plot(dec_prompt.imag, "--C0", label="sim im")
-        plt.plot(ref_prompt.real, "-C1", label="ref re")
-        plt.plot(ref_prompt.imag, "--C1", label="ref im")
-
-        plt.subplot(rows, 2, 5)
-        plt.title("Code Discriminator")
-        plt.plot(code_err)
-        plt.plot(ref_code_err)
-        plt.plot(code_err_calc, "--C0")
-
-        plt.subplot(rows, 2, 6)
-        plt.title("Code NCO")
-        plt.plot(code_nco)
-        plt.plot(ref_code_nco)
-
-        plt.subplot(rows, 2, (7, 8))
-        plt.title("Code Frequency")
-        plt.plot(1.023e6 + np.cumsum(code_nco))
-        plt.plot(ref_code_freq)
-
-        plt.tight_layout()
-        plt.savefig("out1.png")
-
-
-@cocotb.test(skip=True)
-async def test_trackingchannel(dut):
-    tb = Tb(dut)
-    await tb.reset()
-
-    sv = 1
-    freq_offset = 1000
-    code_phase = 10
-    period = 4092
-
-    # 100ms worth of samples
-    N = period * 100
-
-    tb.set_config(sv, int(freq_offset / 125), code_phase)
-    samples = tb.send_generated_samples(
-        N, doppler=freq_offset, doppler2=100, sample_phase=code_phase
-    )
-
-    await ClockCycles(dut.clk, int(N * 1.1))
-
-    # Reference GPS tracking
-    (
-        ref_prompt,
-        ref_carr_freq,
-        ref_carr_err,
-        ref_code_freq,
-        ref_code_err,
-        ref_code_phase,
-        ref_code_pos,
-    ) = gps.tracking(samples, tb.fs, sv, freq_offset, code_phase, True)
+    graph.main(True)
 
 
 if __name__ == "__main__":

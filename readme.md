@@ -269,6 +269,7 @@ With the 7S50 there's 120 DSPs so multiplication optimization is a low priority.
   * Tracking
   * SPI control
   * Acquisition/tracking channel manager
+    * FIFO before tracking input to allow code alignment (up to 4092 cycles), also make sure it's not unrecoverable for shared cordics (make them at least 1.5x more bandwidth than necessary)
   * Record timing values for calculating position
 * Improvements
   * Global configuration object for all components

@@ -1,18 +1,18 @@
 [*]
 [*] GTKWave Analyzer v3.3.104 (w)1999-2020 BSI
-[*] Tue Dec 31 01:14:13 2024
+[*] Fri Jan 10 02:48:43 2025
 [*]
 [dumpfile] "/home/nathan/seds/gps-rtl/hw/tb/TrackingChannel/sim_build/TrackingChannel.fst"
-[dumpfile_mtime] "Mon Dec 30 21:59:54 2024"
-[dumpfile_size] 1399309
+[dumpfile_mtime] "Thu Jan  9 05:52:27 2025"
+[dumpfile_size] 92754127
 [savefile] "/home/nathan/seds/gps-rtl/hw/tb/TrackingChannel/TrackingChannel.gtkw"
-[timestart] 81903900
+[timestart] 0
 [size] 1428 867
-[pos] 32735 32735
-*-15.000000 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+[pos] -1 -1
+*-28.000000 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
 [treeopen] TrackingChannel.
 [sst_width] 214
-[signals_width] 238
+[signals_width] 214
 [sst_expanded] 1
 [sst_vpaned_height] 245
 @28
@@ -49,7 +49,7 @@ TrackingChannel.cordic_sincos.io_phase_ready
 TrackingChannel.cordic_sincos.io_phase_valid
 @1401200
 -Sin Cos CORDIC
-@c00200
+@800200
 -Carrier Phase
 @420
 TrackingChannel.carrier_phase[9:0]
@@ -59,7 +59,7 @@ TrackingChannel.carrier_freq_est[15:0]
 TrackingChannel.carrier_freq_est[15:0]
 @20000
 -
-@1401200
+@1000200
 -Carrier Phase
 @c00200
 -PRN
@@ -88,15 +88,21 @@ TrackingChannel.prn_1.dropped_prn_value[15:0]
 -Debug Output
 @1401200
 -Debug Output
-@c00200
+@800200
 -Carrier PLL
 @28
 TrackingChannel.carrier_pll.io_locked
+@420
+TrackingChannel.carrier_pll.err_payload[15:0]
+@28
 TrackingChannel.carrier_pll.io_err_ready
 TrackingChannel.carrier_pll.io_err_valid
+@420
+TrackingChannel.carrier_pll.io_nco_payload[15:0]
+@28
 TrackingChannel.carrier_pll.io_nco_ready
 TrackingChannel.carrier_pll.io_nco_valid
-@1401200
+@1000200
 -Carrier PLL
 @c00200
 -Atan2 CORDIC
@@ -113,7 +119,7 @@ TrackingChannel.cordic_atan.io_dout_ready
 TrackingChannel.cordic_atan.io_dout_valid
 @1401200
 -Atan2 CORDIC
-@800200
+@c00200
 -Prompt Decimator
 @420
 TrackingChannel.dec_prompt.dec_sample_im[19:0]
@@ -122,9 +128,9 @@ TrackingChannel.dec_prompt.io_iq_out_payload_re[13:0]
 TrackingChannel.dec_prompt.io_iq_out_payload_im[13:0]
 @28
 TrackingChannel.dec_prompt.io_iq_out_fire
-@1000200
+@1401200
 -Prompt Decimator
-@800200
+@c00200
 -Code DLL
 @420
 TrackingChannel.code_dll.io_err_payload[15:0]
@@ -137,7 +143,10 @@ TrackingChannel.code_dll.io_nco_payload[15:0]
 @28
 TrackingChannel.code_dll.io_nco_ready
 TrackingChannel.code_dll.io_nco_valid
-@1000200
+@1401200
 -Code DLL
+@420
+TrackingChannel.nco_accum[19:0]
+TrackingChannel.nco_accum_next[19:0]
 [pattern_trace] 1
 [pattern_trace] 0

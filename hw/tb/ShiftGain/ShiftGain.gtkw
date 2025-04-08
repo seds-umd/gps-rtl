@@ -1,0 +1,47 @@
+[*]
+[*] GTKWave Analyzer v3.3.104 (w)1999-2020 BSI
+[*] Sat Jan 11 22:44:38 2025
+[*]
+[dumpfile] "/home/nathan/seds/gps-rtl/hw/tb/ShiftGain/sim_build/ShiftGain.fst"
+[dumpfile_mtime] "Sat Jan 11 22:19:43 2025"
+[dumpfile_size] 23855806
+[savefile] "/home/nathan/seds/gps-rtl/hw/tb/ShiftGain/*.gtkw"
+[timestart] 0
+[size] 1428 867
+[pos] -1 -1
+*-16.000000 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+[sst_width] 214
+[signals_width] 230
+[sst_expanded] 1
+[sst_vpaned_height] 245
+@28
+ShiftGain.clk
+ShiftGain.reset
+@820
+ShiftGain.fsm_stateReg_string[39:0]
+@200
+-
+@420
+ShiftGain.io_input_payload_re[15:0]
+ShiftGain.io_input_payload_im[15:0]
+@28
+ShiftGain.io_input_ready
+ShiftGain.io_input_valid
+@200
+-
+@420
+ShiftGain.io_output_payload_re[7:0]
+ShiftGain.io_output_payload_im[7:0]
+@28
+ShiftGain.io_output_ready
+ShiftGain.io_output_valid
+@200
+-
+@420
+ShiftGain.sample_re[15:0]
+ShiftGain.sample_im[15:0]
+@28
+ShiftGain.fsm_shift_re_msb
+ShiftGain.fsm_shift_im_msb
+[pattern_trace] 1
+[pattern_trace] 0

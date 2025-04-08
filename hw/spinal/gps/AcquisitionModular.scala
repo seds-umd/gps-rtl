@@ -141,7 +141,7 @@ case class AcquisitionModular(
     remove_prn.io.input << iq_area.output_fine
 
     val decimator = Decimate(iq_in_size = fft_width, iq_out_size = fft_width, factor = dec_factor)
-    decimator.io.iq_in << remove_prn.io.output.map(_(1))
+    decimator.io.iq_in << remove_prn.io.output.map(_(1).c)
     val dec_out = decimator.io.iq_out
   }
 

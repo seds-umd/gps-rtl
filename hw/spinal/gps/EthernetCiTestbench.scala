@@ -16,6 +16,9 @@ import spinal.lib.bus.misc.BusSlaveFactory
  * 0x0008 - scratch
  *
  * 0x0100-0x01FF - tbd
+ * 
+ * Port map:
+ * 1000 - AXI-L bus
  */
 
 case class EthernetCiTestbench(config: GpsConfig) extends Component {
@@ -69,6 +72,7 @@ case class EthernetCiTestbench(config: GpsConfig) extends Component {
       val (input_fragment, input_avail) = input_stream.toStreamOfFragment.queueWithAvailability(ACQ_FIFO_SIZE)
       val input_full = ComplexTimestamper(StreamWidthAdapter.make(input_fragment, Complex(2)))
       acquisition.io.iq << input_full.map(_.asBits)
+      // input_stream.freeRun()
       output_stream << acquisition.io.results.fragmentTransaction(8)
 
       udp.addPort(1010, output_stream, input_stream)
@@ -86,7 +90,18 @@ case class EthernetCiTestbench(config: GpsConfig) extends Component {
       val config_flow = Flow(Bits(32 bits))
       bus_ctrl.driveFlow(config_flow, 0x300)
       config.io.data << config_flow.toStream
+
+      val dummy_stream = Stream(Fragment(Bits(8 bits)))
+      dummy_stream.ready := True
+      val stopped = Reg(Bool()) init True
+      when(dummy_stream.fire) {
+        // Send 0 to start, 1 to stop
+        stopped := dummy_stream.payload(0)
+      }
+      udp.addPort(1030, dsp_iq.throwWhen(stopped).addFragmentLast(Counter(500)), dummy_stream)
     }
+
+    // acquisition_area.acquisition.io.iq << max2769_area.dsp.io.iq.map(_.asBits)
   }
 }
 

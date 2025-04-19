@@ -315,16 +315,14 @@ def waterfall(tb: Max2769Testbench, fs: float, n: int, lines: int):
 
 
 def main():
-    # fs = 4.092e6*2
     fs = 4.092e6
     N = 1023
     lines = 1000
 
-    tb = Max2769Testbench("10.0.0.2")
+    tb = Max2769Testbench("192.168.200.2")
 
     # setup_regs_if(tb)
-    # setup_regs_default(tb)
-    # return
+    setup_regs_default(tb)
 
     # while True:
     #     setup_regs_default(tb)
@@ -358,11 +356,9 @@ def main():
 
     for _ in range(50):
         samples = tb.get_samples(2**15)
-        res = gps.acquisition(samples, fs, 30e3, 500, threshold=0, sv=10)
+        res = gps.acquisition(samples, fs, 30e3, 500, threshold=0, sv=6)
         # res = gps.acquisition(samples, fs, 30e3, 500, fs/4, threshold=0, sv=10)
 
-        # if len(res) > 0:
-        #     print(res)
         results.extend(res)
 
     snr_avg = np.mean([x[3] for x in results])

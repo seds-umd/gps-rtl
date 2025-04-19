@@ -71,7 +71,7 @@ class TemplateTb:
 
     # Get unix timestamp
     def get_build_time(self) -> int:
-        return self.csr_stream.read(0xFFC)
+        return self.csr_stream.read(0x0004)
 
     # def randn(self, size):
     #     return self.rng.normal(1, 1, size)

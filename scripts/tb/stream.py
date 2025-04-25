@@ -2,10 +2,39 @@ import random
 import socket
 import threading
 import time
+import numpy as np
 
 # Hard coded in RTL
 MAX_LEN = 508
 # MAX_LEN = 1472
+
+
+# Convert complex samples into IQ format for
+def process_samples(samples):
+    # Normalize - scaling optimized for SNR
+    samples /= np.max(np.abs(samples))
+    samples *= 127
+
+    assert len(samples) % 2 == 0, "Must have an even number of samples"
+
+    # Convert to 4 bit format
+    samples_re = samples.real.astype(np.int8).astype(np.uint8) >> 6
+    samples_im = samples.imag.astype(np.int8).astype(np.uint8) >> 6
+    bits = (
+        samples_re[1::2]
+        | (samples_im[1::2] << 2)
+        | (samples_re[::2] << 4)
+        | (samples_im[::2] << 6)
+    )
+
+    # Get quantized samples
+    samples_re = (samples_re << 6).astype(np.int8) | 0b100000
+    samples_im = (samples_im << 6).astype(np.int8) | 0b100000
+
+    samples_quant = samples_re + samples_im * 1j
+    samples_quant /= 128
+
+    return bits, samples_quant
 
 
 class StreamInterface:
@@ -122,3 +151,38 @@ class AxilInterface(StreamInterface):
 
     def read(self, addr: int) -> int:
         return self.read_get(self.read_start(addr))
+
+class IqInterface(StreamInterface):
+    def __init__(self, dest, port, avail_addr, csr: StreamInterface):
+        super().__init__(dest, port)
+        self.avail_addr = avail_addr
+        self.csr_stream = csr
+
+    def get_availability(self) -> int:
+        return self.csr_stream.read(self.avail_addr)
+    
+    def send_samples(self, samples, threaded=False):
+        if threaded:
+            self.wait_for_thread()
+
+            self.thread = threading.Thread(
+                target=self._run, args=(samples,), daemon=True
+            )
+            self.thread.start()
+        else:
+            self._run(samples)
+
+    def wait_for_thread(self):
+        if self.thread is not None:
+            self.thread.join()
+
+    def _run(self, samples):
+        bits_bytes, self.samples_quant = process_samples(samples)
+
+        i = 0
+        chunk_size = self.get_availability()
+
+        while i < len(bits_bytes):
+            self.send(bits_bytes[i : i + chunk_size])
+            i += chunk_size
+            chunk_size = self.get_availability()

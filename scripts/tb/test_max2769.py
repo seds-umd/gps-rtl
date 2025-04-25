@@ -3,6 +3,7 @@ import time
 import matplotlib.pyplot as plt
 import numpy as np
 import template
+import stream
 from gps import gps
 
 
@@ -28,6 +29,61 @@ class Max2769Testbench(template.TemplateTb):
         super().__init__(dest, 1030)
 
         self.iq_stream.use_last = False
+
+        self.acq_results = stream.IqInterface(dest, 1010, 0x100, self.csr_stream)
+        self.acq_results.send(bytes(1)) # Send some data so it knows the port and IP
+
+        # Reset again so it doesn't break the sample interface
+        time.sleep(0.1)
+        self.reset()
+
+    def set_direct_acquisition(self, val: bool):
+        self.csr_stream.write(0x000C, int(val))
+
+    def get_results(self):
+        res_bytes = self.acq_results.recv()
+        res_bytes.reverse()
+
+        res_int = 0
+        res = {}
+
+        for i in range(len(res_bytes)):
+            res_int |= res_bytes[i]
+            res_int <<= 8
+
+        # Discard padding byte
+        res_int >>= 8
+
+        # Order is opposite of
+        res["sv"] = res_int & 0x3F
+        res_int >>= 6
+
+        res["freq"] = res_int & 0xFFF
+        res_int >>= 12
+
+        if res["freq"] > 2**11:
+            res["freq"] = res["freq"] - 2**12
+
+        res["phase"] = res_int & 0xFFF
+        res_int >>= 12
+
+        res["snr"] = res_int & 0xFF
+        res_int >>= 8
+
+        return res
+
+    def get_all_results(self):
+        results = []
+
+        while True:
+            try:
+                res = self.get_results()
+
+                results.append(res)
+            except IndexError:
+                break
+
+        return results
 
     def write_reg(self, addr, val):
         assert addr == (addr & 0xF)
@@ -320,6 +376,7 @@ def main():
     lines = 1000
 
     tb = Max2769Testbench("192.168.200.2")
+    tb.set_direct_acquisition(False)
 
     # setup_regs_if(tb)
     setup_regs_default(tb)
@@ -352,18 +409,39 @@ def main():
     # Save 60s of data (approximately 3.7GB)
     # np.save("max2769_-50dB_many.npy", tb.get_samples(int(60*fs)))
 
-    results = []
+    # tb.set_direct_acquisition(True)
 
-    for _ in range(50):
-        samples = tb.get_samples(2**15)
-        res = gps.acquisition(samples, fs, 30e3, 500, threshold=0, sv=6)
-        # res = gps.acquisition(samples, fs, 30e3, 500, fs/4, threshold=0, sv=10)
+    while True:
+        samples = tb.get_samples(2**20)
+        # res = gps.acquisition(samples, fs, 30e3, 500, sv=1, threshold=6)
+        tb.acq_results.send_samples(samples)
 
-        results.extend(res)
+        while len(tb.acq_results.rx_frames) > 0:
+            res = tb.get_results()
+
+            if res["snr"] > 10:
+                print(res)
 
     snr_avg = np.mean([x[3] for x in results])
     snr_max = np.max([x[3] for x in results])
     print(f"Average SNR: {snr_avg:.2f} dB, max: {snr_max:.2f} dB")
+
+    # return
+
+    tb.set_direct_acquisition(True)
+
+    while True:
+        time.sleep(0.1)
+        res = tb.get_all_results()
+
+        for r in res:
+            # if r["sv"] == 1:
+            #     print(r)
+            if r["snr"] > 9:
+                print()
+                print(r)
+            else:
+                print(".", end="", flush=True)
 
 
 if __name__ == "__main__":

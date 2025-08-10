@@ -140,12 +140,11 @@ def main():
         builder.build(**parser.toolchain_argdict)
 
     if args.load:
-        # prog = module.platform.create_programmer()
         prog = OpenFPGALoader("arty_a7_100t")
         prog.load_bitstream(builder.get_bitstream_filename(mode="sram"))
 
     if args.flash:
-        prog = module.platform.create_programmer()
+        prog = OpenFPGALoader("arty_a7_100t")
         prog.flash(0, builder.get_bitstream_filename(mode="flash"))
 
 

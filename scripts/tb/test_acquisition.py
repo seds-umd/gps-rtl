@@ -216,9 +216,9 @@ def infinite_test():
 
 
 def max2769_live_test():
-    tb = AcquisitionTestbench("10.0.0.2")
-    tb.iq_stream.send([0x00])
-    tb.csr_stream.write(0x304, 0x1)
+    tb = AcquisitionTestbench("192.168.200.2")
+    # tb.iq_stream.send([0x00])
+    # tb.csr_stream.write(0x304, 0x1)
 
     while True:
         try:
@@ -231,7 +231,7 @@ def max2769_live_test():
 
 
 if __name__ == "__main__":
-    # file_data_test()
+    file_data_test()
     # infinite_test()
-    max2769_data_test()
+    # max2769_data_test()
     # max2769_live_test()

@@ -16,7 +16,7 @@ sdr.tx_destroy_buffer()
 x = gps_sim.generate_gps(fs, int(1 * fs), sv=24, signal_power=None)
 
 # for sv in [2, 8, 14, 28]:
-#     x += gps_sim.generate_gps(fs, int(1 * fs), sv=sv, doppler=sv*200, sample_phase=sv*100, signal_power=None)
+#     x += gps_sim.generate_gps(fs, int(1 * fs), sv=sv, doppler=sv*200, sample_phase=int(sv * np.pi * 1000), signal_power=None)
 # x = np.fromfile("../../gps-model/data/test2.ci16", dtype=np.int8)
 # x = x[::2].astype(np.complex64) + 1j * x[1::2]
 

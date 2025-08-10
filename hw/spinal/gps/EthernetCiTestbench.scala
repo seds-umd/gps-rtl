@@ -14,8 +14,10 @@ import spinal.lib.bus.misc.BusSlaveFactory
  * Bit 0 - Acquisition reset
  * 0x0004 - timestamp
  * 0x0008 - scratch
+ * 0x000C - 1 for direct acquisition, 0 for separate
  *
- * 0x0100-0x01FF - tbd
+ * 0x0100-0x01FF - acquisition
+ * 0x0100 - acquisition IQ availability
  * 
  * Port map:
  * 1000 - AXI-L bus
@@ -40,8 +42,8 @@ case class EthernetCiTestbench(config: GpsConfig) extends Component {
   // IP/MAC configuration
   udp.io.mac := B"h02_00_01_00_00_03"
   udp.io.ip := B"8'd192" ## B"8'd168" ## B"8'd200" ## B"8'd2"
-  udp.io.gateway := B"8'd192" ## B"8'd168" ## B"8'd200" ## B"8'd1"
-  udp.io.subnet := B"8'd255" ## B"8'd255" ## B"8'd255" ## B"8'd0"
+  udp.io.gateway := B"8'd192" ## B"8'd168" ## B"8'd0" ## B"8'd1"
+  udp.io.subnet := B"8'd255" ## B"8'd255" ## B"8'd0" ## B"8'd0"
 
   // UDP to AXI-Lite controller
   val stream_axil = StreamAxiLite()
@@ -52,6 +54,14 @@ case class EthernetCiTestbench(config: GpsConfig) extends Component {
   val reset_period = if (config.sim) 5 us else 10 ms
   val reset_timeout = Timeout(reset_period)
   bus_ctrl.onWrite(RESET_ADDR)(reset_timeout.clear())
+
+  // Reset if no bus activity in 5s
+  val inactivity_timeout = Timeout(5 sec)
+  inactivity_timeout.clearWhen(stream_axil.io.tx.fire || stream_axil.io.rx.fire)
+
+  when(inactivity_timeout) {
+    reset_timeout.clear()
+  }
 
   val config_area = new Area {
     // Timestamp - will break on 19 January 2038
@@ -64,6 +74,9 @@ case class EthernetCiTestbench(config: GpsConfig) extends Component {
   }
 
   val reset_area = new ResetArea(!reset_timeout, true) {
+    val direct_acquisition = bus_ctrl.createReadAndWrite(UInt(1 bit), 0x000C)
+    val max_iq = Stream(ComplexTimestamp())
+
     val acquisition_area = new Area {
       val acquisition = AcquisitionModular(config, flush = false, debug = true)
       val input_stream = Stream(Fragment(Bits(8 bits)))
@@ -71,11 +84,13 @@ case class EthernetCiTestbench(config: GpsConfig) extends Component {
 
       val (input_fragment, input_avail) = input_stream.toStreamOfFragment.queueWithAvailability(ACQ_FIFO_SIZE)
       val input_full = ComplexTimestamper(StreamWidthAdapter.make(input_fragment, Complex(2)))
-      acquisition.io.iq << input_full.map(_.asBits)
-      // input_stream.freeRun()
       output_stream << acquisition.io.results.fragmentTransaction(8)
 
+      acquisition.io.iq << StreamMux(direct_acquisition, Vec(input_full, max_iq))
+
       udp.addPort(1010, output_stream, input_stream)
+
+      bus_ctrl.read(input_avail, 0x100)
     }
 
     val max2769_area = new Area {
@@ -84,8 +99,11 @@ case class EthernetCiTestbench(config: GpsConfig) extends Component {
 
       val dsp = MaxInterface()
       io.max <> dsp.io.max
-      val dsp_iq = Stream(Bits(8 bits))
-      val iq_adapter = StreamWidthAdapter(dsp.io.iq.map(_.c), dsp_iq)
+
+      // 0 goes to UDP port, 1 goes to acquisition
+      val dsp_outputs = StreamDemux(dsp.io.iq, direct_acquisition, 2)
+      val dsp_iq = StreamWidthAdapter.make(dsp_outputs(0).map(_.c), Bits(8 bits))
+      max_iq << dsp_outputs(1)
 
       val config_flow = Flow(Bits(32 bits))
       bus_ctrl.driveFlow(config_flow, 0x300)
@@ -100,8 +118,6 @@ case class EthernetCiTestbench(config: GpsConfig) extends Component {
       }
       udp.addPort(1030, dsp_iq.throwWhen(stopped).addFragmentLast(Counter(500)), dummy_stream)
     }
-
-    // acquisition_area.acquisition.io.iq << max2769_area.dsp.io.iq.map(_.asBits)
   }
 }
 

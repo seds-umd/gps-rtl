@@ -44,11 +44,11 @@ case class AcquisitionModular(
   val freq_width = log2Up(2 * freq_shift + 1)
 
   val io = new Bundle {
-    val iq = slave Stream (ComplexTimestamp(iq_size, period).asBits)
+    val iq = slave Stream (ComplexTimestamp(iq_size, period))
     val results = master Stream (AcquisitionResults(fft_size_log))
   }
 
-  printf("IQ total width: %d\n", io.iq.payload.getWidth)
+  // printf("IQ total width: %d\n", io.iq.payload.getWidth)
 
   io.results.sv := 0
   io.results.freq_offset := 0
@@ -94,9 +94,10 @@ case class AcquisitionModular(
   }
 
   val iq_area = new Area {
-    val iq_converted = io.iq.translateInto(Stream(ComplexTimestamp(iq_size)))((to, from) => {
-      to.assignFromBits(from)
-    })
+    // val iq_converted = io.iq.translateInto(Stream(ComplexTimestamp(iq_size)))((to, from) => {
+    //   to.assignFromBits(from)
+    // })
+    val iq_converted = io.iq
     val output_count = 2
     val output_sel = Reg(UInt(log2Up(output_count) bits)) init 0
     val outputs = StreamDemux(iq_converted, output_sel, output_count)

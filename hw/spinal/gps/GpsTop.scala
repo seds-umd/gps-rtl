@@ -21,9 +21,9 @@ case class GpsTop(config: GpsConfig) extends Component {
   max.io.max.data_sync <> io.data_sync
   max.io.max.time_sync <> io.time_sync
 
-  acq.io.iq << max.io.iq.translateInto(acq.io.iq.clone())((to, from) => {
-    to := from.asBits
-  })
+  // acq.io.iq << max.io.iq.translateInto(acq.io.iq.clone())((to, from) => {
+  //   to := from.asBits
+  // })
 
   io.debug_out := acq.io.results.sv ## acq.io.results.snr.trim(1)
   acq.io.results.ready := True

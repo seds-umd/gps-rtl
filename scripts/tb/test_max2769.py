@@ -411,20 +411,20 @@ def main():
 
     # tb.set_direct_acquisition(True)
 
-    while True:
-        samples = tb.get_samples(2**20)
-        # res = gps.acquisition(samples, fs, 30e3, 500, sv=1, threshold=6)
-        tb.acq_results.send_samples(samples)
+    # while True:
+    #     samples = tb.get_samples(2**20)
+    #     # res = gps.acquisition(samples, fs, 30e3, 500, sv=1, threshold=6)
+    #     tb.acq_results.send_samples(samples)
 
-        while len(tb.acq_results.rx_frames) > 0:
-            res = tb.get_results()
+    #     while len(tb.acq_results.rx_frames) > 0:
+    #         res = tb.get_results()
 
-            if res["snr"] > 10:
-                print(res)
+    #         if res["snr"] > 10:
+    #             print(res)
 
-    snr_avg = np.mean([x[3] for x in results])
-    snr_max = np.max([x[3] for x in results])
-    print(f"Average SNR: {snr_avg:.2f} dB, max: {snr_max:.2f} dB")
+    # snr_avg = np.mean([x[3] for x in results])
+    # snr_max = np.max([x[3] for x in results])
+    # print(f"Average SNR: {snr_avg:.2f} dB, max: {snr_max:.2f} dB")
 
     # return
 

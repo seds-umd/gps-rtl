@@ -96,7 +96,7 @@ case class EthernetTestbench(config: GpsConfig) extends Component {
       val (iq_stream_unfragmented, iq_availability) =
         iq_stream.toStreamOfFragment.queueWithAvailability(20000, forFMax = true)
       val iq_full_bits = ComplexTimestamper(StreamWidthAdapter.make(iq_stream_unfragmented, Complex(2)))
-      acq.io.iq << iq_full_bits.map(_.asBits)
+      // acq.io.iq << iq_full_bits.map(_.asBits)
 
       udp.addPort(1010, acq.io.results.fragmentTransaction(8), iq_stream)
 

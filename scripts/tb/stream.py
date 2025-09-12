@@ -186,3 +186,4 @@ class IqInterface(StreamInterface):
             self.send(bits_bytes[i : i + chunk_size])
             i += chunk_size
             chunk_size = self.get_availability()
+            time.sleep(0.01)

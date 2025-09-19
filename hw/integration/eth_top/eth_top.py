@@ -78,6 +78,7 @@ class EthernetTestbench(SoCCore):
         # Verilog sources
         platform.add_sources("../../gen", "EthernetTestbench.v")
         platform.add_sources("../../gen", "sources.v")
+        platform.add_sources("../../verilog", "prn_loopback.v")
 
         # Ethernet 0 doesn't work due to io voltage conflict
         eth_num = 1

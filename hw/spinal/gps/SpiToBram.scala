@@ -68,7 +68,7 @@ case class SpiToBram() extends Component {
   }
 
   val rw   = shift_reg_rx(15)                       // 1 -> read, 0 -> write
-  val addr = shift_reg_tx(14 downto 0).asUInt       // 14 bits of address
+  val addr = shift_reg_tx(14 downto 0).asUInt       // 15 bits of address
 
   val fsm = new StateMachine {
     tx_enable := False

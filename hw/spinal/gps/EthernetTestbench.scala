@@ -45,7 +45,7 @@ case class EthernetTestbench() extends Component {
   }
 
   val udp = UdpStream(false)
-  
+
   val reset_timeout = Timeout(time_speedup*10 ms)
 
   val stream_axil = StreamAxiLite()
@@ -56,30 +56,63 @@ case class EthernetTestbench() extends Component {
   bus_ctrl.drive(io.leds, 0x0C, 0)
 
   val rst_area = new ResetArea(!reset_timeout, true) {
+    // --- Ethernet / GMII wiring ---
     udp.io.gtx_clk := io.gtx_clk
     udp.io.gtx_rst := io.gtx_rst
-    udp.io.gmii <> io.gmii
+    udp.io.gmii    <> io.gmii
 
-    udp.io.mac := B"h00_00_01_00_00_02"
-    udp.io.ip := B"8'd10" ## B"8'd0" ## B"8'd0" ## B"8'd2"
+    // --- Network config ---
+    udp.io.mac     := B"h00_00_01_00_00_02"
+    udp.io.ip      := B"8'd10" ## B"8'd0" ## B"8'd0" ## B"8'd2"
     udp.io.gateway := B"8'd10" ## B"8'd0" ## B"8'd0" ## B"8'd1"
-    udp.io.subnet := 0
+    udp.io.subnet  := 0
 
-    val iq_stream = Stream(Fragment(Bits(8 bits)))
+    // UDP IQ RX placeholder (kept for interface compatibility)
+    val udpIqStream = Stream(Fragment(Bits(8 bits)))
+    udpIqStream.ready := True   // important: provide a driver
 
+    // ==== Fake PRN + carrier generator ====
+    val fakeStream = Stream(Fragment(Bits(8 bits)))
+
+    // Carrier NCO
+    val carrierAcc = Reg(UInt(16 bits)) init(0)
+    carrierAcc := carrierAcc + U(512)
+    val carrier = carrierAcc.msb
+
+    // LFSR pseudo-PRN (x^10 + x^7 + 1)
+    val lfsr = Reg(UInt(10 bits)) init(U(0x3FF))
+    val feedback = lfsr(9) ^ lfsr(6)
+    lfsr := (lfsr(8 downto 0) ## feedback).asUInt
+    val chip = lfsr(0)
+
+    // BPSK mix → ±64
+    val amp = SInt(8 bits)
+    amp := Mux(carrier ^ chip, S(64, 8 bits), S(-64, 8 bits))
+
+    fakeStream.valid := True
+    fakeStream.payload.fragment := amp.asBits
+    fakeStream.payload.last := False
+    when(fakeStream.ready) { }  // observe ready
+
+    // ==== Acquisition ====
     val acq = AcquisitionModular(freq_shift = 2, flush = false, debug = true)
-    val (iq_stream_unfragmented, iq_availability) = iq_stream.translateInto(Stream(Bits(8 bits)))((to, from) => {
-      to := from.fragment
-    }).queueWithAvailability(100000)
+
+    val (iq_stream_unfragmented, iq_availability) =
+      fakeStream
+        .translateInto(Stream(Bits(8 bits)))((to, from) => { to := from.fragment })
+        .queueWithAvailability(100000)
+
     val adapter = StreamWidthAdapter(iq_stream_unfragmented, acq.io.iq)
 
+    // Results out on UDP 1010 (rx arg wired but unused)
     val acq_results = acq.io.results.fragmentTransaction(8)
-    udp.addPort(1010, acq_results, iq_stream)
+    udp.addPort(1010, acq_results, udpIqStream)
 
-    val input_counter = Counter(32 bits, acq.io.iq.fire)
-    bus_ctrl.read(input_counter.value, 0x04)
 
+    // Counters / regs for status
+    val input_counter  = Counter(32 bits, acq.io.iq.fire)
     val result_counter = Counter(32 bits, acq.io.results.fire)
+    bus_ctrl.read(input_counter.value,  0x04)
     bus_ctrl.read(result_counter.value, 0x08)
 
     printf("Availability width: %d\n", iq_availability.getWidth)

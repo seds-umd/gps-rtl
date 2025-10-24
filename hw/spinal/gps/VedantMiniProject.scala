@@ -3,13 +3,35 @@ import spinal.lib._
 
 class VedantMiniProject extends Component {
     val io = new Bundle{
-        val done = out Bool // Output pin signifying program completion
         val counter = out UInt(4 bits) // 4 bits -> counter from 0-15
+        val done = out Bool // Output pin signifying program completion
     }
 
-    // Creates register to hold counter with reset val initialized to 0
+    // Creates register to act as counter with val initialized to 0
     val countReg = Reg(UInt(4 bits)) init(0)
 
-    io.counter := countReg // Wires the current value in countReg to counter
-    
+    io.counter := countReg // Wires the value in countReg to counter
+    io.done := False // Program's done state defaults to false (0)
+
+    // Creates a 2 bit flip-flop register to handle counting logic
+    val fsm = new StateMachine {
+        val IDLE, RUN, DONE = new State // Defines potential states
+        setEntry(IDLE) // Starts FSM in idle state
+
+        IDLE.whenIsActive {
+            countReg := 0 // Starts counter at 0 when in idle state
+            goto(RUN) // Begins counting (jumps to run state)
+        }
+
+        RUN.whenIsActive {
+            countReg := countReg + 1 // Counts 
+            when(countReg === 15) { // Jumps to done state when count reaches 15
+                goto(DONE)
+            }
+        }
+
+        DONE.whenIsActive {
+            io.done := True // Ends program
+        }
+    }
 }

@@ -37,3 +37,8 @@ class VedantMiniProject extends Component {
         }
     }
 }
+
+// Allows testing of just this module instead of running GpsTopVerilog
+object VedantMiniProjectVerilog extends App {
+  SpinalVerilog(new VedantMiniProject)
+}

@@ -18,7 +18,7 @@ async def test_counter(dut):
 
     # Asserts that FSM starts in idle
     expected = 0
-    assert int(dut.counter.value) == expected, "FSM is not in idle when it should be"
+    assert int(dut.io_counter.value) == expected, "FSM is not in idle when it should be"
 
     # Tests FSM -> runs clock until max count is reached and asserts along the way
     breakFlag = False
@@ -26,13 +26,13 @@ async def test_counter(dut):
         expected += 1
         await RisingEdge(dut.clk)
 
-        assert int(dut.counter.value) == expected, "Counter holds incorrect value"
+        assert int(dut.io_counter.value) == expected, "Counter holds incorrect value"
 
         if(expected >= 15):
-            assert dut.done.value, "Counter is still running when it should be stopped"
+            assert dut.io_done.value, "Counter is still running when it should be stopped"
             breakFlag = True
         else:
-            assert not dut.done.value, "Counter is not running when it should be"
+            assert not dut.io_done.value, "Counter is not running when it should be"
 
     return
 

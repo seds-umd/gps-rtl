@@ -1,5 +1,6 @@
 import spinal.core._
 import spinal.lib._
+import spinal.lib.fsm._
 
 class VedantMiniProject extends Component {
     val io = new Bundle{
@@ -24,9 +25,10 @@ class VedantMiniProject extends Component {
         }
 
         RUN.whenIsActive {
-            countReg := countReg + 1 // Counts 
             when(countReg === 15) { // Jumps to done state when count reaches 15
                 goto(DONE)
+            } otherwise { // Counts
+                countReg := countReg + 1
             }
         }
 

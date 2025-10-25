@@ -40,6 +40,7 @@ async def test_counter(dut):
 if __name__ == "__main__":
     test_runner.run_wrapper(
         top_level="VedantMiniProject",
+        module="test_vmp",
         package="gps",
         proj_dir="../../..",
         source_dir="hw/spinal/gps",

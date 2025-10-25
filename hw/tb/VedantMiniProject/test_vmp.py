@@ -32,3 +32,13 @@ async def test_counter(dut):
             assert not dut.done.value, "Counter is not running when it should be"
 
     return
+
+
+if __name__ == "__main__":
+    test_runner.run_wrapper(
+        top_level="VedantMiniProject",
+        package="gps",
+        proj_dir="../../..",
+        source_dir="hw/spinal/gps",
+        gen_dir="hw/gen",
+    )

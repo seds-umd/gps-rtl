@@ -43,5 +43,5 @@ if __name__ == "__main__":
         package="gps",
         proj_dir="../../..",
         source_dir="hw/spinal/gps",
-        gen_dir="hw/gen",
+        gen_dir="gps-rtl",
     )

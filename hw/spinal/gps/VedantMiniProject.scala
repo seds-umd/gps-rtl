@@ -5,7 +5,7 @@ import spinal.lib.fsm._
 class VedantMiniProject extends Component {
     val io = new Bundle{
         val counter = out UInt(4 bits) // 4 bits -> counter from 0-15
-        val done = out Bool // Output pin signifying program completion
+        val done = out Bool() // Output pin signifying program completion
     }
 
     // Creates register to act as counter with val initialized to 0

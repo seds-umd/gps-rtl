@@ -1,3 +1,5 @@
+package gps
+
 import spinal.core._
 import spinal.lib._
 import spinal.lib.fsm._

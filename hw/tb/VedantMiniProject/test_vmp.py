@@ -1,7 +1,8 @@
 import cocotb
-
 from cocotb.clock import Clock 
 from cocotb.triggers import RisingEdge, Timer
+
+from fpga_utils import test_tunner
 
 @cocotb.test()
 async def test_counter(dut):

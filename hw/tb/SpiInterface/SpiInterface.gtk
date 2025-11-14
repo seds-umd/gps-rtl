@@ -1,0 +1,29 @@
+[*]
+[*] GTKWave Analyzer v3.3.116 (w)1999-2023 BSI
+[*] Fri Nov 14 01:52:13 2025
+[*]
+[dumpfile] "/home/adelaide_unix/gps-rtl/hw/tb/SpiInterface/sim_build/SpiInterface.fst"
+[dumpfile_mtime] "Fri Nov 14 01:42:22 2025"
+[dumpfile_size] 2329
+[savefile] "/home/adelaide_unix/gps-rtl/hw/tb/SpiInterface/SpiInterface.gtk"
+[timestart] 1355700
+[size] 1000 600
+[pos] -1 -1
+*-15.900000 1394500 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+[sst_width] 297
+[signals_width] 198
+[sst_expanded] 1
+[sst_vpaned_height] 157
+@22
+SpiInterface.bramReadAddress[14:0]
+SpiInterface.bramReadData[15:0]
+SpiInterface.counter2[4:0]
+@28
+SpiInterface.sync_sclk
+SpiInterface.sync_miso
+@22
+SpiInterface.readReg[15:0]
+@28
+SpiInterface.io_miso
+[pattern_trace] 1
+[pattern_trace] 0

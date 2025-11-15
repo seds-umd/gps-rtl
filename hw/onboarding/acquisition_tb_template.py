@@ -11,26 +11,45 @@ import threading
 
 FPGA_IP   = ""     # FPGA IP address
 PC_IP     = ""     # PC IP address
-PORT_IQ   = 0      # UDP port for IQ samples -> FPGA
-PORT_ACQ  = 0      # UDP port for acquisition results <- FPGA
+
+PORT_CTRL = 0      # AXI-Lite read/write
+PORT_IQ   = 0      # Send samples + receive acquisition results
 
 PRN_ID = 1
 fs = 1_000_000        
-# Chip values = +1/-1 
-# Chip sequence = PRN code (1023 chips)
-# GPS C/A chip rate = 1.023 MHz    T = 977.5 ns
-# 1023 chips x 977.5 ns/chip = 1 ms
-# 1 PRN code = 1023 chips = 1 ms long
-# Our model expects ~1 sample per chip
-    # 4092 chips
-    # fs = 1 MHz 
-    # 4 ms per PRN cycle
+# The FPGA acquisition testbench expects a simplified model: ~1 sample per C/A chip
+#
+# GPS C/A code = 1023 chips (1 ms)
+# The FPGA's FFT size is 4096, and its internal PRN length is 4092 = 1023 × 4
+#
+# So we need to generate a signal so that:
+#   - fs ≈ 1 MHz -> ~1 sample per chip
+#   - 4092 samples per acquisition block -> represents 4 ms of repeated PRN
+#   - timestamps that roll over every 4092 samples (FPGA requirement)
+#
+# (This is only for the testbench model, not real GPS front-end sampling)
 
 chip_rate = 1_023_000    # GPS C/A
-duration_ms = 20         # 20 ms = 20 PRN repetitions
+duration_ms = 20         # 20 ms = 5 acquisition windows
 doppler = 4000           # Hz
-
 period = 4092            # Timestamp rollover
+
+# L1 signal transmitted by satellite (purely real):
+# RF(t) = PRN(t) × cos(2π (1575.42 MHz + Doppler) t)
+
+# MAX2769 (or this Python script) converts the real RF signal
+# into complex baseband by mixing with cosine and sine:
+
+# I(t) = RF(t) × cos(2π 1575.42 MHz t)
+# Q(t) = RF(t) × sin(2π 1575.42 MHz t)
+
+# -> look into why we need a complex signal 
+
+# After low-pass filtering and combining I(t) + j Q(t),
+# the 1575.42 MHz carrier is removed -> only Doppler shift left
+
+# Resulting complex baseband signal is:
+# baseband(t) = PRN(t) × exp(j · 2π · Doppler · t)
 
 
 
@@ -108,6 +127,46 @@ def pack_complex_timestamp(re2, im2, t12):
     # Byte 0 (first) = bits 15..8
     # Byte 1 (second) = bits 7..0
     # TODO: implement
+    pass
+
+
+
+# AXI-Lite helpers
+def axil_write(addr, value):
+    """
+    AXI-Lite WRITE over UDP -> FPGA (port 1000).
+
+    What this function must do:
+      1. Open a UDP socket.
+      2. Pack an 8-byte packet:
+         - 4 bytes: address (big-endian)
+         - 4 bytes: data   (big-endian)
+      3. Send packet to (FPGA_IP, PORT_CTRL).
+      4. No reply is expected (write = fire-and-forget).
+
+    Examples:
+        axil_write(0x00, 1)  → clear reset timeout
+        axil_write(0x0C, 0xAA) → set LED pattern
+    """
+    pass
+
+def axil_read(addr):
+    """
+    AXI-Lite READ over UDP -> FPGA (port 1000).
+
+    What this function must do:
+      1. Open a UDP socket.
+      2. Pack a 4-byte packet:
+         - 4 bytes: address (big-endian)
+      3. Send packet to (FPGA_IP, PORT_CTRL).
+      4. Receive a 4-byte reply from FPGA.
+      5. Unpack the 32-bit big-endian value and return it.
+
+    Useful registers from EthernetTestbench:
+        0x04 → input sample counter
+        0x08 → acquisition result counter
+        0x10 → FIFO availability (must be checked before sending)
+    """
     pass
 
 

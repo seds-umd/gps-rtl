@@ -97,12 +97,12 @@ def generate_ca_prn(prn_id):
         feedback2 = ((g2>>1) & 1)^((g2>>2) & 1)^((g2>>5) & 1)^((g2>>7) & 1)^((g2>>8) & 1)^((g2>>9) & 1)
         
         prn[i] = ((g1>>9) & 1)^(((g2>>(9-tap1)) & 1)^((g2>>(9-tap2)) & 1))
-        g1 = (g1>>1) | (feedback1<<9)
-        g2 = (g2>>1) | (feedback2<<9)
-        if prn[i] == 0:
-            prn[i] = 1
-        else:
-            prn[i] = -1
+        g1 = (g1<<1) | (feedback1)
+        g2 = (g2<<1) | (feedback2)
+        #if prn[i] == 0:
+            #prn[i] = 1
+        #else:
+            #prn[i] = -1
     
     return prn
     pass

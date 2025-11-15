@@ -57,8 +57,8 @@ class prngen:
         prncode = [0] * 1023
         
         for j in range(1023):
-            val1 = shift_register1(g1)
-            val2 = shift_register2(g2)
+            val1 = prngen.shift_register1(g1)
+            val2 = prngen.shift_register2(g2)
             add2 = g2[svcode[0] - 1] + g2[svcode[1] - 1]
             output1 = 0
             
@@ -86,6 +86,7 @@ class subframe1gen:
 
     how = []
     
+
 
 
 

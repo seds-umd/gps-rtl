@@ -116,12 +116,12 @@ def generate_ca_prn(prn_id):
         feedback2 = ((g2>>1) & 1)^((g2>>2) & 1)^((g2>>5) & 1)^((g2>>7) & 1)^((g2>>8) & 1)^((g2>>9) & 1)
         
         prn[i] = ((g1>>9) & 1)^(((g2>>(tap1-1)) & 1)^((g2>>(tap2-1)) & 1))
-        g1 = (g1<<1) | (feedback1)
-        g2 = (g2<<1) | (feedback2)
+        g1 = (g1<<1) | (feedback1) & 0x3FF
+        g2 = (g2<<1) | (feedback2) & 0x3FF
         if prn[i] == 0:
             prn[i] = 1
         elif prn[i] == 1:
-            prn[i] == -1
+            prn[i] = -1
     
     pass
 
@@ -150,6 +150,16 @@ def generate_baseband_signal(prn_id, duration_ms):
     # Chip = +1 -> transmit carrier normally
     # Chip = –1 -> flip carrier by 180 degrees
     # TODO: implement
+    prn = generate_ca_prn(prn_id)
+    rate = 4.092e+6
+    numOfChips = int(rate/1.023e+6)
+    sampleArray = np.repeat(prn, numOfChips)
+    numOfSamples = int(duration_ms*1e-3*rate)
+    numOfRepeats = int(np.ceil(numOfSamples/len(sampleArray)))
+    sampleArray = np.tile(sampleArray, numOfRepeats)
+    sampleArray = sampleArray[:numOfSamples]
+    timeArray = np.arange(len(sampleArray))/rate
+    basebandSignal = sampleArray * np.exp(1j *2*np.pi*doppler*timeArray)
     pass
 
 
@@ -161,6 +171,10 @@ def quantize_2bit(x):
     # Signal coming in is a float [-1, 1]
     # Rounding and clipping the value outside of range is an option
     # TODO: implement
+    x = np.clip(x, -1, 1)
+    x = x*2
+    xQuant = np.round(x)
+    xQuant = np.clip(xQuant, -2, 1)
     pass
 
 
@@ -180,6 +194,10 @@ def pack_complex_timestamp(re2, im2, t12):
     # Byte 0 (first) = bits 15..8
     # Byte 1 (second) = bits 7..0
     # TODO: implement
+    re2Bin = re2 & 0b11
+    im2Bin = im2 & 0b11
+    word = (re2Bin<<14) | (im2Bin << 12) | t12
+
     pass
 
 

@@ -1,5 +1,4 @@
 class prngen: 
-
     SV = {
     1: [2, 6],
     2: [3, 7],
@@ -35,30 +34,57 @@ class prngen:
     32: [4, 9],
 }
 
-    prn_id = 1
-    tap1, tap2 = SV[prn_id]  
-    g1 = 0b1111111111
-    g2 = 0b1111111111
-    prn = [0]*1023
-    
-    for i in range(1023):
-        feedback1 = ((g1>>2) & 1)^((g1>>9) & 1)
-        feedback2 = ((g2>>1) & 1)^((g2>>2) & 1)^((g2>>5) & 1)^((g2>>7) & 1)^((g2>>8) & 1)^((g2>>9) & 1)
-        
-        prn[i] = feedback1^(((g2>>(tap1-1)) & 1)^((g2>>(tap2-1)) & 1))
-        g1 = (g1>>1) | (feedback1<<9)
-        g2 = (g2>>1) | (feedback2<<9)
-        if prn[i] == 0:
-            prn[i] = 1
+    @staticmethod
+    def shift_register1(array):
+        sum_val = array[2] + array[9]
+        if sum_val % 2 == 0:
+            return 0
         else:
-            prn[i] = -1
+            return 1
 
+    @staticmethod
+    def shift_register2(array):
+        sum_val = array[1] + array[2] + array[5] + array[7] + array[8] + array[9]
+        if sum_val % 2 == 0:
+            return 0
+        else:
+            return 1
 
+    @staticmethod
+    def prnmain(svcode):
+        g1 = [1] * 10
+        g2 = [1] * 10
+        prncode = [0] * 1023
+        
+        for j in range(1023):
+            val1 = prngen.shift_register1(g1)
+            val2 = prngen.shift_register2(g2)
+            add2 = g2[svcode[0] - 1] + g2[svcode[1] - 1]
+            output1 = 0
+            
+            for k in range(9, -1, -1):
+                if k == 9:
+                    output1 = g1[k]
+                if k == 0:
+                    g1[k] = val1
+                    g2[k] = val2
+                    break
+                g1[k] = g1[k - 1]
+                g2[k] = g2[k - 1]
+            
+            if (output1 + add2) % 2 == 0:
+                prncode[j] = 0
+            else:
+                prncode[j] = 1
+        
+        return prncode
 
+class subframe1gen:
+    tlmword = [1, 0, 0, 0, 1, 0, 1, 1]
+    for i in range(8, 29):
+        tlmword.append(0)
 
-
-
-    
+    how = []
     
 
 

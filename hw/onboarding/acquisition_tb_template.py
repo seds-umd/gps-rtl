@@ -6,6 +6,21 @@ import struct
 import time
 import threading
 
+'''
+Tips for testing:
+
+First send 0s, and confirm that axil_read(0x04) counts up
+Send pure complex sinusoid next
+    - Sample counter will increase
+    - FIFO space changes
+    - No PRN detection, axil_read(0x08) -> 0
+PRN only 
+    - Should produce PRN ID, Doppler = 0, correct code phase, strong mag peak
+PRN with Doppler
+    - Should produce correct PRN ID, Doppler, code phase 
+    
+'''
+
 # Acquisition expects ComplexTimestamp = {re: SInt(2), im: SInt(2), timestamp: UInt(12)}
 # Tb -> StreamWidthAdapter(Stream(Bits(8 bits)), Stream(Bits(16 bits))) -> 2 bytes/sample
 
@@ -168,6 +183,31 @@ def axil_read(addr):
         0x10 → FIFO availability (must be checked before sending)
     """
     pass
+
+
+
+# FPGA exposes 5 registers you can read/write using axil_read/write
+#
+# 0x00 (W)-Reset 
+#     - Write anything to start/clear reset timer.
+#     - Call once before sending samples.
+#
+# 0x04 (R)-Input sample counter
+#     - Increments when FPGA actually receives I/Q samples.
+#     - Use to confirm UDP sending is working.
+#
+# 0x08 (R)-Acquisition result counter
+#     - Increments when FPGA finishes a satellite acquisition.
+#
+# 0x0C (W)-LED debug register (active-low)
+#     - axil_write(0x0C, 0x00) -> all LEDs ON
+#     - axil_write(0x0C, 0xFF) -> all LEDs OFF
+#     - Easiest sanity-check that writes work.
+#
+# 0x10 (R)-FIFO availability
+#     - Number of sample slots left in FPGA input FIFO.
+#     - Use before sending I/Q packets to avoid overflow:
+#         if axil_read(0x10) < 4: wait.
 
 
 

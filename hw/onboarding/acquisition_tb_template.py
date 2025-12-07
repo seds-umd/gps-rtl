@@ -151,7 +151,7 @@ def generate_baseband_signal(prn_id, duration_ms):
     # Chip = –1 -> flip carrier by 180 degrees
     # TODO: implement
     prn = generate_ca_prn(prn_id)
-    rate = 4.092e+6
+    rate = fs
     numOfChips = int(rate/1.023e+6)
     sampleArray = np.repeat(prn, numOfChips)
     numOfSamples = int(duration_ms*1e-3*rate)
@@ -175,7 +175,8 @@ def quantize_2bit(x):
     x = x*2
     xQuant = np.round(x)
     xQuant = np.clip(xQuant, -2, 1)
-    pass
+    return xQuant.astype(int)
+    
 
 
 
@@ -197,7 +198,7 @@ def pack_complex_timestamp(re2, im2, t12):
     re2Bin = re2 & 0b11
     im2Bin = im2 & 0b11
     word = (re2Bin<<14) | (im2Bin << 12) | t12
-
+    return struct.pack(">H", word)
     pass
 
 
@@ -219,6 +220,9 @@ def axil_write(addr, value):
         axil_write(0x00, 1)  → clear reset timeout
         axil_write(0x0C, 0xAA) → set LED pattern
     """
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+        payload = struct.pack('>II', addr, value)
+        sock.sendto(payload, (FPGA_IP, PORT_CTRL))
     pass
 
 def axil_read(addr):
@@ -238,6 +242,18 @@ def axil_read(addr):
         0x08 → acquisition result counter
         0x10 → FIFO availability (must be checked before sending)
     """
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+        sock.settimeout(1.0)
+        payload = struct.pack('>I', addr)
+        sock.sendto(payload, (FPGA_IP, PORT_CTRL))
+        try:
+            data, _ = sock.recvfrom(4)
+            val = struct.unpack('>I', data)[0]
+            print("success")
+            return val
+        except socket.timeout:
+            print("timeout")
+            return None
     pass
 
 
@@ -255,6 +271,26 @@ def udp_send():
     #   Send via UDP
     #   time.sleep(1 µs)
     # TODO: implement
+    signal = generate_baseband_signal(PRN_ID, duration_ms)
+    
+    # Quantize
+    i_vals = quantize_2bit(np.real(signal))
+    q_vals = quantize_2bit(np.imag(signal))
+    
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    
+    try:
+        for n in range(len(signal)):
+            ts = n % period
+            
+            packet = pack_complex_timestamp(i_vals[n], q_vals[n], ts)
+            sock.sendto(packet, (FPGA_IP, PORT_IQ))
+            time.sleep(1e-6) 
+            
+            
+    finally:
+        sock.close()
+    print("Done sending")
     pass
 
 
@@ -265,6 +301,15 @@ def udp_receive():
     # Print incoming FPGA acquisition data
     # Parse according to how acquisition module sends results
     # TODO: implement
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock.bind((PC_IP, PORT_IQ))
+    
+    while True:
+        try:
+            data, addr = sock.recvfrom(1024)
+            print(f"[RX] {data.hex()}")
+        except Exception:
+            break
     pass
 
 
@@ -275,4 +320,10 @@ if __name__ == "__main__":
     # Call udp_send()
     # Keep program alive so the receiver thread doesn't exit
     # TODO: implement
+    t = threading.Thread(target=udp_receive, daemon=True)
+    t.start()
+    
+    udp_send()
+    
+    time.sleep(2)
     pass

@@ -45,6 +45,9 @@ case class AcquisitionModular(
   val io = new Bundle {
     val iq = slave Stream (ComplexTimestamp(iq_size, period).asBits)
     val results = master Stream (AcquisitionResults(fft_size_log))
+    // Input window state, independent of iq.valid/ready. Live front ends may
+    // drain samples between windows but must preserve them during a window.
+    val capture_active = out Bool ()
   }
 
   printf("IQ total width: %d\n", io.iq.payload.getWidth)
@@ -232,6 +235,9 @@ case class AcquisitionModular(
     val output_active = (active_frames > 0)
     val active = input_active || output_active
   }
+
+  io.capture_active := fft.input_active &&
+    ((fft.input_sel === fft.INPUT_SEL_GPS) || (fft.input_sel === fft.INPUT_SEL_DEC))
 
   val shift = Reg(SInt(freq_width bits))
   prn_mem.io.output_offset := (-shift).resized

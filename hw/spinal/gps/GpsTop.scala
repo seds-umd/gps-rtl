@@ -26,13 +26,11 @@ case class GpsTop(freq_shift: Int = 24) extends Component {
   max.io.data_sync <> io.data_sync
   max.io.time_sync <> io.time_sync
 
-  // The RF source cannot pause. Drain the serial FIFO while acquisition is
-  // busy so the next window cannot begin with queued samples from an old epoch.
-  // Treat this boundary as a live sample flow: only samples accepted by the
-  // acquisition core are retained. Do not gate valid with ready, because the
-  // core can compute ready from valid when joining the sample and PRN streams.
-  max.io.iq.ready := True
-  acq.io.iq.valid := max.io.iq.valid
+  // Preserve samples across processing stalls inside acquisition windows.
+  // Drain between windows so later searches cannot start with stale prefixes.
+  // capture_active depends only on gate/config/select state, not valid/ready.
+  max.io.iq.ready := acq.io.iq.ready || !acq.io.capture_active
+  acq.io.iq.valid := max.io.iq.valid && acq.io.capture_active
   acq.io.iq.payload := max.io.iq.payload.asBits
   io.results << acq.io.results
   io.sample_overflow := max.io.overflow

@@ -1,5 +1,6 @@
 """Paced MAX serial pins through acquisition; synthetic RF and vendor FFT model."""
 import logging
+import itertools
 
 import cocotb
 from cocotb.clock import Clock
@@ -19,7 +20,7 @@ async def send_serial(dut, packed):
             for j, sample in enumerate(packed[start:start + 16]):
                 await FallingEdge(dut.io_clk_ser)
                 dut.io_data_sync.value = int(j == 0)
-                dut.io_data_in.value = (sample >> bit) & 1
+                dut.io_data_in.value = int((sample >> bit) & 1)
                 await RisingEdge(dut.io_clk_ser)
     await FallingEdge(dut.io_clk_ser)
     dut.io_data_sync.value = 0
@@ -47,7 +48,7 @@ async def check_fine_windows(dut, counts):
     fine = dut.acq.fine_acq_remove_prn
     while True:
         await RisingEdge(dut.clk)
-        if int(dut.reset.value) or not int(fine.aligned.value):
+        if int(dut.reset.value) or not int(fine.aligned.value) or not int(dut.acq.io_capture_active.value):
             previous = None
             continue
         if int(fine.io_input_valid.value) and int(fine.io_input_ready.value):
@@ -60,8 +61,18 @@ async def check_fine_windows(dut, counts):
             previous = timestamp
 
 
-@cocotb.test(timeout_time=30, timeout_unit="ms")
-async def serial_input_finds_second_satellite(dut):
+async def hold_first_result(dut, sink):
+    await with_timeout(RisingEdge(dut.io_results_valid), 15, "ms")
+    names = ["sv", "freq_offset", "phase_offset", "snr"]
+    snapshot = [int(getattr(dut, "io_results_payload_" + name).value) for name in names]
+    for _ in range(1000):
+        await RisingEdge(dut.clk)
+        assert int(dut.io_results_valid.value)
+        assert [int(getattr(dut, "io_results_payload_" + name).value) for name in names] == snapshot
+    sink.pause = False
+
+
+async def run_serial_fixture(dut, stalls=False):
     dut.reset.value = 1
     dut.io_data_sync.value = 0
     dut.io_time_sync.value = 0
@@ -71,6 +82,11 @@ async def serial_input_finds_second_satellite(dut):
     fft = FFT_Sim(dut.acq.fft_inst, 12, 1, store=False)
     fft.log.setLevel(logging.WARNING)
     results = SpinalStreamSink.from_prefix(dut, "io_results")
+    if stalls:
+        fft.data_in_axis.set_pause_generator(itertools.cycle([1] * 4 + [0] * 60))
+        fft.data_out_axis.set_pause_generator(itertools.cycle([1] * 100 + [0] * 1024))
+        results.pause = True
+        cocotb.start_soon(hold_first_result(dut, results))
     cocotb.start_soon(check_coarse_windows(dut))
     fine_counts = []
     cocotb.start_soon(check_fine_windows(dut, fine_counts))
@@ -103,6 +119,60 @@ async def serial_input_finds_second_satellite(dut):
     assert int(dut.io_sample_overflow.value) == 0
     dut._log.info(f"Contiguous fine-window sample counts: {fine_counts}")
     assert len(fine_counts) == 2 and all(count >= 32768 for count in fine_counts)
+    sender.kill()
+
+
+@cocotb.test(timeout_time=30, timeout_unit="ms")
+async def serial_input_finds_second_satellite(dut):
+    await run_serial_fixture(dut)
+
+
+@cocotb.test(timeout_time=30, timeout_unit="ms")
+async def serial_input_with_fft_and_result_stalls(dut):
+    await run_serial_fixture(dut, stalls=True)
+
+
+@cocotb.test(timeout_time=15, timeout_unit="ms")
+async def excessive_stall_sets_sticky_overflow_and_reset_recovers(dut):
+    dut.reset.value = 1
+    dut.io_data_sync.value = 0
+    dut.io_time_sync.value = 0
+    dut.io_data_in.value = 0
+    cocotb.start_soon(Clock(dut.clk, 20, units="ns").start())
+    cocotb.start_soon(Clock(dut.io_clk_ser, 61, units="ns").start())
+    fft = FFT_Sim(dut.acq.fft_inst, 12, 1, store=False)
+    fft.log.setLevel(logging.WARNING)
+    fft.data_in_axis.pause = True
+    results = SpinalStreamSink.from_prefix(dut, "io_results")
+    await ClockCycles(dut.io_clk_ser, 8)
+    await FallingEdge(dut.clk)
+    dut.reset.value = 0
+    # MAX emits bursts of 16 samples. A long stall must exceed its eight slots.
+    await send_serial(dut, np.zeros(256, dtype=np.uint8))
+    await ClockCycles(dut.clk, 100)
+    assert int(dut.io_sample_overflow.value) == 1
+    fft.data_in_axis.pause = False
+    await ClockCycles(dut.clk, 1000)
+    assert int(dut.io_sample_overflow.value) == 1, "overflow must remain sticky"
+    # Once overflow is reported, the consumer must discard results and reset.
+    await FallingEdge(dut.clk)
+    dut.reset.value = 1
+    await ClockCycles(dut.io_clk_ser, 8)
+    await FallingEdge(dut.clk)
+    dut.reset.value = 0
+    await ClockCycles(dut.clk, 20)
+    assert int(dut.io_sample_overflow.value) == 0
+    np.random.seed(20260914)
+    packed, _, _ = fpga_utils.generate_gps_samples(4.092e6, 65536, 1, 0, 37, None)
+    sender = cocotb.start_soon(send_serial(dut, packed))
+    frame = await with_timeout(results.read(), 12, "ms")
+    values = {key: value[0] for key, value in frame.payload.items()}
+    dut._log.info(f"Post-overflow reset acquisition result: {values}")
+    assert values["sv"] == 1 and values["freq_offset"] == 0
+    error = (values["phase_offset"] - 37) % 4092
+    assert min(error, 4092 - error) <= 1
+    assert values["snr"] > 8
+    assert int(dut.io_sample_overflow.value) == 0
     sender.kill()
 
 

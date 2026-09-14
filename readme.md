@@ -1,3 +1,72 @@
+# GPS receiver development
+
+Start with the regression below. `docs/status-2026-09.md` says where the receiver stands and what to do next; `docs/acquisition-core.md` is the `GpsTop` contract.
+
+| Target | Intended use | Current boundary |
+| --- | --- | --- |
+| `hw/integration/uart_top` | Basys 3 + MAX2769 development board | UART register control and sample capture |
+| `hw/integration/eth_top` | STLV7325 Kintex-7 | Ethernet acquisition development setup |
+| `GpsTop.scala` | Board-neutral serial-to-acquisition core | Result stream and overflow diagnostic; no board wrapper or host transport. See the [integration contract](docs/acquisition-core.md). |
+
+## Run the regression
+
+Python 3.11 and 3.12 were tested with cocotb 1.9.2, Icarus Verilog and Java 17 + sbt. Clone `gps-model` and `fpga-utils` alongside this repository. Use the companion fpga-utils changes that provide `run_wrapper(test_module=...)` and portable unsigned FFT packing.
+
+```bash
+python3.12 -m venv venv
+source venv/bin/activate
+# Tested macOS pin: avoids the cocotb 1.9 build failure with newer setuptools.
+python -m pip install setuptools==75.8.0 wheel
+python -m pip install --no-build-isolation cocotb==1.9.2
+python -m pip install -r requirements/dev.txt -r ../gps-model/requirements.txt
+make                         # all benches; unavailable dependencies fail explicitly
+make TESTS="Prn MaxInterface MaxSpiConfig"  # selected bench directories
+python -m unittest discover -s scripts/tests -v
+```
+
+On macOS, `brew install icarus-verilog sbt openjdk@17 python@3.12` supplies the tools; set `JAVA_HOME` to `$(brew --prefix openjdk@17)` before running sbt.
+
+The Xilinx FFT C model shipped in gps-model is Linux x86_64 only. For the native macOS subset, explicitly exclude these benches:
+
+```bash
+SKIP_TESTS="AcquisitionModular FFT-xilinx EthernetTestbench GpsTop" make
+```
+
+Excluded benches appear as SKIP, not PASS. `make` exits nonzero for a failed test, missing/malformed XML, no executed tests, a runner failure or an unknown selected directory. `hw/tb/run_all.sh` is the same entry point used by CI. Per-directory Python runners and legacy Makefiles remain available for debugging; use the root command for the checked aggregate verdict.
+
+`AcquisitionModular` uses deterministic synthetic samples by default. The optional historical recording experiment requires `GPS_IQ_FILE` pointing to signed interleaved int8 I/Q data; it logs comparisons and is not an acceptance test. The three older experimental tests remain explicitly skipped. `FFT-xilinx` checks a known tone against the bit-accurate vendor C model (the arithmetic, not a synthesized netlist).
+
+`EthernetTestbench` needs the `verilog-ethernet` submodule. Its simulation generator uses the dependency's generic GMII mode, while its board generator retains Xilinx I/O. No vendor primitive shim is needed for the protocol regression. The self-hosted CI workflow is unchanged, but no runner is currently registered, so CI does not run.
+
+### Linux-only tests on an Apple Silicon host
+
+Use an x86_64 Docker runtime (an ARM Linux VM with Rosetta also works). The shipped FFT C library is unchanged. Generate the Scala modules with Java 17/sbt on the host, then run the Linux arithmetic tests in the container:
+
+```bash
+git submodule update --init --recursive
+sbt "runMain gps.AcquisitionModularVerilog" "runMain gps.GpsTopSimVerilog" "runMain gps.EthernetTestbenchSimVerilog"
+docker build --platform linux/amd64 -f scripts/Dockerfile.sim -t seds-fpga-sim .
+docker run --rm --platform linux/amd64 --network none \
+  -v "$PWD":/workspace/gps-rtl \
+  -v "$PWD/../gps-model":/workspace/gps-model:ro \
+  -v "$PWD/../fpga-utils":/workspace/fpga-utils:ro \
+  -w /workspace/gps-rtl \
+  -e PYTHONPATH=/workspace/gps-model:/workspace/fpga-utils \
+  seds-fpga-sim make TESTS="AcquisitionModular FFT-xilinx EthernetTestbench GpsTop"
+```
+
+Regenerate these modules after changing any Scala dependency. The image intentionally contains the simulator and Python dependencies, not sbt or Vivado. `GpsTopSim.v` and `EthernetTestbenchSim.v` have distinct names from the board variants. If SSH access to submodules is unavailable, apply the HTTPS rewrite below to the submodule command as well.
+
+GitHub access is required for all companion repositories. The sbt dependency uses SSH. If your GitHub login works over HTTPS but SSH is unavailable, use this per-command rewrite instead of changing global Git configuration:
+
+```bash
+GIT_CONFIG_COUNT=2 \
+GIT_CONFIG_KEY_0=url.https://github.com/.insteadOf \
+GIT_CONFIG_VALUE_0=ssh://git@github.com/ \
+GIT_CONFIG_KEY_1=url.https://github.com/.insteadOf \
+GIT_CONFIG_VALUE_1=git@github.com: make
+```
+
 # Setup
 
 ## Icarus Verilog + GTKWave
@@ -19,12 +88,12 @@ sudo apt install gtkwave
 Scala:
 
 ```bash
-sudo apt install scala openjdk-8-jdk
+sudo apt install scala openjdk-17-jdk
 ```
 
 sbt: https://www.scala-sbt.org/download/
 
-This repo depends on [seds-umd/spinalhdl-ethernet](https://github.com/seds-umd/spinalhdl-ethernet). To pull in changes from that repo, delete `~/.sbt/1.0/staging/` so it will redownload next time you run sbt.
+This repo depends on [seds-umd/spinalhdl-ethernet](https://github.com/seds-umd/spinalhdl-ethernet). Record the dependency revision used for a build. When updating it, use an explicit reviewed revision in `build.sbt` and regenerate the affected modules; do not clear unrelated sbt projects' caches.
 
 ## Python/Cocotb
 
@@ -33,7 +102,7 @@ Set up a Python environment for using cocotb.
 ```bash
 python3 -m venv venv
 source venv/bin/activate
-pip install -r requirements.txt
+pip install -r requirements/dev.txt -r ../gps-model/requirements.txt
 ```
 
 When running any simulations, you will need to have the virtual environment (venv) activated with `source venv/bin/activate`. You will see `(venv)` next to your command prompt when it's activated.
@@ -45,7 +114,7 @@ If you will be making changes to the [fpga-utils](https://github.com/seds-umd/fp
 To use the local repos (which must both be in the same parent directly as this repo):
 
 ```bash
-pip install -r requirements/dev.txt
+pip install -r requirements/dev.txt -r ../gps-model/requirements.txt
 ```
 
 ## Litex
@@ -72,7 +141,6 @@ This installs litex in a virtual environment inside `~/litex`. You will need to 
 * `hw/tb` - Testbenches written using cocotb. Each module should have it's own testbench. Each testbench will have a python file containing the actual testbench, a Makefile to run it, and likely a .gtkw file for viewing the traces.
 * `hw/integration` - Litex scripts to build FPGA bitstreams
   * `eth_top` - Ethernet test setup for the STLV7325 Kintex-7 board
-  * `gps_top` - For the real GPS board
   * `uart_top` - UART interface for use with the MAX2769 dev board and Basys 3 FPGA board
 
 ## Remote Simulations
@@ -104,10 +172,10 @@ After the simulation, the .fst file will be copied back to the local machine so 
 To generate a SpinalHDL module, run:
 
 ```bash
-sbt "runMain gps.GpsTopVerilog"
+sbt "runMain gps.PrnVerilog"
 ```
 
-Or enter the sbt terminal with `sbt` and run `runMain gps.GpsTopVerilog` (this is faster for repeated use).
+Or enter the sbt terminal with `sbt` and run `runMain gps.PrnVerilog` (this is faster for repeated use).
 
 To simulate the module, write a testbench and put it in `hw/tb`. See `hw/tb/Prn` for a simple example. To run it, make sure you have the venv activated, navigate to the directory, and run `./test_prn.py`. It will take a minute or two to run and you will see debug information printed out. It will also automatically generate the verilog from SpinalHDL (the runMain command above) if the SpinalHDL source changed since the last run, so you don't need to keep sbt open all the time.
 
@@ -174,7 +242,7 @@ Modules that integrate many components together
 
 ### GpsTop
 
-Top level module for GPS. Mostly temporary and debugging stuff right now.
+Board-neutral MAX serial input through acquisition to a result stream. It deliberately discards live samples outside acquisition windows; see [the contract](docs/acquisition-core.md) for framing, reset and overflow behavior. `time_sync` is unused. The default 24-bin search span elaborates; the system regression uses a separate two-bin-span generator.
 
 ### AcquisitionModular
 
@@ -224,7 +292,9 @@ Parameters:
 | iq_in  | `slave Stream (Complex(iq_size).asBits)`  | Input samples  |
 | iq_out | `master Stream (Complex(iq_size).asBits)` | Output samples |
 
-### TrackingDecimate
+### TrackingDecimate (planned interface)
+
+No implementation of this module is present in the repository. The following is a design sketch, not a buildable tracking path.
 
 Decimator for tracking system. The number of samples to sum is dynamically configurable, and no bits are truncated at the output.
 

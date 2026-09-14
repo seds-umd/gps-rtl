@@ -5,13 +5,9 @@ from cocotbext import axi
 
 import logging
 import numpy as np
-import sys
-from pathlib import Path
+import itertools
 
-utils_path = Path(__file__).resolve().parent.parent
-sys.path.insert(len(sys.path), str(utils_path.resolve()))
-
-from utils import stream_axis_bus
+from fpga_utils import stream_axis_bus
 
 
 class TB:
@@ -33,6 +29,9 @@ class TB:
         out_bus = stream_axis_bus(self.dut, "io_output_")
         self.axis_output = axi.AxiStreamSink(out_bus, dut.clk, dut.reset)
         self.axis_output.log.setLevel(logging.WARNING)
+        self.axis_output.set_pause_generator(itertools.cycle([1, 1, 0, 0]))
+        for source in self.axis_inputs:
+            source.set_pause_generator(itertools.cycle([0, 1, 0, 0]))
 
     async def reset(self):
         self.dut.reset.value = 0
@@ -56,6 +55,7 @@ class TB:
         await ClockCycles(self.dut.clk, 5)
 
         await with_timeout(self.axis_inputs[sel].idle_event.wait(), 1000, "ns")
+        await ClockCycles(self.dut.clk, 10)
 
         actual = self.axis_output.read_nowait(64)
         actual = bytes(actual)
@@ -74,3 +74,17 @@ async def test_streammuxmetered(dut):
     for _ in range(100):
         sel = np.random.randint(4)
         await tb.run_test(sel, N)
+
+
+from fpga_utils import test_runner
+
+if __name__ == "__main__":
+    test_runner.run_wrapper(
+        top_level='StreamMuxMeteredTest',
+        scala_name='StreamMuxMetered',
+        scala_object='StreamMuxMeteredVerilog',
+        package='gps',
+        proj_dir='../../..',
+        source_dir='hw/spinal/gps',
+        gen_dir='hw/gen',
+    )

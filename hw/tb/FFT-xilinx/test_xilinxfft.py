@@ -47,7 +47,7 @@ async def test_fft(dut):
     await config_driver.send([1])  # Forward FFT
     await config_driver.wait()
 
-    in_data = 0.75 * np.exp(np.arange(4096) * 2j * np.pi / 10)
+    in_data = 0.75 * np.exp(np.arange(4096) * 2j * np.pi / 64)
 
     packed_data = fft_pack_complex(in_data)
 
@@ -60,6 +60,13 @@ async def test_fft(dut):
 
     ref_data = in_data
     ref_fft = np.fft.fft(ref_data)
+
+    # Bin-centred tone checks sign, ordering and block-exponent scaling.
+    assert np.argmax(np.abs(out_data)) == 64
+    assert len(out_data) == len(in_data)
+    relative_error = np.linalg.norm(out_data - ref_fft) / np.linalg.norm(ref_fft)
+    dut._log.info(f"FFT relative RMS error: {relative_error:.5f}")
+    assert relative_error < 0.03
 
     plt.figure(figsize=(6, 6))
     plt.subplot(3, 1, 1)

@@ -1,8 +1,5 @@
-TBS = Decimate FFT-xilinx Magnitude MagnitudeStream MaxInterface MaxMagnitude Mixer PRN StreamDemuxMetered StreamMemory StreamMuxMetered UartControl
-SUBDIRS = $(addprefix hw/tb/,$(TBS))
+.PHONY: all test
+all: test
 
-all: $(SUBDIRS)
-$(SUBDIRS):
-	$(MAKE) -C $@ sim
-
-.PHONY: all $(SUBDIRS)
+test:
+	./hw/tb/run_all.sh $(TESTS)

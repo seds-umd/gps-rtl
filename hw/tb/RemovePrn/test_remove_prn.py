@@ -7,16 +7,13 @@ import numpy as np
 import matplotlib.pyplot as plt
 import sys
 from pathlib import Path
-from gps import prn
+from gps import prn_gen as prn
 
-utils_path = Path(__file__).resolve().parent.parent
-sys.path.insert(len(sys.path), str(utils_path.resolve()))
-
-from fft_sim import unpack_complex
-from utils import TB_Template, axis_sink, axis_source, corr, generate_gps_samples
+from fpga_utils.fft_sim import fft_unpack_complex as unpack_complex
+from fpga_utils import TbTemplate, axis_sink, axis_source, corr, generate_gps_samples
 
 
-class TB(TB_Template):
+class TB(TbTemplate):
     def __init__(self, dut):
         super().__init__(dut)
 
@@ -115,3 +112,18 @@ async def test_dut(dut):
     for phase_offset in [0, 10, 1234, 3456, 3910, 4091]:
         for iq_offset in [0, 5, 4050]:
             await tb.run_test(phase_offset, iq_offset)
+
+
+from fpga_utils import test_runner
+
+if __name__ == "__main__":
+    test_runner.run_wrapper(
+        top_level='RemovePrnWrapper',
+        scala_name='RemovePrn',
+        scala_object='RemovePrnVerilog',
+        test_module='test_remove_prn',
+        package='gps',
+        proj_dir='../../..',
+        source_dir='hw/spinal/gps',
+        gen_dir='hw/gen',
+    )

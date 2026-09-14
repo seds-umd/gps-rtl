@@ -6,7 +6,7 @@ Start with the simulations below. The current acquisition datapath is under deve
 | --- | --- | --- |
 | `hw/integration/uart_top` | Basys 3 + MAX2769 development board | UART register control and sample capture |
 | `hw/integration/eth_top` | STLV7325 Kintex-7 | Ethernet acquisition development setup |
-| `GpsTop.scala` | Proposed GPS board integration | Unconnected acquisition input and debug output; does not elaborate. There is no `hw/integration/gps_top` directory. |
+| `GpsTop.scala` | Board-neutral serial-to-acquisition core | Result stream and overflow diagnostic; no board wrapper or host transport. See the [integration contract](docs/acquisition-core.md). |
 
 ## Run the regression
 
@@ -29,14 +29,33 @@ On macOS, `brew install icarus-verilog sbt openjdk@17 python@3.12` supplies the 
 The Xilinx FFT C model shipped in gps-model is Linux x86_64 only. For the native macOS subset, explicitly exclude these benches:
 
 ```bash
-SKIP_TESTS="AcquisitionModular FFT-xilinx EthernetTestbench" make
+SKIP_TESTS="AcquisitionModular FFT-xilinx EthernetTestbench GpsTop" make
 ```
 
 Excluded benches appear as SKIP, not PASS. `make` exits nonzero for a failed test, missing/malformed XML, no executed tests, a runner failure or an unknown selected directory. `hw/tb/run_all.sh` is the same entry point used by CI. Per-directory Python runners and legacy Makefiles remain available for debugging; use the root command for the checked aggregate verdict.
 
 `AcquisitionModular` uses deterministic synthetic samples by default. The optional historical recording experiment requires `GPS_IQ_FILE` pointing to signed interleaved int8 I/Q data; it logs comparisons and is not an acceptance test. The three older experimental tests remain explicitly skipped. `FFT-xilinx` checks a known tone using the actual bit-accurate vendor C model. These simulate the IP interface and arithmetic model, not a synthesized vendor netlist.
 
-`EthernetTestbench` also needs the `verilog-ethernet` submodule and Xilinx primitive simulation models (BUFGMUX, BUFIO, BUFR, ODDR). It cannot run using Icarus alone. The original self-hosted CI configuration is retained; local results do not imply a functioning hosted CI runner.
+`EthernetTestbench` needs the `verilog-ethernet` submodule. Its simulation generator uses the dependency's generic GMII mode, while its board generator retains Xilinx I/O. No vendor primitive shim is needed for the protocol regression; vendor timing remains a separate board check. The original self-hosted CI configuration is retained; local results do not imply a functioning hosted CI runner.
+
+### Linux-only tests on an Apple Silicon host
+
+Use an x86_64 Docker runtime (an ARM Linux VM with Rosetta also works). The shipped FFT C library is unchanged. Generate the Scala modules with Java 17/sbt on the host, then run the Linux arithmetic tests in the container:
+
+```bash
+git submodule update --init --recursive
+sbt "runMain gps.AcquisitionModularVerilog" "runMain gps.GpsTopSimVerilog" "runMain gps.EthernetTestbenchSimVerilog"
+docker build --platform linux/amd64 -f scripts/Dockerfile.sim -t seds-fpga-sim .
+docker run --rm --platform linux/amd64 --network none \
+  -v "$PWD":/workspace/gps-rtl \
+  -v "$PWD/../gps-model":/workspace/gps-model:ro \
+  -v "$PWD/../fpga-utils":/workspace/fpga-utils:ro \
+  -w /workspace/gps-rtl \
+  -e PYTHONPATH=/workspace/gps-model:/workspace/fpga-utils \
+  seds-fpga-sim make TESTS="AcquisitionModular FFT-xilinx EthernetTestbench GpsTop"
+```
+
+Regenerate these modules after changing any Scala dependency. The image intentionally contains the simulator and Python dependencies, not sbt or Vivado. `GpsTopSim.v` and `EthernetTestbenchSim.v` have distinct names from the board variants. If SSH access to submodules is unavailable, apply the HTTPS rewrite below to the submodule command as well.
 
 GitHub access is required for all companion repositories. The sbt dependency uses SSH. If your GitHub login works over HTTPS but SSH is unavailable, use this per-command rewrite instead of changing global Git configuration:
 
@@ -74,7 +93,7 @@ sudo apt install scala openjdk-17-jdk
 
 sbt: https://www.scala-sbt.org/download/
 
-This repo depends on [seds-umd/spinalhdl-ethernet](https://github.com/seds-umd/spinalhdl-ethernet). To pull in changes from that repo, delete `~/.sbt/1.0/staging/` so it will redownload next time you run sbt.
+This repo depends on [seds-umd/spinalhdl-ethernet](https://github.com/seds-umd/spinalhdl-ethernet). Record the dependency revision used for a build. When updating it, use an explicit reviewed revision in `build.sbt` and regenerate the affected modules; do not clear unrelated sbt projects' caches.
 
 ## Python/Cocotb
 
@@ -223,7 +242,7 @@ Modules that integrate many components together
 
 ### GpsTop
 
-Top level module for GPS. Mostly temporary and debugging stuff right now.
+Board-neutral MAX serial input through acquisition to a result stream. It deliberately discards live samples outside acquisition windows; see [the contract](docs/acquisition-core.md) for framing, reset and overflow behavior. `time_sync` is unused. The default 24-bin search span elaborates; the system regression uses a separate two-bin-span generator.
 
 ### AcquisitionModular
 
@@ -273,7 +292,9 @@ Parameters:
 | iq_in  | `slave Stream (Complex(iq_size).asBits)`  | Input samples  |
 | iq_out | `master Stream (Complex(iq_size).asBits)` | Output samples |
 
-### TrackingDecimate
+### TrackingDecimate (planned interface)
+
+No implementation of this module is present in the repository. The following is a design sketch, not a buildable tracking path.
 
 Decimator for tracking system. The number of samples to sum is dynamically configurable, and no bits are truncated at the output.
 

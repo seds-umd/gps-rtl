@@ -1,6 +1,6 @@
 import cocotb
 from cocotb.clock import Clock
-from cocotb.triggers import RisingEdge, ClockCycles, with_timeout
+from cocotb.triggers import RisingEdge, FallingEdge, ClockCycles, with_timeout
 from fpga_utils.spinal_stream import SpinalStreamSink
 
 import random
@@ -74,6 +74,39 @@ async def test_interface(dut, N=8192):
     wrong = int(np.argmin(matched, axis=0)[0])
 
     assert matched.all(), f"{wrong}, {samples_recv[wrong]}, {samples_ref[wrong]}"
+
+
+@cocotb.test(timeout_time=100, timeout_unit="us")
+async def overflow_is_visible_and_resettable(dut):
+    assert hasattr(dut, "io_overflow"), "Live sample loss needs an observable overflow flag"
+    dut.reset.value = 1
+    dut.io_time_sync.value = 0
+    dut.io_data_sync.value = 0
+    dut.io_data_in.value = 0
+    dut.io_iq_ready.value = 0
+    cocotb.start_soon(Clock(dut.clk, 20, units="ns").start())
+    cocotb.start_soon(Clock(dut.io_clk_ser, 125, units="ns").start())
+    await ClockCycles(dut.io_clk_ser, 5)
+    await FallingEdge(dut.clk)
+    dut.reset.value = 0
+    await ClockCycles(dut.clk, 5)
+    assert int(dut.io_overflow.value) == 0
+    for _ in range(8):  # Two blocks overflow the8-entry asynchronous FIFO.
+        for j in range(16):
+            await FallingEdge(dut.io_clk_ser)
+            dut.io_data_sync.value = int(j == 0)
+            await RisingEdge(dut.io_clk_ser)
+    dut.io_data_sync.value = 0
+    await ClockCycles(dut.io_clk_ser, 20)
+    assert int(dut.io_overflow.value) == 1
+    dut.io_iq_ready.value = 1
+    await ClockCycles(dut.clk, 50)
+    assert int(dut.io_overflow.value) == 1
+    dut.reset.value = 1
+    await ClockCycles(dut.io_clk_ser, 5)
+    dut.reset.value = 0
+    await ClockCycles(dut.clk, 5)
+    assert int(dut.io_overflow.value) == 0
 
 
 from fpga_utils import test_runner

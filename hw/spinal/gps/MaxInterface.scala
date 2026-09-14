@@ -13,6 +13,8 @@ case class MaxInterface(iq_size: Int = 2, period: Int = 4092) extends Component 
 
     // FPGA interface
     val iq = master Stream (ComplexTimestamp(iq_size, period))
+    // Sticky diagnostic in the FPGA clock domain, cleared by system reset.
+    val overflow = out Bool ()
   }
 
   val fpga_domain = ClockDomain.current
@@ -28,6 +30,10 @@ case class MaxInterface(iq_size: Int = 2, period: Int = 4092) extends Component 
   sample_fifo.io.pop >> io.iq
 
   val max_area = new ClockingArea(max_domain) {
+    val overflow = RegInit(False)
+    when(sample_fifo.io.push.valid && !sample_fifo.io.push.ready) {
+      overflow := True
+    }
     val phase_counter = Counter(period)
 
     val fifo_push_payload = ComplexTimestamp(iq_size, period)
@@ -92,6 +98,7 @@ case class MaxInterface(iq_size: Int = 2, period: Int = 4092) extends Component 
       }
     }
   }
+  io.overflow := BufferCC(max_area.overflow, init = False)
 }
 
 object MaxInterfaceVerilog extends App {

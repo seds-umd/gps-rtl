@@ -345,8 +345,11 @@ case class AcquisitionModular(
     // Take magnitude of FFT output and keep track of max
     val evaluate: State = new State {
       whenIsActive {
-        // TODO: make it out of 4092
-        phase_offset := scale4096_4092(max_mag.io.max_idx - first_sample_time)
+        // Convert FFT phase before applying the timestamp origin: the FFT
+        // wraps at4096, but the C/A sample epoch wraps at4092.
+        val relative_phase = scale4096_4092(max_mag.io.max_idx)
+        val absolute_phase = relative_phase.resize(fft_size_log + 1) + period - first_sample_time.resize(fft_size_log + 1)
+        phase_offset := Mux(absolute_phase >= period, absolute_phase - period, absolute_phase).resized
         coarse_freq := max_mag.io.max_freq
         goto(fine_setup)
       }

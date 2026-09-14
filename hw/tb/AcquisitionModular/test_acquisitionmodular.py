@@ -37,7 +37,7 @@ class TB(fpga_utils.TbTemplate):
         # self.sample_input.set_pause_generator(random_pause())
 
     def send_generated_samples(
-        self, count=1e5, sv=1, doppler=0, sample_phase=0, noise=True
+        self, count=1e5, sv=1, doppler=0, sample_phase=0, noise=True, timestamp_offset=0
     ):
         # -128.5 is worst case real world received power
         power = -125 if noise else None
@@ -49,7 +49,7 @@ class TB(fpga_utils.TbTemplate):
 
         self.sample_bits, self.samples, self.samples_quant = (
             fpga_utils.generate_gps_samples(
-                self.fs, count, sv, doppler, sample_phase, power
+                self.fs, count, sv, doppler, sample_phase, power, timestamp_offset
             )
         )
 
@@ -322,14 +322,15 @@ async def recorded_sample_test(dut):
         await ClockCycles(dut.clk, 10)
 
 
-async def check_synthetic_acquisition(dut, sample_phase, frequency_bin):
+async def check_synthetic_acquisition(dut, sample_phase, frequency_bin, timestamp_offset=0):
     """Known PRN 1 with a bin-centred Doppler; no external recording."""
     np.random.seed(20260914)
     tb = TB(dut)
     await tb.reset()
     tb.send_generated_samples(count=50000, sv=1,
                               doppler=frequency_bin * tb.fs / 4096,
-                              sample_phase=sample_phase, noise=False)
+                              sample_phase=sample_phase, noise=False,
+                              timestamp_offset=timestamp_offset)
     frame = await with_timeout(tb.results_bus.read(), 10, "ms")
     sv = frame.payload["sv"][0]
     freq = frame.payload["freq_offset"][0]
@@ -342,7 +343,7 @@ async def check_synthetic_acquisition(dut, sample_phase, frequency_bin):
     dut._log.info(f"Synthetic result: sv={sv}, freq={freq}, phase={phase}, snr={snr}")
     assert sv == 1
     assert abs(freq - frequency_bin * 8) <= 1
-    phase_error = (phase - sample_phase) % 4092
+    phase_error = (phase - (sample_phase - timestamp_offset)) % 4092
     assert min(phase_error, 4092 - phase_error) <= 1
     assert snr > 8
 
@@ -360,6 +361,37 @@ async def synthetic_positive_doppler(dut):
 @cocotb.test(timeout_time=10, timeout_unit="ms")
 async def synthetic_negative_doppler_wrap(dut):
     await check_synthetic_acquisition(dut, 4090, -1)
+
+
+@cocotb.test(timeout_time=10, timeout_unit="ms")
+async def synthetic_timestamp_origin(dut):
+    # A live receiver starts a new acquisition at an arbitrary timestamp.
+    await check_synthetic_acquisition(dut, 37, 0, timestamp_offset=2046)
+
+
+@cocotb.test(timeout_time=10, timeout_unit="ms")
+async def synthetic_timestamp_wrap(dut):
+    await check_synthetic_acquisition(dut, 37, 0, timestamp_offset=4088)
+
+
+@cocotb.test(timeout_time=10, timeout_unit="ms")
+async def synthetic_mid_phase_1000(dut):
+    await check_synthetic_acquisition(dut, 1000, 0)
+
+
+@cocotb.test(timeout_time=10, timeout_unit="ms")
+async def synthetic_mid_phase_2300(dut):
+    await check_synthetic_acquisition(dut, 2300, 0)
+
+
+@cocotb.test(timeout_time=10, timeout_unit="ms")
+async def synthetic_mid_phase_3000(dut):
+    await check_synthetic_acquisition(dut, 3000, 0)
+
+
+@cocotb.test(timeout_time=10, timeout_unit="ms")
+async def synthetic_mid_phase_1800(dut):
+    await check_synthetic_acquisition(dut, 1800, 0)
 
 
 if __name__ == "__main__":

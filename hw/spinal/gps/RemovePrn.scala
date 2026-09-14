@@ -6,16 +6,16 @@ import spinal.lib.fsm._
 
 /* Alignment math:
  *
- * Incrementing PRN decreases offset.
- * Incrementing IQ samples increases offset.
+ * Incrementing PRN increases offset (PRN phase - IQ timestamp - target phase).
+ * Incrementing IQ samples decreases offset.
  * IQ samples must increment one every `rate` cycles to keep up with input.
  *
- * Time to align by running PRN: t = offset * rate/(rate - 1)
- * Time to align by running IQ: t = (4096 - offset)*rate
+ * Time to align by running PRN: t = (period - offset) * rate/(rate - 1)
+ * Time to align by running IQ: t = offset * rate
  *
- * Threshold: offset = 4096 * (rate - 1) / rate
+ * The threshold below includes the FFT-domain correction used by acquisition.
  *
- * At 50 MHz clock and 4.092 Msps, rate = 12, threshold ~= 3755
+ * At 50 MHz and 4.092 Msps with period 4092, rate ~= 12.22, threshold ~= 332
  */
 
 case class RemovePrn(
@@ -114,8 +114,7 @@ case class RemovePrn(
   mixer.io.input_b << prn.io.code
     .throwWhen(throw_prn)
     .translateInto(Stream(Fragment(Complex(mixerWidth))))((to, from) => {
-      // Scale PRN to +-1 (127/-128) and zero imaginary component
-      // XOR to convert False to 0x80 (-128) and True to 0x7F (127)
+      // Use symmetric full-scale real PRN values and zero imaginary component.
       when(from) {
         to.re := (1 << mixerWidth - 1) - 1
       } otherwise {

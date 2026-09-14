@@ -34,7 +34,7 @@ class StreamInterface:
 
     def send(self, data: bytes):
         for i in range(0, len(data), MAX_LEN - 1):
-            self._send_frame(data[i : i + MAX_LEN - 1], len(data) - i < MAX_LEN - 1)
+            self._send_frame(data[i : i + MAX_LEN - 1], len(data) - i <= MAX_LEN - 1)
 
     def _stream_process(self):
         try:
@@ -95,7 +95,10 @@ class AxilInterface(StreamInterface):
             self._stream_process()
             self._axil_process()
 
-    def read(self, addr: int) -> int:
+    def read(self, addr: int, timeout: float = 1.0) -> int:
+        """Read a register, failing explicitly if the board does not respond."""
+        if timeout <= 0:
+            raise ValueError("timeout must be positive")
         pkt = bytearray()
         pkt.append(0x00)
         pkt.extend(self._command_id.to_bytes(2, "little"))
@@ -108,7 +111,10 @@ class AxilInterface(StreamInterface):
 
         self.send(pkt)
 
+        deadline = time.monotonic() + timeout
         while sent_id not in self._reads:
+            if time.monotonic() >= deadline:
+                raise TimeoutError(f"No AXI read reply for address 0x{addr:08x} (command {sent_id})")
             # Sleeping for 0s lets the GIL switch to the receive thread, which speeds up the receive time by about 100x
             time.sleep(0)
 

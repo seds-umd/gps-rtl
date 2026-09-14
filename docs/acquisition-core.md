@@ -1,124 +1,116 @@
-# GPS acquisition core and integration contract
+# GpsTop: acquisition core and integration contract
 
-`GpsTop` is a board-neutral component joining the existing MAX serial receiver
-to acquisition. It exports results to a caller-provided stream consumer. It is
-not a complete GPS receiver or a board bitstream: tracking, navigation decoding,
-position calculation, MAX configuration, pin constraints and a host transport
-are separate integration work.
+`GpsTop` joins the MAX2769 serial receiver to the acquisition engine and
+exports results on a stream. It is board-neutral: no pin constraints, no MAX
+configuration, no host transport. Tracking, navigation decoding and a position
+solution do not exist in gateware yet. A passing simulation of this core is not
+a receiver and not a board qualification.
 
-## Inputs and clocking
+## Clocks, reset and input format
 
-The core uses the system clock/reset configured in `Config.scala` (50 MHz for
-the current design) and a separate serial clock. The serial bench sends blocks
-of 16 samples as four 16-bit planes: I-MSB, I-LSB, Q-MSB, Q-LSB. `data_sync`
-marks the first bit of each plane. Signed two-bit I/Q and a sample counter
-modulo 4092 pass through the existing asynchronous FIFO to acquisition.
+- System clock and reset come from `Config.scala` (50 MHz in the current
+  design). The PRN alignment path derives a threshold from the declared
+  frequency, so change both together.
+- The serial side has its own clock. Samples arrive in blocks of 16 as four
+  16-bit planes in the order I-MSB, I-LSB, Q-MSB, Q-LSB; `data_sync` marks the
+  first bit of each plane. After reset the first plane must be I-MSB; starting
+  mid-block is not supported.
+- Signed 2-bit I/Q and a sample counter modulo 4092 cross into the system
+  domain through the existing asynchronous FIFO.
+- `time_sync` is unused. It is not a PPS or GPS-time input.
+- The serial-domain reset release is asynchronous. A board design has to
+  sequence source start-up against it and check reset synchronization against
+  real MAX timing; the bench's orderly reset does not cover that.
 
-The `time_sync` input is currently unused. It is not a PPS or GPS-time service.
-After reset, the first plane must be I-MSB. Starting midway through a block is
-not supported. The current serial-domain reset release is asynchronous; a board
-implementation must coordinate source startup and qualify reset synchronization
-against actual MAX timing. The simulation's orderly reset is not proof of this
-physical behavior.
-
-Do not change the system clock without updating its declared frequency: the
-real-time PRN alignment path derives a threshold from it. The default acquisition
-search spans 24 coarse bins on either side; the separate simulation generator
-uses 2 to keep regression time bounded. It keeps `debug=false`, exercising the
-real-time alignment path rather than the unpaced acquisition bench's shortcut.
-The default 24-bin span is elaborated, but the full system regression exercises
-only the narrower simulation span.
+The default search spans 24 coarse frequency bins on each side and elaborates
+as `GpsTopVerilog`. The regression uses `GpsTopSimVerilog`, a two-bin span, to
+keep run time bounded; it keeps `debug=false` so the real-time alignment path
+is exercised.
 
 ## Results
 
 | Field | Type | Meaning |
 | --- | --- | --- |
-| `sv` | unsigned 6 bits | Satellite PRN identifier, 1–32 |
-| `freq_offset` | signed 12 bits | Frequency in units of `4.092e6 / (4096 * 8)` Hz |
-| `phase_offset` | unsigned 12 bits | C/A phase relative to the 4092-sample input timestamp epoch |
-| `snr` | unsigned 8 bits | Saturated acquisition detection metric, not a calibrated dB value |
+| `sv` | unsigned 6 bits | Satellite PRN, 1 to 32 |
+| `freq_offset` | signed 12 bits | Frequency in units of 4.092e6 / (4096 * 8) Hz |
+| `phase_offset` | unsigned 12 bits | C/A code phase relative to the 4092-sample timestamp epoch |
+| `snr` | unsigned 8 bits | Saturated detection metric; not a calibrated dB value |
 
-A result transfers when `valid && ready`. Results remain pending while the
-consumer is stalled; acquisition does not search another satellite until that
-transfer. Consume low-metric results too; filtering them must not stop draining
-the stream. No UART or SPI register protocol is implied by this component port.
+A result transfers on `valid && ready`. While the consumer stalls, the result
+stays pending and acquisition does not start the next satellite. Consume
+low-metric results too and filter them downstream. The metric cutoff of 8 used
+by older code is not calibrated: in the serial bench an absent satellite
+produced 10 and the present one produced 255.
 
-The FFT phase is first mapped from its 4096-point domain to 4092 samples. The
-timestamp origin is then subtracted modulo 4092. Reversing those operations
-creates timestamp-dependent phase errors; the shifted-origin regression covers
-that previously untested behavior.
+Phase arithmetic: the FFT bin is mapped from the 4096-point domain to 4092
+samples first, then the timestamp origin is subtracted modulo 4092. The reverse
+order gives timestamp-dependent errors; the shifted-origin regression covers
+it. Mid-range phases come out within one sample of the fixture.
 
-The RF source cannot pause. `GpsTop` continuously drains the serial FIFO and
-intentionally discards samples while acquisition is not accepting a window.
-Retaining the FIFO's old samples across a long computation stall mixes epochs
-in the next window: the serial regression reproduced a timestamp jump from 632
-to 952 at its ninth sample. The live-input adapter prevents that stale prefix.
-This boundary is deliberately lossy; it is not a buffered transport stream.
-The paced regression checks consecutive timestamps inside each coarse window.
+## The live boundary is lossy
 
-`sample_overflow` is sticky until reset and synchronized into the system clock
-domain. It reports a serial FIFO write that could not be accepted. It remains
-zero in the connected paced regression; a separate forced-backpressure test
-checks assertion, stickiness and reset. It does not count the intentional
-outside-window discards or prove continuous reception at other clock rates.
-A future tracking path needs its own continuous sample stream before acquisition;
-sharing acquisition's acceptance windows would discard tracking samples.
+The RF source cannot pause, so `GpsTop` drains the serial FIFO continuously and
+discards samples while acquisition is not accepting a window. Keeping old
+samples across a computation stall mixes epochs in the next window; before the
+fix, the serial bench saw the timestamp jump from 632 to 952 at the ninth
+sample of the second window. The bench now checks consecutive timestamps inside
+every coarse window and every aligned fine window (32,777 and 32,768
+consecutive fine samples for the two PRNs).
 
-## Simulation and board generators
+`sample_overflow` is sticky until reset and synchronized into the system
+domain. It flags a serial FIFO write that was refused. It stays zero in the
+paced bench; a separate forced-back-pressure test checks assert, hold and
+clear. It does not count the intentional between-window discards.
+
+Known gap: inside a window the core is assumed to accept every sample on
+arrival. The decimator stalls `ready` for one cycle every eight samples. At the
+bench ratio of about twelve system clocks per sample that never coincides with
+an arrival, but at a tighter ratio, or with a real FFT core that back-pressures
+during load, a coinciding stall silently drops the sample and the fine-window
+PRN alignment is lost for the rest of that window. `sample_overflow` does not
+report this. Qualify the real FFT core's ready behaviour and repeat the
+continuity checks at the target clock ratio before using this boundary on
+hardware. A tracking path will need its own continuous sample stream; it cannot
+share acquisition's windows.
+
+## Generators and benches
 
 ```bash
-sbt "runMain gps.GpsTopVerilog"       # hardware parameters, generated GpsTop.v
-sbt "runMain gps.GpsTopSimVerilog"    # narrow search, generated GpsTopSim.v
-make TESTS=GpsTop                    # Linux x86_64 FFT model required
-make TESTS=EthernetTestbench          # same arithmetic model plus generic GMII
+sbt "runMain gps.GpsTopVerilog"       # hardware parameters -> hw/gen/GpsTop.v
+sbt "runMain gps.GpsTopSimVerilog"    # two-bin span        -> hw/gen/GpsTopSim.v
+make TESTS=GpsTop                     # needs the Linux x86_64 FFT C model
+make TESTS=EthernetTestbench          # same model plus generic GMII
 ```
 
-The serial integration test generates a satellite 2 signal, serializes it without
-injecting timestamps, and checks the first two results. The satellite 2 metric
-must exceed satellite 1 by more than four times and its frequency and phase
-must match the fixture. The existing metric cutoff of 8 is not a calibrated
-detection threshold: the absent satellite 1 produced a metric of 10. The second search starts at an arbitrary serial timestamp. This verifies
-the connected acquisition path for that fixture, not RF sensitivity, multi-SV
-capacity or flight readiness.
+The serial bench generates a satellite 2 signal, serializes it as MAX bit
+planes without injected timestamps, and checks the first two results: the
+satellite 2 metric must be more than four times the satellite 1 metric, and
+frequency and phase must match the fixture (bin 8; phase 36 for an expected
+37). The second search starts at an arbitrary serial timestamp.
 
-The Ethernet simulation uses the dependency's existing `UdpStream(sim=true)`
-generic MAC I/O and a shorter reset timer. The board generator still uses Xilinx
-I/O and its original timer. Separate generated module/file names prevent a
-simulation variant from silently replacing a board build. UDP regression checks
-register commands, command-ID readback, LED effects, frame CRC, sample transport
-and a known acquisition-result packet. It is a protocol/arithmetic simulation,
-not vendor I/O timing verification. Initialize `verilog-ethernet` recursively.
+The Ethernet bench uses the dependency's `UdpStream(sim=true)` generic MAC and
+a shorter reset timer through a separate `EthernetTestbenchSim` generator; the
+board generator and its file name are unchanged. It checks register writes and
+command-ID readback, LED effects, frame CRC, sample transport and a known
+acquisition-result packet. It is a protocol check, not vendor I/O timing.
+Initialize `verilog-ethernet` recursively before running it.
 
 ## Host tools
 
-The UDP stream carries a flags byte before incoming payloads and a flags byte
-after outgoing payloads. Flag bit 0 marks the last fragment. Payload boundaries
-at exactly 507 bytes still need that flag. `AxilInterface.read` waits up to one
-second by default and raises `TimeoutError` with the address and command ID if
-no reply arrives; callers can pass `timeout=` explicitly.
+The UDP stream carries a flags byte before incoming payloads and after outgoing
+ones; bit 0 marks the last fragment, including payloads that are exactly 507
+bytes. `AxilInterface.read` waits one second by default and raises
+`TimeoutError` with the address and command ID; pass `timeout=` to change it.
+Run the host checks with `python -m unittest discover -s scripts/tests -v`.
+They use loopback UDP and never touch lab hardware.
 
-Run host checks with `python -m unittest discover -s scripts/tests -v` in the
-activated environment. They use real loopback UDP for framing and an unanswered
-read; they do not contact or operate the lab hardware.
+## Before a board demonstration
 
-## Physical handoff
+1. Identify the MAX and FPGA board revisions, the clock, and the reset and
+   first-plane timing; configure the MAX; choose a host transport; write pin
+   and clock constraints.
+2. Synthesize, implement and close timing on the chosen board.
+3. Replay an agreed capture and record the source and bitstream hashes, the
+   acquisition metrics and the overflow flag with the result.
 
-Before a board demonstration, identify the actual MAX and FPGA board/revisions,
-confirm the clock and reset/first-plane timing, configure the MAX, select a host
-transport, and provide pin/clock constraints. Then run synthesis, implementation
-and timing analysis and replay an agreed capture. Record the bitstream/source
-hash, acquisition metrics, overflow observations and captured data with the
-result. Those checks require the selected hardware/toolchain and cannot be
-inferred from passing cocotb tests.
-
-### In-window readiness limitation
-
-The live-input boundary assumes acquisition accepts each presented sample during
-an open window. The decimator's one-cycle stall fits between samples at the
-bench's approximately twelve system clocks per sample. The arithmetic FFT model
-does not emulate a real core's ready stalls: an in-window stall coinciding with
-a sample can discard it, and `sample_overflow` does not report that loss. The
-regression monitors both coarse windows and the aligned fine-input windows;
-it observed 32,777 and 32,768 consecutive fine-input samples for the two PRNs. Qualify the actual FFT
-ready/latency behavior and repeat continuity checks before using this adapter on
-hardware; the passing fixture does not establish those properties.
+None of that can be inferred from passing cocotb tests.

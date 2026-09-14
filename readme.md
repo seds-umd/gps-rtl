@@ -1,6 +1,6 @@
 # GPS receiver development
 
-Start with the simulations below. The current acquisition datapath is under development; a passing block test is not a complete receiver or a board qualification.
+Start with the regression below. `docs/status-2026-09.md` says where the receiver stands and what to do next; `docs/acquisition-core.md` is the `GpsTop` contract.
 
 | Target | Intended use | Current boundary |
 | --- | --- | --- |
@@ -34,9 +34,9 @@ SKIP_TESTS="AcquisitionModular FFT-xilinx EthernetTestbench GpsTop" make
 
 Excluded benches appear as SKIP, not PASS. `make` exits nonzero for a failed test, missing/malformed XML, no executed tests, a runner failure or an unknown selected directory. `hw/tb/run_all.sh` is the same entry point used by CI. Per-directory Python runners and legacy Makefiles remain available for debugging; use the root command for the checked aggregate verdict.
 
-`AcquisitionModular` uses deterministic synthetic samples by default. The optional historical recording experiment requires `GPS_IQ_FILE` pointing to signed interleaved int8 I/Q data; it logs comparisons and is not an acceptance test. The three older experimental tests remain explicitly skipped. `FFT-xilinx` checks a known tone using the actual bit-accurate vendor C model. These simulate the IP interface and arithmetic model, not a synthesized vendor netlist.
+`AcquisitionModular` uses deterministic synthetic samples by default. The optional historical recording experiment requires `GPS_IQ_FILE` pointing to signed interleaved int8 I/Q data; it logs comparisons and is not an acceptance test. The three older experimental tests remain explicitly skipped. `FFT-xilinx` checks a known tone against the bit-accurate vendor C model (the arithmetic, not a synthesized netlist).
 
-`EthernetTestbench` needs the `verilog-ethernet` submodule. Its simulation generator uses the dependency's generic GMII mode, while its board generator retains Xilinx I/O. No vendor primitive shim is needed for the protocol regression; vendor timing remains a separate board check. The original self-hosted CI configuration is retained; local results do not imply a functioning hosted CI runner.
+`EthernetTestbench` needs the `verilog-ethernet` submodule. Its simulation generator uses the dependency's generic GMII mode, while its board generator retains Xilinx I/O. No vendor primitive shim is needed for the protocol regression. The self-hosted CI workflow is unchanged, but no runner is currently registered, so CI does not run.
 
 ### Linux-only tests on an Apple Silicon host
 

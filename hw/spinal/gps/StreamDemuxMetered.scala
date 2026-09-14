@@ -4,25 +4,20 @@ import spinal.core._
 import spinal.lib._
 
 class StreamDemuxMetered[T <: Data](input: Stream[T], ports: Int, countBits: Int = 12) extends Area {
-  private val select = Stream(UInt(log2Up(ports) bits))
-  select.payload.setAsReg()
-  select.valid.setAsReg()
+  private val select = Reg(UInt(log2Up(ports) bits)) init 0
 
   private val counter = Reg(UInt(countBits bits)) init 0
-  private val target = Reg(UInt(countBits bits))
   private val running = counter > 0
 
-  private val input_internal = input.haltWhen(!running || select.valid)
-  // val outputs = StreamDemux(input_internal, select, ports)
-  val outputs = Vec(input_internal) // XXX just to get it to compile, fix later
+  private val input_internal = input.haltWhen(!running)
+  val outputs = StreamDemux(input_internal, select, ports)
 
   // Perform n transactions to bus at index
   // Only run when not busy
   def transfer(index: UInt, n: Int) = {
     counter := n
 
-    select.payload := index
-    select.valid := True
+    select := index
   }
 
   // Check if busy
@@ -35,13 +30,8 @@ class StreamDemuxMetered[T <: Data](input: Stream[T], ports: Int, countBits: Int
     return counter
   }
 
-  // Handle select
-  when(select.fire) {
-    select.valid := False
-  }
-
-  // Count each transaction after selection is done
-  when(running && !select.valid && input.fire) {
+  // Count only accepted transfers; selection stays fixed for the burst
+  when(running && input.fire) {
     counter := counter - 1
   }
 }

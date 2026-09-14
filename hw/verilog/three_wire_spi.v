@@ -1,3 +1,5 @@
+`timescale 1ns/1ps
+
 module ThreeWireSpi #(
     parameter div=100
     // parameter reg0=28'hA2951A3, // Config 1

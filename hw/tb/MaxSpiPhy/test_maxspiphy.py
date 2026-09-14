@@ -6,13 +6,10 @@ import numpy as np
 import sys
 from pathlib import Path
 
-utils_path = Path(__file__).resolve().parent.parent
-sys.path.insert(len(sys.path), str(utils_path.resolve()))
-
-from utils import TB_Template, axis_sink, axis_source, corr, random_pause
+from fpga_utils import TbTemplate, axis_sink, axis_source, corr, random_pause
 
 
-class TB(TB_Template):
+class TB(TbTemplate):
     def __init__(self, dut):
         super().__init__(dut)
 
@@ -32,3 +29,15 @@ async def test_dut(dut):
     await tb.send_data([0x12345678])
 
     await ClockCycles(tb.dut.clk, 10000)
+
+
+from fpga_utils import test_runner
+
+if __name__ == "__main__":
+    test_runner.run_wrapper(
+        top_level='MaxSpiPhy',
+        package='gps',
+        proj_dir='../../..',
+        source_dir='hw/spinal/gps',
+        gen_dir='hw/gen',
+    )

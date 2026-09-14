@@ -6,16 +6,12 @@ from cocotbext import axi
 
 import logging
 import numpy as np
-import sys
-from pathlib import Path
+import itertools
 
-utils_path = Path(__file__).resolve().parent.parent
-sys.path.insert(len(sys.path), str(utils_path.resolve()))
-
-from utils import TB_Template, axis_sink, axis_source
+from fpga_utils import TbTemplate, axis_sink, axis_source
 
 
-class TB(TB_Template):
+class TB(TbTemplate):
     def __init__(self, dut, lanes=4):
         self.lanes = lanes
 
@@ -25,6 +21,10 @@ class TB(TB_Template):
         self.axis_outputs = [
             axis_sink(dut, f"io_outputs_{i}_") for i in range(self.lanes)
         ]
+
+        self.axis_input.set_pause_generator(itertools.cycle([0, 1, 0, 0]))
+        for sink in self.axis_outputs:
+            sink.set_pause_generator(itertools.cycle([1, 1, 0, 0]))
 
     async def run_test(self, n: int = 8):
         expected = np.random.bytes(n)
@@ -39,11 +39,13 @@ class TB(TB_Template):
         await ClockCycles(self.dut.clk, 5)
 
         await with_timeout(self.axis_input.idle_event.wait(), 1000, "ns")
+        await ClockCycles(self.dut.clk, 10)
 
         actual = self.axis_outputs[sel].read_nowait(n)
         actual = bytes(actual)
 
         assert actual == expected
+        assert all(sink.empty() for sink in self.axis_outputs)
 
 
 @cocotb.test()
@@ -60,3 +62,17 @@ async def test_streamdemuxmetered(dut):
         assert False, "This should have thrown a timeout error"
     except cocotb.result.SimTimeoutError:
         pass
+
+
+from fpga_utils import test_runner
+
+if __name__ == "__main__":
+    test_runner.run_wrapper(
+        top_level='StreamDemuxMeteredTest',
+        scala_name='StreamDemuxMetered',
+        scala_object='StreamDemuxMeteredVerilog',
+        package='gps',
+        proj_dir='../../..',
+        source_dir='hw/spinal/gps',
+        gen_dir='hw/gen',
+    )

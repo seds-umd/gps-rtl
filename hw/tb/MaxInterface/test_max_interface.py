@@ -1,7 +1,7 @@
 import cocotb
 from cocotb.clock import Clock
 from cocotb.triggers import RisingEdge, ClockCycles, with_timeout
-from cocotbext import axi
+from fpga_utils.spinal_stream import SpinalStreamSink
 
 import random
 import logging
@@ -12,10 +12,13 @@ def randbytes(n, b=8):
         yield random.getrandbits(b)
 
 @cocotb.test()
-async def test_interface(dut, N=1024):
+async def test_interface(dut, N=8192):
     assert N % 16 == 0, "N must be a multiple of 16"
 
     dut.reset.value = 1
+    dut.io_time_sync.value = 0
+    dut.io_data_sync.value = 0
+    dut.io_data_in.value = 0
 
     # Generate random IQ samples
     bits_per_half_sample = 2
@@ -32,13 +35,8 @@ async def test_interface(dut, N=1024):
     dut.reset.value = 0
     await RisingEdge(dut.io_clk_ser)
 
-    # Set up AXI interface
-    axi_bus = axi.AxiStreamBus(dut)
-    axi_bus._add_signal("tdata", "io_iq_payload")
-    axi_bus._add_signal("tvalid", "io_iq_valid")
-    axi_bus._add_signal("tready", "io_iq_ready")
-    axi_output = axi.AxiStreamSink(axi_bus, dut.clk, dut.reset, byte_size=1)
-    axi_output.log.setLevel(logging.WARNING) # Get rid of log messages
+    # The receiver exposes a structured stream: I, Q and sample timestamp.
+    output = SpinalStreamSink.from_prefix(dut, "io_iq")
 
     samples_recv = []
 
@@ -62,13 +60,30 @@ async def test_interface(dut, N=1024):
             if (i // 16) % 4 == idx[0] + 2*idx[1]:
                 await ClockCycles(dut.io_clk_ser, (i // 16) % 16)
 
-    for j in range(N):
-        frame = await with_timeout(axi_output.recv(), 125*64, "ns")
-        samples_recv.append(frame.tdata)
+    dut.io_data_sync.value = 0
+    async def wait_for_samples():
+        while output.count() < N:
+            await ClockCycles(dut.clk, 16)
 
-    samples_recv = np.array([[x[0]+2*x[1], x[2]+2*x[3]] for x in samples_recv])
+    await with_timeout(wait_for_samples(), 125 * 64 * (N // 16), "ns")
+    frame = output.read_nowait(N)
+    samples_recv = np.column_stack((frame.payload["c_re"], frame.payload["c_im"]))
+    np.testing.assert_array_equal(frame.payload["t"], np.arange(N) % 4092)
 
     matched = samples_recv - samples_ref == 0
     wrong = int(np.argmin(matched, axis=0)[0])
 
     assert matched.all(), f"{wrong}, {samples_recv[wrong]}, {samples_ref[wrong]}"
+
+
+from fpga_utils import test_runner
+
+if __name__ == "__main__":
+    test_runner.run_wrapper(
+        top_level='MaxInterface',
+        test_module='test_max_interface',
+        package='gps',
+        proj_dir='../../..',
+        source_dir='hw/spinal/gps',
+        gen_dir='hw/gen',
+    )

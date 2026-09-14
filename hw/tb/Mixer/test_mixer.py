@@ -7,14 +7,11 @@ import numpy as np
 import sys
 from pathlib import Path
 
-utils_path = Path(__file__).resolve().parent.parent
-sys.path.insert(len(sys.path), str(utils_path.resolve()))
-
-from fft_sim import pack_complex, unpack_complex
-from utils import TB_Template, axis_sink, axis_source, corr, random_pause
+from fpga_utils.fft_sim import fft_pack_complex as pack_complex, fft_unpack_complex as unpack_complex
+from fpga_utils import TbTemplate, axis_sink, axis_source, corr, random_pause
 
 
-class TB(TB_Template):
+class TB(TbTemplate):
     def __init__(self, dut):
         super().__init__(dut)
 
@@ -76,3 +73,17 @@ async def test_dut(dut):
 
         tb.dut._log.info(f"Correlation: {mix_corr:0.3f}")
         assert mix_corr > 0.99
+
+
+from fpga_utils import test_runner
+
+if __name__ == "__main__":
+    test_runner.run_wrapper(
+        top_level='MixerWrapper',
+        scala_name='Mixer',
+        scala_object='MixerVerilog',
+        package='gps',
+        proj_dir='../../..',
+        source_dir='hw/spinal/gps',
+        gen_dir='hw/gen',
+    )

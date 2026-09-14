@@ -4,25 +4,20 @@ import spinal.core._
 import spinal.lib._
 
 class StreamMuxMetered[T <: Data](inputs: Vec[Stream[T]], countBits: Int = 12) extends Area {
-  private val select = Stream(UInt(log2Up(inputs.length) bits))
-  select.payload.setAsReg()
-  select.valid.setAsReg()
+  private val select = Reg(UInt(log2Up(inputs.length) bits)) init 0
 
   private val counter = Reg(UInt(countBits bits)) init 0
-  private val target = Reg(UInt(countBits bits))
   private val running = counter > 0
 
-  private val inputs_internal = Vec(inputs.map(_.haltWhen(!running || select.valid)))
-  // val output = StreamMux(select, inputs_internal)
-  val output = inputs_internal(0) // XXX just to get it to compile, fix later
+  private val inputs_internal = Vec(inputs.map(_.haltWhen(!running)))
+  val output = StreamMux(select, inputs_internal)
 
   // Perform n transactions to bus at index
   // Only run when not busy
   def transfer(index: UInt, n: Int) = {
     counter := n
 
-    select.payload := index
-    select.valid := True
+    select := index
   }
 
   // Check if busy
@@ -35,13 +30,8 @@ class StreamMuxMetered[T <: Data](inputs: Vec[Stream[T]], countBits: Int = 12) e
     return counter
   }
 
-  // Handle select
-  when(select.fire) {
-    select.valid := False
-  }
-
-  // Count each transaction after selection is done
-  when(running && !select.valid && output.fire) {
+  // Count only accepted transfers; selection stays fixed for the burst
+  when(running && output.fire) {
     counter := counter - 1
   }
 }

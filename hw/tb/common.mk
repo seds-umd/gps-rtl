@@ -21,8 +21,11 @@ SPINAL ?= "runMain gps.$(DUT)Verilog"
 waves:
 	gtkwave $(FST_FILE) $(DUT).gtkw
 
-all:
-	@if grep -q "<failure />" "results.xml"; then exit 1; fi
+# cocotb 1.x can return zero even when an assertion failed. Check its result
+# after simulation, including missing, malformed and entirely skipped results.
+define check_for_results_file
+    @python "$(PWD)/../../../scripts/check_results.py" "$(COCOTB_RESULTS_FILE)"
+endef
 
 spinal: $(PWD)/../../spinal/gps/$(SCALA_FILE)
 	cd $(PWD)/../../..; sbt $(SPINAL)

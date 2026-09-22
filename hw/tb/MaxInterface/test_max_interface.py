@@ -91,7 +91,7 @@ async def overflow_is_visible_and_resettable(dut):
     dut.reset.value = 0
     await ClockCycles(dut.clk, 5)
     assert int(dut.io_overflow.value) == 0
-    for _ in range(8):  # Two blocks overflow the8-entry asynchronous FIFO.
+    for _ in range(8):  # Two blocks overflow the 8-entry asynchronous FIFO.
         for j in range(16):
             await FallingEdge(dut.io_clk_ser)
             dut.io_data_sync.value = int(j == 0)

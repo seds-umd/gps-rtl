@@ -32,11 +32,11 @@ The Xilinx FFT C model shipped in gps-model is Linux x86_64 only. For the native
 SKIP_TESTS="AcquisitionModular FFT-xilinx EthernetTestbench GpsTop" make
 ```
 
-Excluded benches appear as SKIP, not PASS. `make` exits nonzero for a failed test, missing/malformed XML, no executed tests, a runner failure or an unknown selected directory. `hw/tb/run_all.sh` is the same entry point used by CI. Per-directory Python runners and legacy Makefiles remain available for debugging; use the root command for the checked aggregate verdict.
+Excluded benches are reported as SKIP, not PASS. `make` exits nonzero if any test fails, a results file is missing or malformed, or nothing ran. `hw/tb/run_all.sh` is the same entry point CI uses; the per-directory `python test_*.py` runners still work for debugging one bench.
 
-`AcquisitionModular` uses deterministic synthetic samples by default. The optional historical recording experiment requires `GPS_IQ_FILE` pointing to signed interleaved int8 I/Q data; it logs comparisons and is not an acceptance test. The three older experimental tests remain explicitly skipped. `FFT-xilinx` checks a known tone against the bit-accurate vendor C model (the arithmetic, not a synthesized netlist).
+`AcquisitionModular` runs on seeded synthetic samples. To replay a recording instead, set `GPS_IQ_FILE` to a file of signed interleaved int8 I/Q; that test only logs what it finds. `FFT-xilinx` checks a known tone against the Xilinx bit-accurate C model.
 
-`EthernetTestbench` needs the `verilog-ethernet` submodule. Its simulation generator uses the dependency's generic GMII mode, while its board generator retains Xilinx I/O. No vendor primitive shim is needed for the protocol regression. The self-hosted CI workflow is unchanged, but no runner is currently registered, so CI does not run.
+`EthernetTestbench` needs the `verilog-ethernet` submodule. It simulates the generic GMII variant (`EthernetTestbenchSim`); the board build keeps the Xilinx I/O. The self-hosted CI workflow is unchanged, but no runner is registered right now, so CI does not run.
 
 ### Linux-only tests on an Apple Silicon host
 
@@ -55,7 +55,7 @@ docker run --rm --platform linux/amd64 --network none \
   seds-fpga-sim make TESTS="AcquisitionModular FFT-xilinx EthernetTestbench GpsTop"
 ```
 
-Regenerate these modules after changing any Scala dependency. The image intentionally contains the simulator and Python dependencies, not sbt or Vivado. `GpsTopSim.v` and `EthernetTestbenchSim.v` have distinct names from the board variants. If SSH access to submodules is unavailable, apply the HTTPS rewrite below to the submodule command as well.
+Regenerate the modules after changing any Scala. The image has the simulator and Python dependencies only, no sbt or Vivado. If SSH to GitHub is unavailable, apply the HTTPS rewrite below to the submodule command too.
 
 GitHub access is required for all companion repositories. The sbt dependency uses SSH. If your GitHub login works over HTTPS but SSH is unavailable, use this per-command rewrite instead of changing global Git configuration:
 
@@ -93,7 +93,7 @@ sudo apt install scala openjdk-17-jdk
 
 sbt: https://www.scala-sbt.org/download/
 
-This repo depends on [seds-umd/spinalhdl-ethernet](https://github.com/seds-umd/spinalhdl-ethernet). Record the dependency revision used for a build. When updating it, use an explicit reviewed revision in `build.sbt` and regenerate the affected modules; do not clear unrelated sbt projects' caches.
+This repo depends on [seds-umd/spinalhdl-ethernet](https://github.com/seds-umd/spinalhdl-ethernet). To pull in changes from that repo, delete `~/.sbt/1.0/staging/` so it will redownload next time you run sbt.
 
 ## Python/Cocotb
 
@@ -294,7 +294,7 @@ Parameters:
 
 ### TrackingDecimate (planned interface)
 
-No implementation of this module is present in the repository. The following is a design sketch, not a buildable tracking path.
+Not implemented yet; this is the intended interface.
 
 Decimator for tracking system. The number of samples to sum is dynamically configurable, and no bits are truncated at the output.
 

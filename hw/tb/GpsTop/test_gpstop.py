@@ -14,7 +14,7 @@ from fpga_utils.spinal_stream import SpinalStreamSink
 
 
 async def send_serial(dut, packed):
-    # Each block is I-MSB, I-LSB, Q-MSB, Q-LSB,16 samples per plane.
+    # Each block is I-MSB, I-LSB, Q-MSB, Q-LSB, 16 samples per plane.
     for start in range(0, len(packed), 16):
         for bit in [1, 0, 3, 2]:
             for j, sample in enumerate(packed[start:start + 16]):
@@ -38,7 +38,7 @@ async def check_coarse_windows(dut):
             if count % 4096 == 0:
                 dut._log.info(f"Coarse window {count // 4096 + 1} begins at timestamp {timestamp}")
             else:
-                assert timestamp == (previous + 1) % 4092, f"Coarse sample gap at index{count % 4096}: {previous} -> {timestamp}"
+                assert timestamp == (previous + 1) % 4092, f"Coarse sample gap at index {count % 4096}: {previous} -> {timestamp}"
             previous = timestamp
             count += 1
 
@@ -106,7 +106,7 @@ async def run_serial_fixture(dut, stalls=False):
         assert values["sv"] == expected_sv
         if expected_sv == 1:
             # Results enumerate every PRN; there is no hardware detection flag.
-            # A wrong PRN can still exceed the old host's uncalibrated8 cutoff.
+            # A wrong PRN can still exceed the old host's uncalibrated cutoff of 8.
             first_metric = values["snr"]
         else:
             assert values["snr"] > 8

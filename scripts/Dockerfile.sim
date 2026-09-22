@@ -1,0 +1,5 @@
+# Linux arithmetic/simulation environment. Generate Scala RTL on the host first.
+FROM python:3.12-slim
+RUN apt-get update && apt-get install -y --no-install-recommends iverilog make libstdc++6 && rm -rf /var/lib/apt/lists/*
+RUN pip install 'cocotb==1.9.2' 'cocotbext-axi==0.1.28' 'cocotbext-eth==0.1.28' 'cocotbext-uart==0.1.4' 'numpy==1.26.4' scipy matplotlib pyserial scapy click
+ENV MPLBACKEND=Agg RANDOM_SEED=20260914

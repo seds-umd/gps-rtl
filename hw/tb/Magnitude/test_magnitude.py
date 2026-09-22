@@ -7,10 +7,7 @@ import numpy as np
 import sys
 from pathlib import Path
 
-utils_path = Path(__file__).resolve().parent.parent
-sys.path.insert(len(sys.path), str(utils_path.resolve()))
-
-from utils import corr
+from fpga_utils import corr
 
 async def send_values(dut, real, imag):
     for i in range(len(real)):
@@ -53,3 +50,15 @@ async def test_magnitude(dut, runs=1, num=8192):
         dut._log.info(f"Average error: {np.mean(err):0.2f}, max error: {np.max(err):0.2f}, corr: {mag_corr:0.3f}")
 
         assert np.mean(err) < 4
+
+
+from fpga_utils import test_runner
+
+if __name__ == "__main__":
+    test_runner.run_wrapper(
+        top_level='Magnitude',
+        package='gps',
+        proj_dir='../../..',
+        source_dir='hw/spinal/gps',
+        gen_dir='hw/gen',
+    )

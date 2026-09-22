@@ -1,11 +1,15 @@
 #!/usr/bin/env python
 
+# Synthetic regressions cover one noiseless SV; historical multi-SV/noisy-capture
+# phase and detection issues in AcquisitionModular.scala remain open.
+
 import cocotb
 from cocotb.triggers import ClockCycles, RisingEdge, with_timeout
 
 import matplotlib.pyplot as plt
 import numpy as np
 import logging
+import os
 
 import fpga_utils
 import fpga_utils.spinal_stream as stream
@@ -33,7 +37,7 @@ class TB(fpga_utils.TbTemplate):
         # self.sample_input.set_pause_generator(random_pause())
 
     def send_generated_samples(
-        self, count=1e5, sv=1, doppler=0, sample_phase=0, noise=True
+        self, count=1e5, sv=1, doppler=0, sample_phase=0, noise=True, timestamp_offset=0
     ):
         # -128.5 is worst case real world received power
         power = -125 if noise else None
@@ -45,7 +49,7 @@ class TB(fpga_utils.TbTemplate):
 
         self.sample_bits, self.samples, self.samples_quant = (
             fpga_utils.generate_gps_samples(
-                self.fs, count, sv, doppler, sample_phase, power
+                self.fs, count, sv, doppler, sample_phase, power, timestamp_offset
             )
         )
 
@@ -291,10 +295,10 @@ async def statistical_test(dut):
     dut._log.info(f"{success}/{N} passed")
 
 
-@cocotb.test(skip=False)
+@cocotb.test(skip=not bool(os.environ.get("GPS_IQ_FILE")))
 async def recorded_sample_test(dut):
     # cwd is sim_build
-    file = "../../../../../gps-model/data/1/gpssim.ci16"
+    file = os.environ["GPS_IQ_FILE"]
 
     tb = TB(dut)
     log = dut._log
@@ -316,6 +320,78 @@ async def recorded_sample_test(dut):
             log.info(f"RTL: sv={res[0]}, shift={res[1] * 4096 / 4.092 / 8:.0f}, phase={res[2]}, snr={res[3]}")
 
         await ClockCycles(dut.clk, 10)
+
+
+async def check_synthetic_acquisition(dut, sample_phase, frequency_bin, timestamp_offset=0):
+    """Known PRN 1 with a bin-centred Doppler; no external recording."""
+    np.random.seed(20260914)
+    tb = TB(dut)
+    await tb.reset()
+    tb.send_generated_samples(count=50000, sv=1,
+                              doppler=frequency_bin * tb.fs / 4096,
+                              sample_phase=sample_phase, noise=False,
+                              timestamp_offset=timestamp_offset)
+    frame = await with_timeout(tb.results_bus.read(), 10, "ms")
+    sv = frame.payload["sv"][0]
+    freq = frame.payload["freq_offset"][0]
+    # The stream helper reads bit patterns as unsigned integers.
+    width = len(dut.io_results_payload_freq_offset)
+    if freq >= 1 << (width - 1):
+        freq -= 1 << width
+    phase = frame.payload["phase_offset"][0]
+    snr = frame.payload["snr"][0]
+    dut._log.info(f"Synthetic result: sv={sv}, freq={freq}, phase={phase}, snr={snr}")
+    assert sv == 1
+    assert abs(freq - frequency_bin * 8) <= 1
+    phase_error = (phase - (sample_phase - timestamp_offset)) % 4092
+    assert min(phase_error, 4092 - phase_error) <= 1
+    assert snr > 8
+
+
+@cocotb.test(timeout_time=10, timeout_unit="ms")
+async def synthetic_zero_offset(dut):
+    await check_synthetic_acquisition(dut, 0, 0)
+
+
+@cocotb.test(timeout_time=10, timeout_unit="ms")
+async def synthetic_positive_doppler(dut):
+    await check_synthetic_acquisition(dut, 37, 1)
+
+
+@cocotb.test(timeout_time=10, timeout_unit="ms")
+async def synthetic_negative_doppler_wrap(dut):
+    await check_synthetic_acquisition(dut, 4090, -1)
+
+
+@cocotb.test(timeout_time=10, timeout_unit="ms")
+async def synthetic_timestamp_origin(dut):
+    # A live receiver starts a new acquisition at an arbitrary timestamp.
+    await check_synthetic_acquisition(dut, 37, 0, timestamp_offset=2046)
+
+
+@cocotb.test(timeout_time=10, timeout_unit="ms")
+async def synthetic_timestamp_wrap(dut):
+    await check_synthetic_acquisition(dut, 37, 0, timestamp_offset=4088)
+
+
+@cocotb.test(timeout_time=10, timeout_unit="ms")
+async def synthetic_mid_phase_1000(dut):
+    await check_synthetic_acquisition(dut, 1000, 0)
+
+
+@cocotb.test(timeout_time=10, timeout_unit="ms")
+async def synthetic_mid_phase_2300(dut):
+    await check_synthetic_acquisition(dut, 2300, 0)
+
+
+@cocotb.test(timeout_time=10, timeout_unit="ms")
+async def synthetic_mid_phase_3000(dut):
+    await check_synthetic_acquisition(dut, 3000, 0)
+
+
+@cocotb.test(timeout_time=10, timeout_unit="ms")
+async def synthetic_mid_phase_1800(dut):
+    await check_synthetic_acquisition(dut, 1800, 0)
 
 
 if __name__ == "__main__":

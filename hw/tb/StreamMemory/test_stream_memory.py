@@ -91,3 +91,16 @@ async def test_stream_memory(dut):
     tb.random_pause = True
     await tb.run_test(RUNS, 0)  # No offset
     await tb.run_test(RUNS, np.random.randint(N))  # Random offset
+
+
+from fpga_utils import test_runner
+
+if __name__ == "__main__":
+    test_runner.run_wrapper(
+        top_level='StreamMemory',
+        test_module='test_stream_memory',
+        package='gps',
+        proj_dir='../../..',
+        source_dir='hw/spinal/gps',
+        gen_dir='hw/gen',
+    )

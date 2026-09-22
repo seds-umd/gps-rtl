@@ -3,7 +3,7 @@
 import cocotb
 from cocotb.clock import Clock
 from cocotb.queue import Queue
-from cocotb.triggers import ClockCycles, with_timeout
+from cocotb.triggers import ClockCycles, Timer, with_timeout
 from cocotbext.eth import GmiiFrame, GmiiPhy
 import fpga_utils
 from fpga_utils import test_runner
@@ -26,6 +26,7 @@ class TB:
         self.device_mac = device_mac
         self.host_ip = host_ip
         self.device_ip = device_ip
+        dut.io_gmii_mii_tx_clk.value = 0  # 1G mode only
 
         # 200 MHz logic clock
         cocotb.start_soon(Clock(dut.clk, 5, units="ns").start())
@@ -50,6 +51,7 @@ class TB:
         self.phy.rx.log.setLevel(logging.WARNING)
 
         self.rx_queue = Queue()
+        self.control_queue = Queue()
         self.tx_queue = Queue()
 
         self._run_cr = cocotb.start_soon(self._run())
@@ -78,7 +80,7 @@ class TB:
         await self.tx_queue.put(pkt.build())
 
     async def get_packet(self) -> Ether:
-        return await with_timeout(self.rx_queue.get(), 100, "us")
+        return await with_timeout(self.control_queue.get(), 100, "us")
 
     async def axil_write(self, addr, data):
         cmd = bytearray()
@@ -90,6 +92,19 @@ class TB:
         cmd.insert(0, 1)  # Last byte
 
         await self.send_udp_frame(cmd, 12345, 1000)
+
+    async def axil_read(self, addr, command_id):
+        cmd = b"\x01\x00" + command_id.to_bytes(2, "little") + addr.to_bytes(4, "little")
+        await self.send_udp_frame(cmd, 12345, 1000)
+        packet = await self.get_packet()
+        assert IP in packet and UDP in packet
+        assert packet[IP].src == self.device_ip
+        assert packet[UDP].sport == 1000 and packet[UDP].dport == 12345
+        # Scapy retains Ethernet minimum-frame padding below the UDP payload.
+        data = bytes(packet[UDP].payload)[:int(packet[UDP].len) - 8]
+        assert len(data) == 7 and data[-1] == 1, data.hex()
+        assert int.from_bytes(data[:2], "little") == command_id
+        return int.from_bytes(data[2:6], "little")
 
     async def send_samples(self, samples):
         # Normalize - scaling optimized for SNR
@@ -125,13 +140,22 @@ class TB:
             data.insert(0, 0) # last = 0
             await self.send_udp_frame(data, 12345, 1010)
 
+        # Queueing all frames is not transmission completion. A later control
+        # request otherwise waits behind the remaining IQ frames in the PHY.
+        async def drain_transmit():
+            while not self.tx_queue.empty():
+                await ClockCycles(self.dut.clk, 10)
+            await self.phy.rx.wait()
+        await with_timeout(drain_transmit(), 2, "ms")
+
     async def _run(self):
         while True:
             await ClockCycles(self.dut.clk, 10)
 
             if not self.phy.tx.empty():
                 frame = await self.phy.tx.recv()
-                pkt = Ether(frame.data[8:])
+                assert frame.check_fcs(), "Bad Ethernet frame CRC"
+                pkt = Ether(frame.get_payload())
 
                 # Handle ARP
                 if ARP in pkt:
@@ -147,15 +171,17 @@ class TB:
                     )
 
                     await self._send_packet(reply.build())
+                elif UDP in pkt and pkt[UDP].sport == 1000:
+                    await self.control_queue.put(pkt)
                 else:
                     await self.rx_queue.put(pkt)
 
             if not self.tx_queue.empty():
                 await self._send_packet(self.tx_queue.get_nowait())
 
-@cocotb.test
-async def test_ethtb(dut):
-    SRC_MAC = "01:23:45:67:89:ab"
+@cocotb.test(timeout_time=5, timeout_unit="ms")
+async def udp_registers_and_acquisition(dut):
+    SRC_MAC = "02:23:45:67:89:ab"
     DST_MAC = "00:00:01:00:00:02"
     SRC_IP = "10.0.0.1"
     DST_IP = "10.0.0.2"
@@ -164,20 +190,41 @@ async def test_ethtb(dut):
 
     tb = TB(dut, SRC_MAC, DST_MAC, SRC_IP, DST_IP)
     await tb.reset()
-    await ClockCycles(dut.clk, 50)
+    # The simulation generator shortens only the startup/reset timer.
+    await Timer(100, units="us")
+    for command_id, value in [(0x1234, 0xA5), (0xFFFF, 0x5A)]:
+        await tb.axil_write(0x0C, value)
+        assert await tb.axil_read(0x04, command_id) == 0
+        assert int(dut.io_leds.value) == value
+    assert await tb.axil_read(0x04, 1) == 0
+    assert await tb.axil_read(0x08, 2) == 0
 
-    # await tb.axil_write(0x10, 0xF0)
-
-    samples = np.ones(int(N), dtype=np.complex64)
+    np.random.seed(20260914)
+    _, samples, _ = fpga_utils.generate_gps_samples(4.092e6, N, 1, 0, 37, None)
     await tb.send_samples(samples)
-
-    await ClockCycles(dut.clk, 50000)
+    # Read while result packets may already be queued. Control and acquisition
+    # responses must not consume each other's datagrams.
+    assert await tb.axil_read(0x04, 3) >= 4096
+    packet = await with_timeout(tb.rx_queue.get(), 4, "ms")
+    assert IP in packet and UDP in packet
+    assert packet[IP].src == DST_IP and packet[IP].dst == SRC_IP
+    assert packet[UDP].sport == 1010 and packet[UDP].dport == 12345
+    payload = bytes(packet[UDP].payload)[:int(packet[UDP].len) - 8]
+    assert len(payload) == 6 and payload[-1] == 1, payload.hex()
+    result = int.from_bytes(payload[:5], "little")
+    sv, freq, phase, metric = result & 0x3F, (result >> 6) & 0xFFF, (result >> 18) & 0xFFF, (result >> 30) & 0xFF
+    if freq & 0x800:
+        freq -= 0x1000
+    dut._log.info(f"UDP acquisition: sv={sv}, freq={freq}, phase={phase}, metric={metric}")
+    assert sv == 1 and abs(freq) <= 1
+    assert abs(phase - 37) <= 1 and metric > 8
+    assert await tb.axil_read(0x08, 4) >= 1
 
 if __name__ == "__main__":
     verilog_eth_path = Path("../../../verilog-ethernet/rtl")
     verilog_axi_path = Path("../../../verilog-ethernet/lib/axis/rtl")
 
-    eth_files = [x.name for x in verilog_eth_path.glob("*") if x.is_file()]
+    eth_files = [x.name for x in verilog_eth_path.glob("*.v")]
     axi_files = [x.name for x in verilog_axi_path.glob("*.v") if x.is_file()]
 
     verilog_sources = []
@@ -186,7 +233,10 @@ if __name__ == "__main__":
     verilog_sources.append("hw/verilog/XilinxFFT.v")
 
     test_runner.run_wrapper(
-        top_level="EthernetTestbench",
+        top_level="EthernetTestbenchSim",
+        scala_name="EthernetTestbench",
+        scala_object="EthernetTestbenchSimVerilog",
+        test_module="test_ethernettestbench",
         package="gps",
         proj_dir="../../..",
         source_dir="hw/spinal/gps",

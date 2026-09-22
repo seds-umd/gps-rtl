@@ -4,15 +4,12 @@ from cocotb.triggers import ClockCycles, RisingEdge, FallingEdge, with_timeout
 import sys
 from pathlib import Path
 
-utils_path = Path(__file__).resolve().parent.parent
-sys.path.insert(len(sys.path), str(utils_path.resolve()))
-
-from utils import TB_Template
+from fpga_utils import TbTemplate
 
 import random
 
 
-class TB(TB_Template):
+class TB(TbTemplate):
     def __init__(self, dut):
         super().__init__(dut)
 
@@ -44,3 +41,15 @@ async def test_snr(dut):
         den = random.randint(1, 2**32 - 1)
 
         await tb.run_test(num, den)
+
+
+from fpga_utils import test_runner
+
+if __name__ == "__main__":
+    test_runner.run_wrapper(
+        top_level='Snr',
+        package='gps',
+        proj_dir='../../..',
+        source_dir='hw/spinal/gps',
+        gen_dir='hw/gen',
+    )

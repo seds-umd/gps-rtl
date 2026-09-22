@@ -33,7 +33,7 @@ case class EthDecimate(out_size: Int = 64) extends Component {
  * 0x10 - FIFO availability
  */
 
-case class EthernetTestbench() extends Component {
+case class EthernetTestbench(sim: Boolean = false) extends Component {
   val time_speedup = 4
 
   val io = new Bundle {
@@ -44,9 +44,9 @@ case class EthernetTestbench() extends Component {
     val leds = out Bits(8 bits)
   }
 
-  val udp = UdpStream(false)
+  val udp = UdpStream(sim)
   
-  val reset_timeout = Timeout(time_speedup*10 ms)
+  val reset_timeout = Timeout(if (sim) 100 us else time_speedup*10 ms)
 
   val stream_axil = StreamAxiLite()
   udp.addPort(1000, stream_axil.io.tx, stream_axil.io.rx)
@@ -90,4 +90,9 @@ case class EthernetTestbench() extends Component {
 object EthernetTestbenchVerilog extends App {
   val report = Config.spinal.generateVerilog(EthernetTestbench())
   report.mergeRTLSource("sources")
+}
+
+// Keep generic MAC I/O and the shorter simulation reset timer out of board builds.
+object EthernetTestbenchSimVerilog extends App {
+  Config.spinal.generateVerilog(EthernetTestbench(sim = true).setDefinitionName("EthernetTestbenchSim"))
 }

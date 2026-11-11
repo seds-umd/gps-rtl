@@ -1,0 +1,4 @@
+# Board builds only (hw/integration). Simulation does not need these.
+migen @ git+https://github.com/m-labs/migen.git
+litex @ git+https://github.com/enjoy-digital/litex.git@2026.08
+litex-boards @ git+https://github.com/litex-hub/litex-boards.git@2026.08

@@ -133,17 +133,21 @@ def build_bitstream(gateware, name):
         raise SystemExit(f"Vivado build failed; see {gateware / (name + '_vivado.log')}")
 
 
-def run_vivado_tcl(commands):
-    """Run Tcl in Vivado batch mode and return its output."""
+def run_vivado_tcl(commands, work=None):
+    """Run Tcl in Vivado batch mode from `work` and return its output.
+
+    The script, and any file it names, is referred to by a bare file name
+    relative to `work`, so a checkout path containing spaces or non-ASCII
+    characters never appears inside the Tcl.
+    """
     vivado = find_vivado()
     # Not a temporary directory: connect_hw_server leaves hw_server running with
     # this as its working directory, and Windows cannot delete a directory in use.
-    work = HERE / "build"
-    work.mkdir(exist_ok=True)
-    script = work / "hardware.tcl"
-    script.write_text(commands, encoding="ascii")
+    work = Path(work) if work else HERE / "build"
+    work.mkdir(parents=True, exist_ok=True)
+    (work / "hardware.tcl").write_text(commands, encoding="ascii")
     done = subprocess.run(
-        [vivado, "-mode", "batch", "-nojournal", "-nolog", "-notrace", "-source", str(script)],
+        [vivado, "-mode", "batch", "-nojournal", "-nolog", "-notrace", "-source", "hardware.tcl"],
         cwd=work, capture_output=True, text=True,
     )
     if done.returncode != 0:
@@ -178,7 +182,7 @@ def detect():
 
 def load(bitstream, variant):
     """Program the FPGA (volatile: the board returns to its flash image on power-up)."""
-    path = Path(bitstream).resolve().as_posix()
+    bitstream = Path(bitstream).resolve()
     output = run_vivado_tcl(
         OPEN_TARGET
         + f"""
@@ -187,36 +191,84 @@ if {{![string match "{PARTS[variant]}*" [get_property PART $device]]}} {{
     exit 2
 }}
 set_property PROBES.FILE {{}} $device
-set_property PROGRAM.FILE {{{path}}} $device
+set_property PROGRAM.FILE {{{bitstream.name}}} $device
 program_hw_devices $device
 refresh_hw_device $device
 puts "DONE_PIN [get_property REGISTER.CONFIG_STATUS.BIT14_DONE_PIN $device]"
 """
-        + CLOSE_TARGET
+        + CLOSE_TARGET,
+        work=bitstream.parent,
     )
     if "DONE_PIN 1" not in output:
         raise SystemExit(f"The FPGA did not report DONE after programming:\n{output}")
     print(f"Programmed {PARTS[variant]} with {bitstream}")
 
 
+# check_timing categories that must be empty. no_input_delay and no_output_delay
+# are expected here: the UART, the reset button and the LEDs are asynchronous.
+REQUIRED_TIMING_CHECKS = (
+    "no_clock", "constant_clock", "pulse_width_clock", "unconstrained_internal_endpoints",
+    "multiple_clock", "generated_clocks", "loops", "latch_loops",
+)
+
+
+def read_timing(text):
+    """Sign-off figures from a report_timing_summary file.
+
+    timing_met is true only if setup, hold and pulse-width slack are all
+    non-negative with no failing endpoints, every register is clocked and
+    constrained, and both directions between the two clock domains are
+    constrained and met. Anything missing or unreadable counts as a failure.
+    """
+    result = {"timing_met": False}
+
+    checks = {name: int(count) for name, count in re.findall(r"^\d+\. checking (\w+) \((\d+)\)", text, re.M)}
+    result["timing_checks"] = checks
+    checks_clean = all(checks.get(name) == 0 for name in REQUIRED_TIMING_CHECKS)
+
+    summary_ok = False
+    match = re.search(r"WNS\(ns\)\s+TNS\(ns\)[^\n]*WPWS\(ns\)[^\n]*\n[\s-]+\n([^\n]+)", text)
+    if match:
+        try:
+            wns, tns, tns_fail, _, whs, ths, ths_fail, _, wpws, tpws, tpws_fail, _ = (
+                float(x) for x in match.group(1).split()
+            )
+        except ValueError:
+            pass
+        else:
+            result.update(setup_wns_ns=wns, setup_tns_ns=tns, hold_whs_ns=whs, hold_ths_ns=ths,
+                          pulse_width_wpws_ns=wpws, pulse_width_tpws_ns=tpws)
+            summary_ok = (wns >= 0 and whs >= 0 and wpws >= 0
+                          and tns_fail == 0 and ths_fail == 0 and tpws_fail == 0)
+
+    crossings = []
+    table = re.search(r"\| Inter Clock Table(.*?)\| Other Path Groups Table", text, re.S)
+    if table:
+        for source, destination, wns, endpoints in re.findall(
+            r"^(\w+)\s+(\w+)\s+(-?[\d.]+)\s+-?[\d.]+\s+\d+\s+(\d+)", table.group(1), re.M
+        ):
+            crossings.append({"from": source, "to": destination, "wns_ns": float(wns), "endpoints": int(endpoints)})
+    result["clock_crossings"] = crossings
+    pairs = {(c["from"], c["to"]) for c in crossings}
+    crossings_ok = (
+        any((destination, source) in pairs for source, destination in pairs)
+        and all(c["wns_ns"] >= 0 and c["endpoints"] > 0 for c in crossings)
+    )
+
+    result["timing_met"] = bool(summary_ok and checks_clean and crossings_ok)
+    return result
+
+
 def summarize(gateware, name):
     """Pull the numbers worth recording out of the Vivado reports."""
-    summary = {"bitstream": str(gateware / f"{name}.bit")}
+    summary = {"bitstream": str(gateware / f"{name}.bit"), "timing_met": False}
     bitstream = gateware / f"{name}.bit"
     if bitstream.exists():
         summary["bitstream_sha256"] = hashlib.sha256(bitstream.read_bytes()).hexdigest()
 
     timing = gateware / f"{name}_timing.rpt"
     if timing.exists():
-        text = timing.read_text(errors="replace")
-        match = re.search(r"WNS\(ns\)\s+TNS\(ns\).*?\n\s*-+.*?\n\s*(-?[\d.]+)\s+(-?[\d.]+)\s+\d+\s+\d+\s+(-?[\d.]+)\s+(-?[\d.]+)", text, re.S)
-        if match:
-            wns, tns, whs, ths = (float(x) for x in match.groups())
-            summary.update(setup_wns_ns=wns, setup_tns_ns=tns, hold_whs_ns=whs, hold_ths_ns=ths)
-            summary["timing_met"] = wns >= 0 and whs >= 0
-        summary["all_registers_clocked"] = "There are 0 register/latch pins with no clock" in text
-    # Anything other than a positive reading counts as a failure.
-    summary.setdefault("timing_met", False)
+        summary.update(read_timing(timing.read_text(errors="replace")))
 
     utilization = gateware / f"{name}_utilization_place.rpt"
     if utilization.exists():
@@ -258,7 +310,7 @@ def main():
         (output_dir / "summary.json").write_text(json.dumps(summary, indent=2))
         print(json.dumps(summary, indent=2))
         if not summary["timing_met"]:
-            raise SystemExit("Timing was not met or could not be read; do not trust this bitstream.")
+            raise SystemExit("Timing sign-off failed or could not be read; do not trust this bitstream.")
 
     if args.load:
         load(gateware / f"{platform.name}.bit", args.variant)

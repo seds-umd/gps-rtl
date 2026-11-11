@@ -1,0 +1,50 @@
+[*]
+[*] GTKWave Analyzer v3.3.103 (w)1999-2019 BSI
+[*] Sun May 19 03:46:54 2024
+[*]
+[dumpfile] "/home/nathan/seds/gps-rtl/hw/tb/PrnGenerator/sim_build/PrnGenerator.fst"
+[dumpfile_mtime] "Sun May 19 03:44:56 2024"
+[dumpfile_size] 324075
+[savefile] "/home/nathan/seds/gps-rtl/hw/tb/PrnGenerator/PrnGenerator.gtkw"
+[timestart] 0
+[size] 1908 1007
+[pos] -1 -1
+*-27.924549 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+[sst_width] 214
+[signals_width] 257
+[sst_expanded] 1
+[sst_vpaned_height] 295
+@28
+PrnGenerator.clk
+PrnGenerator.reset
+@200
+-
+@28
+PrnGenerator.io_set
+@22
+PrnGenerator.io_sv[5:0]
+PrnGenerator.io_inc[16:0]
+@200
+-
+@28
+PrnGenerator.io_code_ready
+PrnGenerator.io_code_valid
+PrnGenerator.io_code_payload
+@200
+-
+@22
+PrnGenerator.chip_fraction[15:0]
+@28
+PrnGenerator.advance_code
+@24
+PrnGenerator.code_count_value[9:0]
+PrnGenerator.sample_count_value[11:0]
+@200
+-
+@22
+PrnGenerator.g1[9:0]
+PrnGenerator.g2[9:0]
+PrnGenerator.g2_tap1[3:0]
+PrnGenerator.g2_tap2[3:0]
+[pattern_trace] 1
+[pattern_trace] 0

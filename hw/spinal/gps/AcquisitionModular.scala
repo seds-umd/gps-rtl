@@ -116,7 +116,7 @@ case class AcquisitionModular(
   val prn_mem = StreamMemory(Complex(8), fft_size_log)
 
   // PRN
-  val prn_gen = Prn()
+  val prn_gen = PrnGenerator()
   prn_gen.io.inc := U"17'h4000" // TODO: automatically calculate based on sample rate
   prn_gen.io.set := False
 

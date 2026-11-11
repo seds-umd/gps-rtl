@@ -20,7 +20,7 @@ python -m pip install setuptools==75.8.0 wheel
 python -m pip install --no-build-isolation cocotb==1.9.2
 python -m pip install -r requirements/dev.txt -r ../gps-model/requirements.txt
 make                         # all benches; unavailable dependencies fail explicitly
-make TESTS="Prn MaxInterface MaxSpiConfig"  # selected bench directories
+make TESTS="PrnGenerator MaxInterface MaxSpiConfig"  # selected bench directories
 python -m unittest discover -s scripts/tests -v
 ```
 
@@ -37,6 +37,23 @@ Excluded benches are reported as SKIP, not PASS. `make` exits nonzero if any tes
 `AcquisitionModular` runs on seeded synthetic samples. To replay a recording instead, set `GPS_IQ_FILE` to a file of signed interleaved int8 I/Q; that test only logs what it finds. `FFT-xilinx` checks a known tone against the Xilinx bit-accurate C model.
 
 `EthernetTestbench` needs the `verilog-ethernet` submodule. It simulates the generic GMII variant (`EthernetTestbenchSim`); the board build keeps the Xilinx I/O. The self-hosted CI workflow is unchanged, but no runner is registered right now, so CI does not run.
+
+### Windows
+
+Everything runs natively from Git Bash; WSL is not needed. Tested on Windows 11 with Python 3.12, cocotb 1.9.2 (prebuilt wheel), Temurin JDK 17, sbt 1.13 and the Icarus Verilog in [OSS CAD Suite](https://github.com/YosysHQ/oss-cad-suite-build/releases). Unpack the JDK, sbt and OSS CAD Suite anywhere and put their `bin` directories on `PATH` (plus OSS CAD Suite's `lib`), with the Python venv's `Scripts` directory ahead of them.
+
+```bash
+python -m venv venv && source venv/Scripts/activate
+python -m pip install setuptools==75.8.0 wheel cocotb==1.9.2
+python -m pip install -r requirements/dev.txt -r ../gps-model/requirements.txt
+bash hw/tb/run_all.sh        # there is no make in Git Bash; this is what the Makefile calls
+```
+
+Three things differ from Linux and macOS:
+
+* Keep the checkout path short (for example `C:\seds\gps-rtl`). Windows limits paths to 260 characters unless long paths are enabled, and simulator and Vivado build trees are deep.
+* The FFT bit-accurate model in gps-model is a Linux library. The Windows build ships with Vivado: copy the four DLLs from `<Vivado>/data/ip/xilinx/xfft_v9_1/cmodel/xfft_v9_1_bitacc_cmodel_nt64.zip` into `gps-model/gps/cmodel/fft/` (or unpack it elsewhere and set `XFFT_CMODEL_DIR`). With that in place all benches run, including the four that need a container on a Mac.
+* No file or directory may be called `Prn`, `Con`, `Aux`, `Nul`, `Com1` and so on, with or without an extension: Windows reserves those names and git refuses to check them out. The PRN generator is `PrnGenerator` for this reason.
 
 ### Linux-only tests on an Apple Silicon host
 
@@ -142,6 +159,7 @@ This installs litex in a virtual environment inside `~/litex`. You will need to 
 * `hw/integration` - Litex scripts to build FPGA bitstreams
   * `eth_top` - Ethernet test setup for the STLV7325 Kintex-7 board
   * `uart_top` - UART interface for use with the MAX2769 dev board and Basys 3 FPGA board
+  * `arty_s7` - Acquisition self-test on a Digilent Arty S7; needs no RF hardware (see "Board self-test")
 
 ## Remote Simulations
 
@@ -172,22 +190,22 @@ After the simulation, the .fst file will be copied back to the local machine so 
 To generate a SpinalHDL module, run:
 
 ```bash
-sbt "runMain gps.PrnVerilog"
+sbt "runMain gps.PrnGeneratorVerilog"
 ```
 
-Or enter the sbt terminal with `sbt` and run `runMain gps.PrnVerilog` (this is faster for repeated use).
+Or enter the sbt terminal with `sbt` and run `runMain gps.PrnGeneratorVerilog` (this is faster for repeated use).
 
-To simulate the module, write a testbench and put it in `hw/tb`. See `hw/tb/Prn` for a simple example. To run it, make sure you have the venv activated, navigate to the directory, and run `./test_prn.py`. It will take a minute or two to run and you will see debug information printed out. It will also automatically generate the verilog from SpinalHDL (the runMain command above) if the SpinalHDL source changed since the last run, so you don't need to keep sbt open all the time.
+To simulate the module, write a testbench and put it in `hw/tb`. See `hw/tb/PrnGenerator` for a simple example. To run it, make sure you have the venv activated, navigate to the directory, and run `python test_prngenerator.py`. It will take a minute or two to run and you will see debug information printed out. It will also automatically generate the verilog from SpinalHDL (the runMain command above) if any SpinalHDL source changed since the last run, so you don't need to keep sbt open all the time.
 
 After running a simulation, you might want to view the waveforms to debug issues. To do that, run this command:
 
 ```bash
-gtkwave sim_build/Prn.fst Prn.gtkw
+gtkwave sim_build/PrnGenerator.fst PrnGenerator.gtkw
 ```
 
 GTKWave is a powerful tool for analyzing waveforms. Some tips:
 
-* Press Ctrl-S (or File->Write Save File) to save the current setup to the save file (`Prn.gtkw` in this example). If one already exists, it will open because it was specified in the command above, and saving will overwrite the old file. The save file should be committed to git.
+* Press Ctrl-S (or File->Write Save File) to save the current setup to the save file (`PrnGenerator.gtkw` in this example). If one already exists, it will open because it was specified in the command above, and saving will overwrite the old file. The save file should be committed to git.
 * Select multiple signals and press `G` to make a group out of them. The group can be collapsed to hide the signals, reducing clutter in the view without losing your setup.
 * Click anywhere to place the marker. The top panel will tell you the exact time position of the marker. The side panel will tell you the value of every signal at the marker. The marker will snap to the nearest edge of a signal when you click it.
 * Right click on a signal and go to Data Format to change the display format from hex to decimal, signed decimal, binary, ascii, and even an analog wave (add an analog wave height extension to make the wave taller).
@@ -220,13 +238,42 @@ The `build/gateware` directory generated by Litex has all the build artifacts an
 * `*.v` - top level verilog file, contains all the logic from the Litex script (most just clock and IO things)
 * `*.xdc` - constraints file
 
+# Board self-test
+
+`GpsSelfTest` puts the acquisition core on a board with nothing attached. `MaxEmulator` generates a synthetic GPS signal (up to two satellites with chosen PRN, code phase, Doppler and amplitude, plus optional noise) and serializes it exactly as a MAX2769 would; `GpsTop` acquires it through the normal serial path and the real Xilinx FFT; each result goes to the host as a line of text on the USB serial port. `scripts/max_emulator.py` is a bit-exact model of the emulator, so simulation and hardware are checked against the same reference.
+
+```bash
+sbt "runMain gps.GpsSelfTestVerilog"
+cd hw/integration/arty_s7
+python arty_s7.py --detect                          # which FPGA is on the cable: xc7s25 or xc7s50
+python arty_s7.py --variant s7-25 --build --load    # Vivado on PATH; about three minutes
+cd ../../..
+python scripts/arty_selftest.py --soak 120 --report selftest.md \
+    --bitstream hw/integration/arty_s7/build/s7-25/gateware/digilent_arty_s7.bit
+```
+
+The script needs LiteX (`pip install -r requirements/litex.txt`) and Vivado; 2025.2 Standard is free, needs no licence and covers the Spartan-7 and the FFT core. Loading goes through Vivado's hardware manager, so the stock Digilent cable drivers work on Windows. The image is volatile: the board returns to whatever is in its flash at the next power-up.
+
+`arty_selftest.py` stops the core, programs a scenario, starts it and compares every result with what the emulator was told to send: satellite, frequency within one fine bin, code phase within half a chip, a detection metric well clear of the absent satellites, and no sample overflow. It finishes with a repeatability check across restarts and, with `--soak`, a continuous run watching the overflow flag. The report records the source revisions and the bitstream hash with the results.
+
+Without a host the board runs a default signal (satellite 7, frequency +16 fine bins, code phase 1000) and prints results at 115200 baud, one line per satellite:
+
+```
+R 07 010 3E7 FF 0     satellite, freq_offset, phase_offset, metric, flags (sent without the spaces)
+```
+
+LEDs: LD2 heartbeat, LD3 running, LD4 strong detection, LD5 sample overflow. The register protocol is described at the top of `hw/spinal/gps/GpsSelfTest.scala`.
+
 # Modules
 
 Hierarchy:
+* GpsSelfTest (board self-test only)
+  * MaxEmulator
+  * GpsTop (below)
 * GpsTop
   * AcquisitionModular
     * MaxMagnitude
-    * PRN
+    * PrnGenerator
     * XilinxFFT
     * StreamToFragmentMetered
     * Decimate
@@ -269,7 +316,9 @@ Currently hard coded for $\alpha = 61/64$, $\beta = 13/32$, but could be paramet
 
 ### MaxInterface
 
-### PRN
+### PrnGenerator
+
+C/A code generator for satellites 1 to 32 with a programmable chip rate. Called `PrnGenerator` rather than `Prn` because Windows reserves that file name.
 
 ### XilinxFFT
 

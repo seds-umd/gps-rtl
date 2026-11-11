@@ -127,6 +127,8 @@ class Scenario:
     # correlation peak is a flat top five samples wide and the reported phase
     # can land anywhere on it.
     phase_tolerance: int = 2
+    # If set, no satellite the emulator is not sending may report a metric above this.
+    absent_ceiling: Optional[int] = None
     # Scenarios that characterize rather than gate (for example signals near the noise floor).
     informational: bool = False
     note: str = ""
@@ -135,22 +137,39 @@ class Scenario:
         return {c.sv: c for c in self.channels if c.enable}
 
 
-def scenario_writes(scenario: Scenario, channel_count: int) -> List[Tuple[int, int]]:
-    """Register writes that program a scenario. Send them while the core is stopped."""
+def validate_scenario(scenario: Scenario, channel_count: int) -> None:
+    """Refuse settings the registers cannot hold, so the board and the model always agree."""
     if len(scenario.channels) > channel_count:
         raise ValueError(f"{scenario.name}: {len(scenario.channels)} channels, board has {channel_count}")
-    writes = [
-        (REG_QUANT, (scenario.noise_gain & 0xFF) | ((scenario.threshold & 0xFF) << 8)),
-        (REG_SEED, scenario.seed & 0xFFFFFFFF),
-    ]
-    for k in range(channel_count):
-        channel = scenario.channels[k] if k < len(scenario.channels) else model.Channel(sv=1, enable=False, amplitude=0)
+    for name, value, limit in (
+        ("noise_gain", scenario.noise_gain, 0xFF),
+        ("threshold", scenario.threshold, 0xFF),
+        ("seed", scenario.seed, 0xFFFFFFFF),
+    ):
+        if not 0 <= value <= limit:
+            raise ValueError(f"{scenario.name}: {name} {value} is outside 0 to {limit}")
+    for channel in scenario.channels:
         if not 1 <= channel.sv <= SATELLITES:
             raise ValueError(f"{scenario.name}: satellite {channel.sv} is out of range")
         if not 0 <= channel.code_phase < model.PERIOD:
             raise ValueError(f"{scenario.name}: code phase {channel.code_phase} is out of range")
+        if not 0 <= channel.amplitude <= 0xFF:
+            raise ValueError(f"{scenario.name}: amplitude {channel.amplitude} is outside 0 to 255")
+        if not -(1 << 31) <= channel.carrier_inc < (1 << 31):
+            raise ValueError(f"{scenario.name}: carrier_inc {channel.carrier_inc} does not fit in 32 signed bits")
+
+
+def scenario_writes(scenario: Scenario, channel_count: int) -> List[Tuple[int, int]]:
+    """Register writes that program a scenario. Send them while the core is stopped."""
+    validate_scenario(scenario, channel_count)
+    writes = [
+        (REG_QUANT, scenario.noise_gain | (scenario.threshold << 8)),
+        (REG_SEED, scenario.seed),
+    ]
+    for k in range(channel_count):
+        channel = scenario.channels[k] if k < len(scenario.channels) else model.Channel(sv=1, enable=False, amplitude=0)
         base = REG_CHANNEL_BASE + REG_CHANNEL_STRIDE * k
-        writes.append((base + 0, channel.sv | (int(channel.enable) << 8) | ((channel.amplitude & 0xFF) << 16)))
+        writes.append((base + 0, channel.sv | (int(channel.enable) << 8) | (channel.amplitude << 16)))
         writes.append((base + 1, channel.carrier_inc & 0xFFFFFFFF))
         writes.append((base + 2, channel.code_phase))
     return writes
@@ -167,17 +186,28 @@ def check_order(results: Sequence[Result], first_sv: int = 1) -> List[str]:
     return problems
 
 
+def check_integrity(results: Iterable[Result]) -> List[str]:
+    """Faults that are never acceptable, whatever the signal: lost samples or impossible fields."""
+    problems = []
+    for result in results:
+        if result.overflow:
+            problems.append(f"satellite {result.sv}: sample overflow flag is set")
+        if not 1 <= result.sv <= SATELLITES:
+            problems.append(f"satellite number {result.sv} is out of range")
+        if not 0 <= result.phase_offset < model.PERIOD:
+            problems.append(f"satellite {result.sv}: phase_offset {result.phase_offset} is not below {model.PERIOD}")
+    return problems
+
+
 def check_results(scenario: Scenario, results: Iterable[Result]) -> List[str]:
     """Compare acquisition results with what the emulator was programmed to send."""
     problems = []
     results = list(results)
     present = scenario.present()
-    absent_metrics = [r.metric for r in results if r.sv not in present]
-    absent_peak = max(absent_metrics) if absent_metrics else 0
+    absent = [r for r in results if r.sv not in present]
+    absent_peak = max((r.metric for r in absent), default=0)
 
     for result in results:
-        if result.overflow:
-            problems.append(f"satellite {result.sv}: sample overflow flag is set")
         channel = present.get(result.sv)
         if channel is None:
             continue
@@ -189,17 +219,39 @@ def check_results(scenario: Scenario, results: Iterable[Result]) -> List[str]:
             problems.append(f"satellite {result.sv}: phase_offset {result.phase_offset}, expected {channel.code_phase}")
         if result.metric < scenario.min_metric:
             problems.append(f"satellite {result.sv}: metric {result.metric} is below {scenario.min_metric}")
-        if absent_metrics and result.metric < scenario.separation * absent_peak:
+        if absent and result.metric < scenario.separation * absent_peak:
             problems.append(
                 f"satellite {result.sv}: metric {result.metric} is not {scenario.separation:g}x "
                 f"the strongest absent satellite ({absent_peak})"
             )
+
+    if scenario.absent_ceiling is not None:
+        for result in absent:
+            if result.metric > scenario.absent_ceiling:
+                problems.append(
+                    f"satellite {result.sv}: metric {result.metric} with nothing sent "
+                    f"(limit {scenario.absent_ceiling})"
+                )
 
     seen = {r.sv for r in results}
     for sv in present:
         if sv not in seen:
             problems.append(f"satellite {sv}: no result received")
     return problems
+
+
+def judge(scenario: Scenario, results: Sequence[Result], first_sv: int = 1) -> Tuple[str, List[str], List[str]]:
+    """Status of a scenario, with its integrity problems and its detection problems.
+
+    Ordering, overflow and impossible fields always fail the run. Missing a
+    signal only fails it when the scenario gates; an informational scenario
+    records the outcome instead.
+    """
+    integrity = check_order(results, first_sv) + check_integrity(results)
+    detection = check_results(scenario, results)
+    if integrity or (detection and not scenario.informational):
+        return "FAIL", integrity, detection
+    return ("info" if scenario.informational else "PASS"), integrity, detection
 
 
 def fine(bin_number: float) -> int:
@@ -212,8 +264,10 @@ def hardware_scenarios() -> List[Scenario]:
     scenarios = [
         Scenario("baseline: SV 2, +1.0 kHz, phase 37", [model.Channel(2, 37, fine(8))]),
         Scenario("zero Doppler, zero phase: SV 1", [model.Channel(1, 0, 0)]),
-        Scenario("positive search edge: SV 32, +23.0 kHz", [model.Channel(32, 4091, fine(184))]),
-        Scenario("negative search edge: SV 17, -23.0 kHz", [model.Channel(17, 2046, fine(-184))]),
+        Scenario("outermost positive search bin: SV 6, +24.0 kHz", [model.Channel(6, 3000, fine(192))]),
+        Scenario("outermost negative search bin: SV 26, -24.0 kHz", [model.Channel(26, 1000, fine(-192))]),
+        Scenario("one bin inside the positive edge: SV 32, +23.0 kHz", [model.Channel(32, 4091, fine(184))]),
+        Scenario("one bin inside the negative edge: SV 17, -23.0 kHz", [model.Channel(17, 2046, fine(-184))]),
         Scenario("Doppler between fine bins: SV 21, bin 10.5", [model.Channel(21, 500, fine(10.5))]),
         Scenario(
             "two satellites, equal power: SV 5 and SV 23",
@@ -228,8 +282,11 @@ def hardware_scenarios() -> List[Scenario]:
         ),
     ]
 
-    # The FFT works on 4096 points but a code period is 4092 samples; the core
-    # maps between them in five steps. Probe both sides of every step and the wrap.
+    # Code phases spread over the whole period, including the wrap. The core
+    # maps the FFT's 4096 indices onto 4092 samples in five steps; the values
+    # below sit around those steps, but the mapping acts on the FFT index, which
+    # also depends on where the capture window starts, so this sweeps the phase
+    # rather than pinning each step.
     for phase in (1, 818, 819, 1636, 1637, 2454, 2455, 3273, 3274, 4090):
         scenarios.append(Scenario(f"code phase {phase}: SV 9", [model.Channel(9, phase, fine(-12))]))
 
@@ -264,8 +321,8 @@ def hardware_scenarios() -> List[Scenario]:
     scenarios.append(
         Scenario(
             "noise only, no satellites",
-            [], noise_gain=87, threshold=100, seed=0xC0FFEE, informational=True,
-            note="Shows the metric the core reports when nothing is there.",
+            [], noise_gain=87, threshold=100, seed=0xC0FFEE, absent_ceiling=8,
+            note="Nothing is sent, so no satellite may reach the detection floor of 9.",
         )
     )
     return scenarios
@@ -466,14 +523,14 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 
         for scenario in hardware_scenarios():
             results = board.run_scenario(scenario, channel_count, args.sweeps)
-            problems = check_order(results) + check_results(scenario, results)
+            status, integrity, detection = judge(scenario, results)
             present = scenario.present()
             absent_peak = max((r.metric for r in results if r.sv not in present), default=0)
-            status = "info" if scenario.informational else ("PASS" if not problems else "FAIL")
             failures += status == "FAIL"
             print(f"[{status}] {scenario.name}")
             entry = {
-                "name": scenario.name, "status": status, "note": scenario.note, "problems": problems,
+                "name": scenario.name, "status": status, "note": scenario.note,
+                "integrity_problems": integrity, "problems": detection,
                 "absent_peak_metric": absent_peak, "satellites": [],
             }
             for sv, channel in present.items():
@@ -487,7 +544,9 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
                     "results": [vars(r) for r in found],
                 })
             print(f"         strongest absent satellite metric: {absent_peak}")
-            for problem in problems:
+            for problem in integrity:
+                print(f"         PROBLEM: {problem}")
+            for problem in detection:
                 print(f"         {'note' if scenario.informational else 'PROBLEM'}: {problem}")
             record["scenarios"].append(entry)
 
@@ -501,7 +560,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             results = board.run_scenario(scenario, channel_count, 1)
             repeats.append(next(r for r in results if r.sv == 19))
         distinct = {(r.freq_offset, r.phase_offset) for r in repeats}
-        problems = [p for r in repeats for p in check_results(scenario, [r])]
+        problems = [p for r in repeats for p in check_integrity([r]) + check_results(scenario, [r])]
         status = "PASS" if not problems else "FAIL"
         failures += status == "FAIL"
         print(f"[{status}] {scenario.name}: {args.repeat} restarts -> {sorted(distinct)}")
@@ -525,7 +584,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
                 batch = board.results(SATELLITES)
                 count += len(batch)
                 overflow |= any(r.overflow for r in batch)
-                bad += bool(check_results(scenario, batch))
+                # Every batch is one full sweep, so it must start at satellite 1 and miss none.
+                bad += judge(scenario, batch)[0] == "FAIL"
                 for r in batch:
                     if r.sv == channel.sv:
                         error = (r.phase_offset - channel.code_phase + half) % model.PERIOD - half
@@ -595,7 +655,7 @@ def write_report(path: Path, record: dict) -> None:
                 f"{satellite['expected_freq_offset']:+g} / {satellite['expected_phase']} | {reported} | "
                 f"{entry['absent_peak_metric']} |"
             )
-    problems = [(e["name"], p) for e in record["scenarios"] for p in e["problems"]]
+    problems = [(e["name"], p) for e in record["scenarios"] for p in e["integrity_problems"] + e["problems"]]
     if problems:
         lines += ["", "## Notes and problems", ""]
         lines += [f"- {name}: {problem}" for name, problem in problems]

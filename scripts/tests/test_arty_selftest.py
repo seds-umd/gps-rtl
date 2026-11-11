@@ -77,11 +77,61 @@ class CheckTests(unittest.TestCase):
             (dict(phase_offset=40), "phase_offset"),
             (dict(metric=8), "below"),
             (dict(metric=30), "strongest absent"),
-            (dict(overflow=True), "overflow"),
         ]:
             problems = host.check_results(self.scenario, self.results(**changes))
             self.assertTrue(any(text in p for p in problems), (changes, problems))
         self.assertTrue(any("no result" in p for p in host.check_results(self.scenario, self.results()[:1])))
+
+    def test_integrity_faults_fail_even_informational_scenarios(self):
+        scenario = host.Scenario("s", [], informational=True)
+        clean = [host.Result(sv, 0, 0, 3, False) for sv in range(1, 33)]
+        self.assertEqual(host.judge(scenario, clean), ("info", [], []))
+        for change in (dict(overflow=True), dict(phase_offset=4092), dict(sv=40)):
+            results = list(clean)
+            results[5] = host.Result(**{**vars(clean[5]), **change})
+            status, integrity, _ = host.judge(scenario, results)
+            self.assertEqual(status, "FAIL", change)
+            self.assertTrue(integrity, change)
+        # A sweep that repeats one satellite is an ordering fault, not 32 good results.
+        present = host.Scenario("s", [model.Channel(2, 37, host.fine(8))])
+        self.assertEqual(host.judge(present, [host.Result(2, 8, 37, 255, False)] * 32)[0], "FAIL")
+
+    def test_missed_weak_signal_is_recorded_when_informational(self):
+        results = [host.Result(sv, 100, 200, 3, False) for sv in range(1, 33)]
+        weak = [model.Channel(14, 1500, host.fine(40), 7)]
+        status, integrity, detection = host.judge(host.Scenario("s", weak, informational=True), results)
+        self.assertEqual((status, integrity), ("info", []))
+        self.assertTrue(detection)
+        self.assertEqual(host.judge(host.Scenario("s", weak), results)[0], "FAIL")
+
+    def test_noise_only_ceiling(self):
+        scenario = host.Scenario("s", [], absent_ceiling=8)
+        quiet = [host.Result(sv, 0, 0, 4, False) for sv in range(1, 33)]
+        self.assertEqual(host.judge(scenario, quiet), ("PASS", [], []))
+        loud = list(quiet)
+        loud[9] = host.Result(10, 0, 0, 255, False)
+        self.assertEqual(host.judge(scenario, loud)[0], "FAIL")
+
+    def test_out_of_range_settings_are_refused(self):
+        for scenario in (
+            host.Scenario("s", [model.Channel(1, amplitude=256)]),
+            host.Scenario("s", [model.Channel(1, amplitude=-1)]),
+            host.Scenario("s", [model.Channel(1, carrier_inc=1 << 31)]),
+            host.Scenario("s", [model.Channel(1)], noise_gain=256),
+            host.Scenario("s", [model.Channel(1)], threshold=-1),
+            host.Scenario("s", [model.Channel(1)], seed=1 << 32),
+        ):
+            with self.assertRaises(ValueError, msg=scenario):
+                host.scenario_writes(scenario, 2)
+        # The model refuses the same settings instead of computing with values the registers cannot hold.
+        with self.assertRaises(ValueError):
+            model.samples([model.Channel(1, amplitude=256)], 16)
+        with self.assertRaises(ValueError):
+            model.samples([model.Channel(1)], 16, noise_gain=256)
+
+    def test_search_edges_are_the_outermost_bins(self):
+        edges = sorted(c.expected_freq_offset for s in host.hardware_scenarios() for c in s.channels)
+        self.assertEqual((edges[0], edges[-1]), (-192, 192))  # +/-24 coarse bins of 8 fine bins each
 
     def test_order(self):
         results = [host.Result(sv, 0, 0, 0, False) for sv in (31, 32, 1, 2)]

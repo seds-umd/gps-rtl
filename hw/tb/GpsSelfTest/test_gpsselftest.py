@@ -215,8 +215,7 @@ async def acquires_programmed_satellites(dut):
     scenario = host.Scenario("sim: SV 2", [model.Channel(2, 37, host.fine(8))])
     results = await tb.run_scenario(scenario, 2)
     dut._log.info(f"Run 1: {results}")
-    assert host.check_order(results) == []
-    assert host.check_results(scenario, results) == []
+    assert host.judge(scenario, results) == ("PASS", [], [])
     assert results[1].metric > 8 and results[1].metric > 4 * results[0].metric
 
     # Registers stay readable while results are streaming, and the lines do not interleave.
@@ -237,7 +236,8 @@ async def acquires_programmed_satellites(dut):
     results = await tb.run_scenario(scenario, 1)
     dut._log.info(f"Run 2: {results}")
     assert results[0].sv == 1
-    assert host.check_results(scenario, results) == [f"satellite 20: no result received"]
+    assert host.check_integrity(results) == []
+    assert host.check_results(scenario, results) == ["satellite 20: no result received"]
     status = await tb.read(host.REG_STATUS)
     assert status & 1 == 0, "sample overflow"
 

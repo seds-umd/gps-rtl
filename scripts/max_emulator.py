@@ -90,7 +90,7 @@ def replica(sv: int, count: int, advance: int = 0) -> np.ndarray:
 
 
 def _quantize(v: np.ndarray, threshold: int) -> np.ndarray:
-    limit = (threshold & 0xFF) << 7
+    limit = threshold << 7
     sign = v < 0
     magnitude = (v >= limit) | (v < -limit)
     # Two's complement of {sign, sign ^ magnitude}
@@ -104,7 +104,21 @@ def samples(
     threshold: int = 64,
     seed: int = 0,
 ) -> Tuple[np.ndarray, np.ndarray]:
-    """2-bit I and Q codes (-2 to 1) for samples 0 to count-1 after start-up."""
+    """2-bit I and Q codes (-2 to 1) for samples 0 to count-1 after start-up.
+
+    Settings must fit the hardware registers; anything else is an error rather
+    than being quietly truncated the way a register write would truncate it.
+    """
+    for name, value in (("noise_gain", noise_gain), ("threshold", threshold)):
+        if not 0 <= value <= 0xFF:
+            raise ValueError(f"{name} {value} is outside 0 to 255")
+    for channel in channels:
+        if not 1 <= channel.sv <= 32:
+            raise ValueError(f"satellite {channel.sv} is out of range")
+        if not 0 <= channel.amplitude <= 0xFF:
+            raise ValueError(f"amplitude {channel.amplitude} is outside 0 to 255")
+        if not 0 <= channel.code_phase < PERIOD:
+            raise ValueError(f"code phase {channel.code_phase} is out of range")
     n = np.arange(count, dtype=np.uint64)
     v_i = np.zeros(count, dtype=np.int64)
     v_q = np.zeros(count, dtype=np.int64)

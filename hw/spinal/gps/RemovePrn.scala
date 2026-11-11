@@ -62,17 +62,25 @@ case class RemovePrn(
   val last_iq_phase = RegNextWhen(io.input.t, io.input.fire)
   val last_prn_phase = RegNextWhen(prn.io.sample_count, prn.io.code.fire)
 
-  // Intermediate signed value to properly handle overflows
-  val offset_wide = (last_prn_phase.resize(phaseWidth + 1 bits) -
-    last_iq_phase.resize(phaseWidth + 1 bits) -
-    absolute_offset.resize(phaseWidth + 1 bits)).asSInt
-  val offset = UInt(phaseWidth bits)
-
-  when(offset_wide < 0) {
-    offset := (offset_wide + period).asUInt.resized
-  } otherwise {
-    offset := offset_wide.asUInt.resized
+  // (a - b) modulo period, for a and b both below period
+  def sub_mod(a: UInt, b: UInt): UInt = {
+    val diff = (a.resize(phaseWidth + 1 bits) - b.resize(phaseWidth + 1 bits)).asSInt
+    val result = UInt(phaseWidth bits)
+    when(diff < 0) {
+      result := (diff + period).asUInt.resized
+    } otherwise {
+      result := diff.asUInt.resized
+    }
+    result
   }
+
+  // offset = (PRN phase - IQ timestamp - target phase) modulo period. Subtract
+  // one term at a time and wrap after each: the three-term difference reaches
+  // -2 * (period - 1), which one wrap cannot bring back into range and which
+  // does not fit in phaseWidth + 1 signed bits. Taking it in one step locked
+  // the PRN eight samples early whenever target phase + timestamp exceeded
+  // PRN phase + period.
+  val offset = sub_mod(sub_mod(last_prn_phase, last_iq_phase), absolute_offset)
 
   // Figure out next offset value
   val offset_next = UInt(phaseWidth bits)
@@ -136,7 +144,7 @@ case class RemovePrn(
   val fsm = new StateMachine {
     always {
       when(io.set) {
-        absolute_offset := io.phase_offset
+        absolute_offset := wrap_phase(io.phase_offset)
 
         goto(prime)
       }

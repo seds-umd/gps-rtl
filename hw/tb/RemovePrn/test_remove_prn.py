@@ -98,7 +98,8 @@ class TB(TbTemplate):
             plt.xlim([0, 50])
 
             plt.tight_layout()
-            plt.savefig("sim_build/comparison.png")
+            # The simulator does not run from this directory.
+            plt.savefig(Path(__file__).resolve().parent / "sim_build" / "comparison.png")
 
         assert result_corr > 0.99
 
@@ -112,6 +113,40 @@ async def test_dut(dut):
     for phase_offset in [0, 10, 1234, 3456, 3910, 4091]:
         for iq_offset in [0, 5, 4050]:
             await tb.run_test(phase_offset, iq_offset)
+
+
+@cocotb.test()
+async def late_code_phase_alignment(dut):
+    """Phase offset plus timestamp beyond one code period.
+
+    The alignment offset is (PRN phase - sample timestamp - phase offset)
+    modulo 4092. With a late code phase and a non-zero timestamp that
+    difference falls below -4092, so it needs more than one wrap. Getting this
+    wrong locks the PRN two chips early and fine acquisition finds nothing.
+    """
+    tb = TB(dut)
+
+    await tb.reset()
+
+    for phase_offset, iq_offset in [
+        (4000, 280),
+        (3000, 2000),
+        (2100, 2100),
+        (4091, 300),
+        (2047, 2050),
+        (3500, 3500),
+        (4091, 4091),
+        # Either side of the threshold (332) that chooses between running the
+        # PRN forward and waiting for the samples to come round.
+        (3000, 757),
+        (3000, 759),
+        (3000, 760),
+        (3000, 762),
+        # A phase offset input at or beyond one period wraps to the same alignment.
+        (4093, 100),
+        (4095, 4000),
+    ]:
+        await tb.run_test(phase_offset, iq_offset)
 
 
 from fpga_utils import test_runner

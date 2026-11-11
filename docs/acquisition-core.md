@@ -55,11 +55,15 @@ the middle they merge into a flat top five samples wide at half height, and
 `scale4096_4092` can land anywhere on it. Measured on an Arty S7-25 over 392
 acquisitions of one satellite, the error ranged from -2 to +2 samples (see
 `status-2026-11.md`). The same effect costs up
-to 6 dB of coarse sensitivity, and a two-sample error costs the fine stage
-about another 6 dB (the metric drops from 255 to about 135 on a clean signal).
-A tracking loop will pull in half a chip; anything that needs better from
-acquisition alone has to make the code period and the FFT length agree, for
-example by repeating four samples of both the signal and the replica.
+to 6 dB of coarse sensitivity. A two-sample error then puts the fine stage
+half a chip off, which halves its correlation (about 6 dB in theory; on the
+board the saturating metric fell from 255 to about 135 on a clean signal,
+which fits but does not measure it). A tracking loop will pull in half a chip.
+Anything that needs better from acquisition alone has to make one code period
+span the FFT exactly: resample the signal and the replica to 4096 points per
+period and convert the phase back, or correlate over a true 4092-sample
+period. Padding the frame with repeated samples at the end is what happens
+now and does not help. Neither option has been tried.
 
 ## The live boundary
 

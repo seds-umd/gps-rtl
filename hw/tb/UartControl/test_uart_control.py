@@ -72,7 +72,8 @@ async def test_dut(dut):
 
     # Try register write
     for _ in range(10):
-        word = np.random.randint(0, 2**32 - 1)
+        # NumPy's default integer is 32-bit on Windows, so ask for 64 bits.
+        word = int(np.random.randint(0, 2**32, dtype=np.uint64))
         await tb.send_uart([0x20])
         await tb.send_uart(int(word).to_bytes(4, 'big'))
 

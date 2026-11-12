@@ -43,7 +43,27 @@ produced 10 and the present one produced 255.
 Phase arithmetic: the FFT bin is mapped from the 4096-point domain to 4092
 samples first, then the timestamp origin is subtracted modulo 4092. The reverse
 order gives timestamp-dependent errors; the shifted-origin regression covers
-it. Mid-range phases come out within one sample of the fixture.
+it. In simulation, where each search starts at the same point in the signal,
+phases come out within one sample of the fixture.
+
+On a board the capture window starts wherever the signal happens to be, and
+`phase_offset` is only good to two samples (half a chip). The FFT is 4096
+points but a C/A code period is 4092 samples, so the circular correlation sees
+the code wrap four samples early: there are two peaks four samples apart,
+weighted by where the code boundary falls in the window. When it falls near
+the middle they merge into a flat top five samples wide at half height, and
+`scale4096_4092` can land anywhere on it. Measured on an Arty S7-25 over 392
+acquisitions of one satellite, the error ranged from -2 to +2 samples (see
+`status-2026-11.md`). The same effect costs up
+to 6 dB of coarse sensitivity. A two-sample error then puts the fine stage
+half a chip off, which halves its correlation (about 6 dB in theory; on the
+board the saturating metric fell from 255 to about 135 on a clean signal,
+which fits but does not measure it). A tracking loop will pull in half a chip.
+Anything that needs better from acquisition alone has to make one code period
+span the FFT exactly: resample the signal and the replica to 4096 points per
+period and convert the phase back, or correlate over a true 4092-sample
+period. Padding the frame with repeated samples at the end is what happens
+now and does not help. Neither option has been tried.
 
 ## The live boundary
 
@@ -112,6 +132,20 @@ bytes. `AxilInterface.read` waits one second by default and raises
 Run the host checks with `python -m unittest discover -s scripts/tests -v`.
 They use loopback UDP and never touch lab hardware.
 
+## Code removal alignment
+
+`RemovePrn` lines the local PRN up with the incoming samples using
+offset = (PRN phase - sample timestamp - phase_offset) modulo 4092. That
+difference reaches -8182, so it is taken one term at a time with a wrap after
+each. Until November 2026 it was a single 13-bit subtraction with one wrap,
+which overflowed whenever phase_offset + timestamp exceeded PRN phase + 4092
+and locked the PRN eight samples (two chips) early: the coarse result was right,
+the fine stage then found nothing and the metric collapsed to the noise level.
+With arbitrary code phases that is roughly half of all acquisitions. It went
+unseen because the only bench that used the real-time alignment path
+(`debug = false`) did so at a phase of 37. `RemovePrn`'s own bench now covers
+late phases, and the board self-test sweeps the phase across the whole period.
+
 ## What the simulation does not cover
 
 - The Xilinx FFT C model checks arithmetic only. The pause generators exercise
@@ -123,6 +157,17 @@ They use loopback UDP and never touch lab hardware.
   closure and a host transport are all board work that has not been done.
 - This is a windowed acquisition stream, not a continuous transport. A tracking
   path will need its own sample stream.
+
+## What the board self-test adds
+
+`GpsSelfTest` (see the README) runs `GpsTop` on an Arty S7 against the real
+FFT core, with an on-chip MAX2769 emulator on a separate 16.368 MHz clock. It
+covers the first two points above for that clock pairing: the design meets
+timing at 50 MHz on a Spartan-7, and in a five-minute continuous run with the
+vendor core's real latency and back-pressure `sample_overflow` never asserted.
+It does not cover a real MAX2769 (pin timing, reset sequencing against a clock
+that is already running, SPI configuration), live-sky signals or a host
+transport other than the test UART.
 
 ## Before a board demonstration
 

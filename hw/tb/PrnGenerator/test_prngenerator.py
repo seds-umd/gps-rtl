@@ -75,7 +75,7 @@ async def test_prn(dut):
 
 if __name__ == "__main__":
     test_runner.run_wrapper(
-        top_level="Prn",
+        top_level="PrnGenerator",
         package="gps",
         proj_dir="../../..",
         source_dir="hw/spinal/gps",

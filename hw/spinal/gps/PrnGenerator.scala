@@ -4,7 +4,7 @@ import spinal.core._
 import spinal.lib._
 
 // Increment is 2^16/samples per chip
-case class Prn() extends Component {
+case class PrnGenerator() extends Component {
   val io = new Bundle {
     // Configuration
     val set = in Bool ()
@@ -102,6 +102,6 @@ case class Prn() extends Component {
   }
 }
 
-object PrnVerilog extends App {
-  Config.spinal.generateVerilog(Prn())
+object PrnGeneratorVerilog extends App {
+  Config.spinal.generateVerilog(PrnGenerator())
 }

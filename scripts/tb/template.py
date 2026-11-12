@@ -10,7 +10,7 @@ class TemplateTb:
 
         self.stream = stream.StreamInterface(dest, port)
 
-        seed = np.random.randint(2**32)
+        seed = int(np.random.randint(2**32, dtype=np.uint64))
         self.rng = np.random.default_rng(seed)
         logging.info(f"Initializing RNG with seed {seed}")
 

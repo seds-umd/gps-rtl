@@ -122,11 +122,10 @@ class Scenario:
     # A present satellite must beat every absent one by this factor and reach min_metric.
     separation: float = 4.0
     min_metric: int = 9
-    # Half a chip. The coarse search runs a 4096-point FFT over a code that
-    # repeats every 4092 samples, so when the code boundary falls mid-window the
-    # correlation peak is a flat top five samples wide and the reported phase
-    # can land anywhere on it.
-    phase_tolerance: int = 2
+    # One sample. A coarse frame stretches one 4092-sample code period over the
+    # 4096-point FFT by repeating four samples, so a peak can sit one sample
+    # either side of the true phase.
+    phase_tolerance: int = 1
     # If set, no satellite the emulator is not sending may report a metric above this.
     absent_ceiling: Optional[int] = None
     # Scenarios that characterize rather than gate (for example signals near the noise floor).
@@ -282,12 +281,9 @@ def hardware_scenarios() -> List[Scenario]:
         ),
     ]
 
-    # Code phases spread over the whole period, including the wrap. The core
-    # maps the FFT's 4096 indices onto 4092 samples in five steps; the values
-    # below sit around those steps, but the mapping acts on the FFT index, which
-    # also depends on where the capture window starts, so this sweeps the phase
-    # rather than pinning each step.
-    for phase in (1, 818, 819, 1636, 1637, 2454, 2455, 3273, 3274, 4090):
+    # Code phases spread over the whole period, including the wrap and values
+    # either side of the four points where a coarse frame repeats a sample.
+    for phase in (1, 511, 512, 1023, 1024, 2046, 2047, 3069, 3070, 4090):
         scenarios.append(Scenario(f"code phase {phase}: SV 9", [model.Channel(9, phase, fine(-12))]))
 
     # Noise. With noise_gain 87 the per-rail noise sigma is about 12,860 internal
@@ -306,9 +302,9 @@ def hardware_scenarios() -> List[Scenario]:
             noise_gain=87, threshold=100, seed=0xBEEF, separation=1.5,
         )
     )
-    # A single 1 ms coherent search needs roughly 15 dB after correlation, and
-    # the 4096/4092 mismatch can cost up to 6 dB of that depending on where the
-    # code boundary falls in the window. These two sit at and below that limit.
+    # A single 1 ms coherent search needs roughly 15 dB after correlation. On
+    # the board a signal near 45 dB-Hz is found in nearly every sweep and one
+    # near 40 dB-Hz in about a quarter of them, so these record rather than gate.
     for amplitude, cn0 in ((13, 45), (7, 40)):
         scenarios.append(
             Scenario(

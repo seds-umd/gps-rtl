@@ -40,30 +40,21 @@ low-metric results too and filter them downstream. The metric cutoff of 8 used
 by older code is not calibrated: in the serial bench an absent satellite
 produced 10 and the present one produced 255.
 
-Phase arithmetic: the FFT bin is mapped from the 4096-point domain to 4092
-samples first, then the timestamp origin is subtracted modulo 4092. The reverse
-order gives timestamp-dependent errors; the shifted-origin regression covers
-it. In simulation, where each search starts at the same point in the signal,
-phases come out within one sample of the fixture.
+Coarse frames are period-true. The FFT is 4096 points and a C/A code period
+is 4092 samples, so a coarse frame (signal and replica alike) stretches one
+period over the FFT by repeating one sample at the start of each block of 1024
+points: frame index k holds sample k - ceil(k / 1024). The frame is exactly
+periodic, the correlation has one peak, and the worst case loss is the quarter
+chip of one repeated sample. Until November 2026 a frame was 4096 consecutive
+samples, which split the peak in two and cost up to 6 dB and two samples of
+phase; `status-2026-11.md` has the board measurements either side of the change.
+Coarse bins are 1 kHz as a result, and fine bins are unchanged.
 
-On a board the capture window starts wherever the signal happens to be, and
-`phase_offset` is only good to two samples (half a chip). The FFT is 4096
-points but a C/A code period is 4092 samples, so the circular correlation sees
-the code wrap four samples early: there are two peaks four samples apart,
-weighted by where the code boundary falls in the window. When it falls near
-the middle they merge into a flat top five samples wide at half height, and
-`scale4096_4092` can land anywhere on it. Measured on an Arty S7-25 over 392
-acquisitions of one satellite, the error ranged from -2 to +2 samples (see
-`status-2026-11.md`). The same effect costs up
-to 6 dB of coarse sensitivity. A two-sample error then puts the fine stage
-half a chip off, which halves its correlation (about 6 dB in theory; on the
-board the saturating metric fell from 255 to about 135 on a clean signal,
-which fits but does not measure it). A tracking loop will pull in half a chip.
-Anything that needs better from acquisition alone has to make one code period
-span the FFT exactly: resample the signal and the replica to 4096 points per
-period and convert the phase back, or correlate over a true 4092-sample
-period. Padding the frame with repeated samples at the end is what happens
-now and does not help. Neither option has been tried.
+Phase arithmetic: `frame_to_phase` rounds the peak's frame index back to
+samples (index minus the number of repeats before it), then the timestamp
+origin is subtracted modulo 4092. The reverse order gives timestamp-dependent
+errors; the shifted-origin regression covers it. `phase_offset` is good to one
+sample, in simulation and on the board.
 
 ## The live boundary
 

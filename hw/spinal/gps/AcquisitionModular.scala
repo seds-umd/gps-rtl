@@ -5,9 +5,11 @@ import spinal.lib._
 import spinal.lib.fsm._
 import spinal.lib.bus.amba4.axis.Axi4Stream.Axi4Stream
 
-/** TODO:
-  * sample phase isn't constant between runs - is this due to changes in sim data or bug in rtl?
-  * only detecting 5 SVs at best when python code is detecting 8
+/** History of the two notes that used to head this file:
+  * "sample phase isn't constant between runs": the coarse frame was 4096 consecutive samples of a code that
+  *   repeats every 4092, so the correlation peak split in two. Coarse frames are now period-true (see stretch_block).
+  * "only detecting 5 SVs at best when python code is detecting 8": RemovePrn locked two chips early for late code
+  *   phases, and the split peak cost up to 6 dB. Both are fixed; see docs/status-2026-11.md.
   */
 
 /** Potential improvements:
@@ -79,20 +81,27 @@ case class AcquisitionModular(
     })
   }
 
-  def scale4096_4092(value: UInt): UInt = {
-    val scaled = UInt(fft_size_log bits)
-    when(value < 4092 * 1 / 5) {
-      scaled := value
-    } elsewhen (value < 4092 * 2 / 5) {
-      scaled := value - 1
-    } elsewhen (value < 4092 * 3 / 5) {
-      scaled := value - 2
-    } elsewhen (value < 4092 * 4 / 5) {
-      scaled := value - 3
-    } otherwise {
-      scaled := value - 4
-    }
-    scaled
+  // The FFT is fft_size points but the code repeats every `period` samples. A
+  // frame of fft_size consecutive samples wraps the code early, which splits
+  // the correlation peak in two and costs up to 6 dB. Coarse frames (signal
+  // and replica alike) instead stretch exactly one period over the FFT by
+  // repeating one sample at the start of each block of stretch_block points:
+  // frame index k holds sample k - ceil(k / stretch_block). The frame is then
+  // periodic, the correlation has one peak, and the worst case loss is the
+  // quarter chip of one repeated sample.
+  val stretch_repeats = fft_size - period
+  require(
+    stretch_repeats > 0 && fft_size % stretch_repeats == 0,
+    "fft_size must exceed period by a divisor of fft_size"
+  )
+  val stretch_block = fft_size / stretch_repeats
+  require(isPow2(stretch_block), "fft_size / (fft_size - period) must be a power of two")
+
+  // Frame index of the correlation peak to code phase in samples: undo the
+  // stretch, rounding to the nearest sample.
+  def frame_to_phase(value: UInt): UInt = {
+    val repeats = ((value +^ (stretch_block / 2)) >> log2Up(stretch_block)).resize(fft_size_log bits)
+    value - repeats
   }
 
   val iq_area = new Area {
@@ -181,15 +190,33 @@ case class AcquisitionModular(
     // Input gate
     val in_gate = StreamToFragmentMetered(inst.io.s_axis_data.dataType)
     in_gate.io.output >> inst.io.s_axis_data
-    in_gate.io.input << StreamMux(input_sel, inputs).translateInto(Stream(Bits(16 bits)))((to, from) => {
-      to := from.asBits
-    })
 
     // Gate configuration
     val in_gate_config = in_gate.io.config.clone()
     in_gate_config >> in_gate.io.config
     in_gate_config.payload.setAsReg()
     in_gate_config.valid.setAsReg() init (False)
+
+    // Stretch coarse frames: hold the source for one extra frame point at the
+    // start of each block, so `period` samples fill fft_size points. The live
+    // sample stream is not slowed down, because the repeat goes out on the
+    // next clock while the next sample is still many clocks away. The mixed
+    // and decimated inputs pass straight through.
+    val selected = StreamMux(input_sel, inputs)
+    val stretch = (input_sel === INPUT_SEL_GPS) || (input_sel === INPUT_SEL_PRN)
+    val stretch_index = Reg(UInt(log2Up(stretch_block) bits)) init 0
+    val repeat = stretch && (stretch_index === 0)
+    val gate_input = Stream(Bits(16 bits))
+    gate_input.valid := selected.valid
+    gate_input.payload := selected.payload.asBits
+    selected.ready := gate_input.ready && !repeat
+    when(gate_input.fire) {
+      stretch_index := stretch_index + 1
+    }
+    when(in_gate_config.fire) {
+      stretch_index := 0 // Every frame starts a new block
+    }
+    in_gate.io.input << gate_input
 
     //// Outputs
 
@@ -351,10 +378,11 @@ case class AcquisitionModular(
     // Take magnitude of FFT output and keep track of max
     val evaluate: State = new State {
       whenIsActive {
-        // Convert FFT phase before applying the timestamp origin: the FFT
-        // wraps at 4096, but the C/A sample epoch wraps at 4092.
-        val relative_phase = scale4096_4092(max_mag.io.max_idx)
-        val absolute_phase = relative_phase.resize(fft_size_log + 1) + period - first_sample_time.resize(fft_size_log + 1)
+        // Convert the frame index to samples before applying the timestamp
+        // origin: the frame is 4096 points, the C/A sample epoch wraps at 4092.
+        val relative_phase = frame_to_phase(max_mag.io.max_idx)
+        val absolute_phase =
+          relative_phase.resize(fft_size_log + 1) + period - first_sample_time.resize(fft_size_log + 1)
         phase_offset := Mux(absolute_phase >= period, absolute_phase - period, absolute_phase).resized
         coarse_freq := max_mag.io.max_freq
         goto(fine_setup)

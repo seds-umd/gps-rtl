@@ -27,7 +27,7 @@ async def send_serial(dut, packed):
 
 
 async def check_coarse_windows(dut):
-    count, previous = 0, None
+    count, first = 0, None
     while True:
         await RisingEdge(dut.clk)
         if int(dut.reset.value):
@@ -35,11 +35,15 @@ async def check_coarse_windows(dut):
         gate = dut.acq.fft_in_gate
         if int(dut.acq.fft_input_sel.value) == 0 and int(gate.io_output_valid.value) and int(gate.io_output_ready.value):
             timestamp = int(dut.acq.io_iq_payload.value) >> 4
-            if count % 4096 == 0:
+            index = count % 4096
+            if index == 0:
+                first = timestamp
                 dut._log.info(f"Coarse window {count // 4096 + 1} begins at timestamp {timestamp}")
             else:
-                assert timestamp == (previous + 1) % 4092, f"Coarse sample gap at index {count % 4096}: {previous} -> {timestamp}"
-            previous = timestamp
+                # One sample is repeated at the start of each block of 1024, so one
+                # 4092-sample code period fills the frame with no sample dropped.
+                expected = (first + index - -(-index // 1024)) % 4092
+                assert timestamp == expected, f"Coarse frame index {index}: timestamp {timestamp}, expected {expected}"
             count += 1
 
 

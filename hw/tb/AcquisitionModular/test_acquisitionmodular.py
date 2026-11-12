@@ -394,6 +394,22 @@ async def synthetic_mid_phase_1800(dut):
     await check_synthetic_acquisition(dut, 1800, 0)
 
 
+# A coarse frame stretches one 4092-sample code period over 4096 points, and
+# frame_to_phase rounds the peak's frame index back to samples. Its rounding
+# steps at indices 512, 1536, 2560 and 3584. With the capture starting at
+# timestamp 0 these phases put the peak just below and just above each step.
+def _frame_mapping_case(phase):
+    async def case(dut):
+        await check_synthetic_acquisition(dut, phase, 0)
+
+    case.__name__ = case.__qualname__ = f"synthetic_frame_mapping_phase_{phase}"
+    return cocotb.test(timeout_time=10, timeout_unit="ms")(case)
+
+
+for _phase in (511, 512, 1534, 1535, 2557, 2558, 3580, 3581):
+    globals()[f"synthetic_frame_mapping_phase_{_phase}"] = _frame_mapping_case(_phase)
+
+
 if __name__ == "__main__":
     test_runner.run_wrapper(
         top_level="AcquisitionModular",

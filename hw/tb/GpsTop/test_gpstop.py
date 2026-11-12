@@ -47,6 +47,30 @@ async def check_coarse_windows(dut):
             count += 1
 
 
+async def check_frame_stretch(dut, frames):
+    """Signal and replica frames repeat four samples at the same points; other frames repeat none."""
+    acq = dut.acq
+    points, repeats = 0, []
+    while True:
+        await RisingEdge(dut.clk)
+        if int(dut.reset.value):
+            points, repeats = 0, []
+            continue
+        if int(acq.fft_in_gate_config_valid.value) and int(acq.fft_in_gate_config_ready.value):
+            assert points in (0, 4096), f"frame restarted after {points} points"
+            points, repeats = 0, []
+        if int(acq.fft_gate_input_valid.value) and int(acq.fft_gate_input_ready.value):
+            if int(acq.fft_repeat.value):
+                repeats.append(points)
+            points += 1
+            if points == 4096:
+                select = int(acq.fft_input_sel.value)
+                # Inputs 0 and 1 are the signal and the PRN replica; 2 and 3 are mixed and decimated data.
+                expected = [0, 1024, 2048, 3072] if select in (0, 1) else []
+                assert repeats == expected, f"input {select}: samples repeated at frame points {repeats}"
+                frames[select] = frames.get(select, 0) + 1
+
+
 async def check_fine_windows(dut, counts):
     previous = None
     fine = dut.acq.fine_acq_remove_prn
@@ -92,6 +116,8 @@ async def run_serial_fixture(dut, stalls=False):
         results.pause = True
         cocotb.start_soon(hold_first_result(dut, results))
     cocotb.start_soon(check_coarse_windows(dut))
+    frames = {}
+    cocotb.start_soon(check_frame_stretch(dut, frames))
     fine_counts = []
     cocotb.start_soon(check_fine_windows(dut, fine_counts))
     await ClockCycles(dut.io_clk_ser, 8)
@@ -123,6 +149,9 @@ async def run_serial_fixture(dut, stalls=False):
     assert int(dut.io_sample_overflow.value) == 0
     dut._log.info(f"Contiguous fine-window sample counts: {fine_counts}")
     assert len(fine_counts) == 2 and all(count >= 32768 for count in fine_counts)
+    # Two satellites searched: a signal and a replica frame each, five mixed frames each, one fine frame each.
+    dut._log.info(f"Frames by FFT input: {frames}")
+    assert frames.get(0, 0) >= 2 and frames.get(1, 0) >= 2 and frames.get(2, 0) >= 10 and frames.get(3, 0) >= 2
     sender.kill()
 
 

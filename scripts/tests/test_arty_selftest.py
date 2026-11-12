@@ -66,10 +66,12 @@ class CheckTests(unittest.TestCase):
 
     def test_good_results_pass(self):
         self.assertEqual(host.check_results(self.scenario, self.results()), [])
-        # Half a chip either way, including across the wrap, is within the estimator's accuracy.
-        self.assertEqual(host.check_results(self.scenario, self.results(phase_offset=35)), [])
+        # One sample either way, including across the wrap, is within the estimator's accuracy.
+        self.assertEqual(host.check_results(self.scenario, self.results(phase_offset=36)), [])
+        self.assertTrue(host.check_results(self.scenario, self.results(phase_offset=35)))
         wrap = host.Scenario("s", [model.Channel(2, 4091, 0)])
-        self.assertEqual(host.check_results(wrap, [host.Result(2, 0, 1, 255, False)]), [])
+        self.assertEqual(host.check_results(wrap, [host.Result(2, 0, 0, 255, False)]), [])
+        self.assertTrue(host.check_results(wrap, [host.Result(2, 0, 1, 255, False)]))
 
     def test_each_kind_of_fault_is_reported(self):
         for changes, text in [

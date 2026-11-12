@@ -254,7 +254,7 @@ python scripts/arty_selftest.py --soak 120 --report selftest.md \
 
 The script needs LiteX (`pip install -r requirements/litex.txt`) and Vivado; 2025.2 Standard is free, needs no licence and covers the Spartan-7 and the FFT core. Loading goes through Vivado's hardware manager, so the stock Digilent cable drivers work on Windows. The image is volatile: the board returns to whatever is in its flash at the next power-up.
 
-`arty_selftest.py` stops the core, programs a scenario, starts it and compares every result with what the emulator was told to send: satellite, frequency within one fine bin, code phase within half a chip, a detection metric well clear of the absent satellites, and no sample overflow. It finishes with a repeatability check across restarts and, with `--soak`, a continuous run watching the overflow flag. The report records the source revisions and the bitstream hash with the results.
+`arty_selftest.py` stops the core, programs a scenario, starts it and compares every result with what the emulator was told to send: satellite, frequency within one fine bin, code phase within one sample, a detection metric well clear of the absent satellites, and no sample overflow. It finishes with a repeatability check across restarts and, with `--soak`, a continuous run watching the overflow flag. The report records the source revisions and the bitstream hash with the results.
 
 Without a host the board runs a default signal (satellite 7, frequency +16 fine bins, code phase 1000) and prints results at 115200 baud, one line per satellite:
 
